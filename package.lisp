@@ -1,5 +1,7 @@
-;;; -*- mode: lisp; indent-tabs: nil -*-
-
 (defpackage :phoros
-  (:use :cl)
+  (:use :cl
+        :photogrammetrie
+        :hunchentoot
+        :cl-who
+        :parenscript)
   (:export #:test))
