@@ -3,5 +3,6 @@
         :photogrammetrie
         :hunchentoot
         :cl-who
-        :parenscript)
+        :parenscript
+        :postmodern)
   (:export #:test))
