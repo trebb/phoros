@@ -1,0 +1,198 @@
+Database structure critique.  Look for "TODO:" items.
+
+
+                              Tabelle »public.sys_users«
+     Spalte     |          Typ           |                 Attribute                  
+----------------+------------------------+--------------------------------------------
+ user_name      | character varying(30)  | not null Vorgabewert ''::character varying
+ user_password  | character varying(30)  | not null Vorgabewert ''::character varying
+ user_full_name | character varying(100) | not null Vorgabewert ''::character varying
+ user_id        | integer                | not null Vorgabewert 0
+Indexe:
+    "pk_sys_users" PRIMARY KEY, btree (user_name)
+Trigger:
+    _roadview_logtrigger_139 AFTER INSERT OR DELETE OR UPDATE ON sys_users FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '139', 'kvvv')
+
+
+                                 Tabelle »public.projects«
+     Spalte      |          Typ           |                   Attribute                    
+-----------------+------------------------+------------------------------------------------
+ project_id      | integer                | not null
+ project_name    | character varying(254) | not null Vorgabewert ''::character varying
+ table_name      | character varying(50)  | not null Vorgabewert 'ccd_'::character varying
+ table_name_netz | character varying(50)  | not null Vorgabewert ''::character varying
+Indexe:
+    "pk_projects" PRIMARY KEY, btree (project_id)
+Trigger:
+    _roadview_logtrigger_114 AFTER INSERT OR DELETE OR UPDATE ON projects FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '114', 'kvvv')
+
+
+                          Tabelle »public.projects_measurements«
+       Spalte       |          Typ           |                 Attribute                  
+--------------------+------------------------+--------------------------------------------
+ project_id         | integer                | not null
+ measurement_id     | integer                | not null
+ name               | character varying(254) | not null Vorgabewert ''::character varying
+ pictures_path      | character varying(254) | not null Vorgabewert ''::character varying
+ cam_id_left        | integer                | not null Vorgabewert 1 TODO: JUNK
+ cam_id_right       | integer                | not null Vorgabewert 2 TODO: JUNK
+ calib_set_id_left  | integer                | not null Vorgabewert 1 TODO: needs parameterization (calib_set 1 ... n)
+ calib_set_id_right | integer                | not null Vorgabewert 2 TODO: needs parameterization (calib_set 1 ... n)
+Indexe:
+    "pk_measurement" PRIMARY KEY, btree (project_id, measurement_id)
+Trigger:
+    _roadview_logtrigger_117 AFTER INSERT OR DELETE OR UPDATE ON projects_measurements FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '117', 'kkvvvvvv')
+
+
+                                Tabelle »public.motorrad_ccd«
+         Spalte         |          Typ           |                 Attribute                  
+------------------------+------------------------+--------------------------------------------
+ measurement_id         | integer                | not null
+ picture_no             | integer                | not null
+ cam                    | integer                | not null
+ channels               | integer                | not null
+ compressed             | integer                | not null
+ datasize               | integer                | not null
+ height                 | integer                | not null TODO: JUNK
+ width                  | integer                | not null TODO: JUNK
+ gain                   | double precision       | not null
+ shutter                | double precision       | not null
+ time                   | double precision       | not null TODO: JUNK
+ timetrigger            | double precision       | not null
+ whitebalance           | double precision       | not null
+ time_appl              | double precision       | not null TODO: JUNK
+ time_appl_utc          | double precision       | not null TODO: put this into the_geom
+ distance               | double precision       | not null
+ easting                | double precision       | not null TODO: JUNK
+ northing               | double precision       | not null TODO: JUNK
+ ellipsoid_height       | double precision       | not null TODO: put this into the_geom
+ latitude               | double precision       | not null TODO: put this into the_geom
+ longitude              | double precision       | not null TODO: put this into the_geom
+ ellipsoid_height_wgs84 | double precision       | not null TODO: JUNK
+ roll                   | double precision       | not null
+ pitch                  | double precision       | not null
+ heading                | double precision       | not null
+ east_velocity          | double precision       | not null
+ north_velocity         | double precision       | not null
+ up_velocity            | double precision       | not null
+ east_sd                | double precision       | not null
+ north_sd               | double precision       | not null
+ height_sd              | double precision       | not null
+ roll_sd                | double precision       | not null
+ pitch_sd               | double precision       | not null
+ heading_sd             | double precision       | not null
+ filename               | character varying(254) | not null Vorgabewert ''::character varying
+ the_geom               | geometry               | 
+Indexe:
+    "pk_motorrad_ccd" PRIMARY KEY, btree (measurement_id, picture_no, cam)
+    "gist_motorrad_ccd" gist (the_geom)
+Check-Constraints:
+    "enforce_dims_the_geom" CHECK (ndims(the_geom) = 2)
+    "enforce_geotype_the_geom" CHECK (geometrytype(the_geom) = 'POINT'::text OR the_geom IS NULL)
+    "enforce_srid_the_geom" CHECK (srid(the_geom) = 32632)
+Trigger:
+    _roadview_logtrigger_110 AFTER INSERT OR DELETE OR UPDATE ON motorrad_ccd FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '110', 'kkkvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv')
+
+
+                                      Tabelle »public.calib_set«
+    Spalte    |      Typ       |                              Attribute                               
+--------------+----------------+----------------------------------------------------------------------
+ calib_set_id | integer        | not null Vorgabewert nextval('calib_set_calib_set_id_seq'::regclass)
+ camera_id    | smallint       | 
+ inner_id     | smallint       | 
+ outer_id     | smallint       | 
+ bore_id      | smallint       | 
+ objectiv_id  | smallint       | 
+ comment      | character(255) | 
+Indexe:
+    "pk_calib_set" PRIMARY KEY, btree (calib_set_id)
+Trigger:
+    _roadview_logtrigger_39 AFTER INSERT OR DELETE OR UPDATE ON calib_set FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '39', 'kvvvvvv')
+
+
+                                     Tabelle »public.calib_camera«
+      Spalte       |       Typ        |                           Attribute                            
+-------------------+------------------+----------------------------------------------------------------
+ camera_id         | integer          | not null Vorgabewert nextval('camera_camera_id_seq'::regclass)
+ sensor_width_pix  | integer          | 
+ sensor_height_pix | integer          | 
+ channels          | integer          | 
+ pix_size          | double precision | 
+ serial_number     | character(255)   | 
+ name              | character(255)   | 
+ angle180          | integer          | not null Vorgabewert 0
+Indexe:
+    "pk_cameras" PRIMARY KEY, btree (camera_id)
+Trigger:
+    _roadview_logtrigger_35 AFTER INSERT OR DELETE OR UPDATE ON calib_camera FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '35', 'kvvvvvvv')
+
+
+                                 Tabelle »public.calib_outer_orientation«
+  Spalte   |       Typ        |                                 Attribute                                 
+-----------+------------------+---------------------------------------------------------------------------
+ outer_id  | integer          | not null Vorgabewert nextval('outher_orientation_outer_id_seq'::regclass)
+ date      | abstime          | 
+ name      | character(255)   | 
+ comments  | character(255)   | 
+ dx        | double precision | 
+ dy        | double precision | 
+ dz        | double precision | 
+ camera_id | bigint           | 
+ inner_id  | bigint           | 
+ rotx      | double precision | 
+ roty      | double precision | 
+ rotz      | double precision | 
+Indexe:
+    "pk_outer" PRIMARY KEY, btree (outer_id)
+Trigger:
+    _roadview_logtrigger_38 AFTER INSERT OR DELETE OR UPDATE ON calib_outer_orientation FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '38', 'kvvvvvvvvvvv')
+
+
+                                   Tabelle »public.calib_inner_orientation«
+     Spalte     |       Typ        |                                Attribute                                 
+----------------+------------------+--------------------------------------------------------------------------
+ inner_id       | integer          | not null Vorgabewert nextval('inner_orientation_inner_id_seq'::regclass)
+ calib_date     | abstime          | 
+ calib_person   | character(255)   | 
+ calib_comments | character(255)   | 
+ focal_length   | double precision | 
+ xh             | double precision | 
+ yh             | double precision | 
+ a1             | double precision | 
+ a2             | double precision | 
+ a3             | double precision | 
+ b1             | double precision | 
+ b2             | double precision | 
+ c1             | double precision | 
+ c2             | double precision | 
+ r0             | double precision | 
+ id_camera      | bigint           |  TODO: JUNK
+ id_objectiv    | bigint           |  TODO: JUNK
+ c              | double precision | not null Vorgabewert 0
+Indexe:
+    "pk_inner" PRIMARY KEY, btree (inner_id)
+Fremdschlüssel-Constraints:
+    "objectiv" FOREIGN KEY (id_objectiv) REFERENCES calib_objectiv(objectiv_id)
+Trigger:
+    _roadview_logtrigger_36 AFTER INSERT OR DELETE OR UPDATE ON calib_inner_orientation FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '36', 'kvvvvvvvvvvvvvvvvv')
+
+
+                                  Tabelle »public.calib_boreside_alignement« TODO: should be calib_boresight_alignment
+  Spalte   |       Typ        |                                   Attribute                                   
+-----------+------------------+-------------------------------------------------------------------------------
+ bore_id   | integer          | not null Vorgabewert nextval('boreside_alignement_boreside_id_seq'::regclass)
+ date      | abstime          | 
+ name      | character(255)   | 
+ comments  | character(255)   | 
+ bdx       | double precision | 
+ bdy       | double precision | 
+ bdz       | double precision | 
+ camera_id | bigint           | 
+ inner_id  | bigint           | 
+ brotx     | double precision | 
+ broty     | double precision | 
+ brotz     | double precision | 
+Indexe:
+    "pk_boreside" PRIMARY KEY, btree (bore_id)
+Trigger:
+    _roadview_logtrigger_34 AFTER INSERT OR DELETE OR UPDATE ON calib_boreside_alignement FOR EACH ROW EXECUTE PROCEDURE _roadview.logtrigger('_roadview', '34', 'kvvvvvvvvvvv')
