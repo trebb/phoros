@@ -134,9 +134,9 @@ Trigger:
  date      | abstime          | 
  name      | character(255)   | 
  comments  | character(255)   | 
- dx        | double precision | 
- dy        | double precision | 
- dz        | double precision | 
+ dx        | double precision | TODO: currently in mm, should be m.
+ dy        | double precision | TODO: currently in mm, should be m. 
+ dz        | double precision | TODO: currently in mm, should be m. 
  camera_id | bigint           | 
  inner_id  | bigint           | 
  rotx      | double precision | 
@@ -187,11 +187,17 @@ Trigger:
  bdx       | double precision | 
  bdy       | double precision | 
  bdz       | double precision | 
+ bddx       | double precision | 
+ bddy       | double precision | 
+ bddz       | double precision | 
  camera_id | bigint           | 
  inner_id  | bigint           | 
  brotx     | double precision | 
  broty     | double precision | 
  brotz     | double precision | 
+ bdrotx     | double precision | 
+ bdroty     | double precision | 
+ bdrotz     | double precision | 
 Indexe:
     "pk_boreside" PRIMARY KEY, btree (bore_id)
 Trigger:
