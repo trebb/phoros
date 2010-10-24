@@ -1,8 +1,5 @@
 (in-package :phoros)
 
-;(with-open-file (s "/home/bertb/phoros-testdata/mnt/data0/Rohdaten/mittelsachsen_0002/einzelbilder/mitsa005_CCD_Front_PULNIX_10.pictures" :element-type 'unsigned-byte) (print (find-keyword s "PICTUREDATA_BEGIN")) (print (find-keyword s "PICTUREDATA_BEGIN")) (print (find-keyword s "PICTUREDATA_BEGIN")))
-
-
 (defun find-keyword-in-stream (stream keyword &optional (start-position 0))
   "Return file-position in binary stream after first occurence of keyword."
   (file-position stream start-position)
@@ -60,24 +57,22 @@
          do (setf (gethash key huffman-table) i))
       huffman-table)))
 
-(defun read-compressed-picture (stream length padding-length &optional start-position)
-  "Return a compressed picture in a bit array.  Start either at stream's file position or at start-position."
-  (let ((picture-start (if start-position
-                           start-position
-                           (file-position stream)))
-        (compressed-picture (make-array (list (+ (* 8 length) padding-length)) :element-type 'bit)))
-    (when start-position (file-position stream start-position))
+(defun read-compressed-picture (stream start-position length)
+  "Return a compressed picture in a bit array.  Start either at start-position or, if that is nil, at stream's file position."
+  (when start-position (file-position stream start-position))
+  (let ((compressed-picture (make-array (list (* 8 length)) :element-type 'bit)))
     (loop
        for byte-position from 0 below length
        for byte = (read-byte stream)
        do (loop
-             for destination-bit from 0 to 7
              for source-bit from 7 downto 0
-             do (setf (sbit compressed-picture (+ destination-bit (* 8 byte-position) padding-length))
+             for destination-bit from 0 to 7
+             do (setf (sbit compressed-picture (+ destination-bit (* 8 byte-position)))
                       (ldb (byte 1 source-bit) byte))))
     compressed-picture))
 
 (defun get-leading-byte (bit-array &optional (start 0) &aux (result 0))
+  "Return integer made of eight bits from bit-array."
   (loop
      for bit-array-index from start
      for result-index from 7 downto 0
@@ -85,13 +80,16 @@
      then (dpb (sbit bit-array bit-array-index) (byte 1 result-index) result)
      finally (return result)))
 
-(defun uncompress-picture (huffman-table compressed-picture width height)
+(defun uncompress-picture (huffman-table compressed-picture height width)
+  "Return the Bayer pattern extracted from compressed-picture in a zpng:png image."
   (let* ((png (make-instance 'zpng:png
                              :color-type :truecolor
                              :width width :height height))
          (uncompressed-picture (zpng:data-array png))
-         ;;(uncompressed-picture (make-array (list height width 1)))
          (compressed-picture-index 0)
+         (min-key-length (loop
+                            for code being the hash-key in huffman-table
+                            minimize (length code)))
          (max-key-length (loop
                             for code being the hash-key in huffman-table
                             maximize (length code)))
@@ -115,13 +113,10 @@
             for try-start from compressed-picture-index
             do
               (loop
-                 for i from 1 to max-key-length
-                 for huffman-code = (subseq compressed-picture try-start (+ try-start i))
+                 for key-length from min-key-length to max-key-length
+                 for huffman-code = (subseq compressed-picture try-start (+ try-start key-length))
                  for pixel-delta-maybe = (gethash huffman-code huffman-table)
-                 ;;do (format t "~% try-start: ~A; huffman-code: ~A " try-start huffman-code)
                  when pixel-delta-maybe
-                 ;;do (format t "~% row: ~A; column: ~A; even: ~A; odd: ~A; pixel-delta: ~A; huffman-code: ~A;  " row column (aref uncompressed-picture row 0 0) (aref uncompressed-picture row 1 0) pixel-delta-maybe huffman-code)
-                 ;;and
                  do
                    (if (evenp row)
                        (if (evenp column)
@@ -138,7 +133,7 @@
                            (setf (aref uncompressed-picture row column green)
                                  (- (aref uncompressed-picture row (- column 2) green)
                                     pixel-delta-maybe))))
-                 and do (incf try-start (1- i))
+                 and do (incf try-start (1- key-length))
                  and return nil
                  finally (error "Decoder out of step at row ~S, column ~S.  Giving up." row column))
             finally
@@ -146,4 +141,114 @@
               ;;(print compressed-picture-index)
               ))
     png))
-    ;;uncompressed-picture))
+
+(defun complete-horizontally (png row column color)
+  "Fake a color component of a pixel based its neighbors."
+  (let ((data-array (zpng:data-array png)))
+    (setf (aref data-array row column color)
+          (round (+ (aref data-array row (1- column) color)
+                    (aref data-array row (1+ column) color))
+                 2))))
+  
+(defun complete-vertically (png row column color)
+  "Fake a color component of a pixel based its neighbors."
+  (let ((data-array (zpng:data-array png)))
+    (setf (aref data-array row column color)
+          (round (+ (aref data-array (1- row) column color)
+                    (aref data-array (1+ row) column color))
+                 2))))
+
+(defun complete-squarely (png row column color)
+  "Fake a color component of a pixel based its neighbors."
+  (let ((data-array (zpng:data-array png)))
+    (setf (aref data-array row column color)
+          (round (+ (aref data-array row (1- column) color)
+                    (aref data-array row (1+ column) color)
+                    (aref data-array (1- row) column color)
+                    (aref data-array (1+ row) column color))
+                 4))))
+
+(defun complete-diagonally (png row column color)
+  "Fake a color component of a pixel based its neighbors."
+  (let ((data-array (zpng:data-array png)))
+    (setf (aref data-array row column color)
+          (round (+ (aref data-array (1- row) (1- column) color)
+                    (aref data-array (1- row) (1+ column) color)
+                    (aref data-array (1+ row) (1- column) color)
+                    (aref data-array (1+ row) (1+ column) color))
+                 4))))
+
+(defun demosaic-png (png)
+  "Demosaic png in-place which is supposed to be partly filled with a Bayer color pattern.  Return demosaiced png.  The expected color pattern looks like this:
+
+GBGBGBGBGB...
+RGRGRGRGRG...
+GBGBGBGBGB...
+RGRGRGRGRG...
+..."
+  (let ((lowest-row (- (zpng:height png) 2))
+        (rightmost-column (- (zpng:width png) 2))
+        (red 0) (green 1) (blue 2))
+    (loop
+       for row from 1 to lowest-row by 2 do
+         (loop                          ; green on odd rows
+            for column from 1 to rightmost-column by 2 do
+              (complete-horizontally png row column red)
+              (complete-vertically png row column blue))
+         (loop                          ; red
+            for column from 2 to rightmost-column by 2 do
+              (complete-squarely png row column green)
+              (complete-diagonally png row column blue)))
+    (loop
+       for row from 2 to lowest-row by 2 do
+         (loop                          ; blue
+            for column from 1 to rightmost-column by 2 do
+              (complete-squarely png row column green)
+              (complete-diagonally png row column red))
+         (loop                          ; green on even rows
+            for column from 2 to rightmost-column by 2 do
+              (complete-horizontally png row column blue)
+              (complete-vertically png row column red)))
+    png))
+                            
+(defun send-png (output-stream path start)
+  "Read an image at position start in .pictures file at path and send it to the binary output-stream."
+  (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
+        (blob-size (find-keyword-value path "dataSize=" start))
+        (huffman-table-size (* 511 (+ 1 4)))
+        (image-height (find-keyword-value path "height=" start))
+        (image-width (find-keyword-value path "width=" start))
+        (compression-mode (find-keyword-value path "compressed=" start))
+        (channels (find-keyword-value path "channels=" start)))
+    (assert (= 2 compression-mode))
+    (assert (= 3 channels))             ; TODO: we need one channel too.
+    (with-open-file (input-stream path :element-type 'unsigned-byte)
+      (zpng:write-png-stream
+       (demosaic-png
+        (uncompress-picture (read-huffman-table input-stream blob-start)
+                            (read-compressed-picture input-stream
+                                                     (+ blob-start huffman-table-size)
+                                                     (- blob-size huffman-table-size))
+                            image-height image-width))
+       output-stream))))
+
+;;(time (with-open-file (s "png.png" :element-type 'unsigned-byte :direction :output :if-exists :supersede) 
+;;                (send-png s "singlepic" 0)))
+
+(defun find-nth-picture (n path)
+  "Find file-position of zero-indexed nth picture in in .pictures file at path."
+  (let ((estimated-header-length
+         (- (find-keyword path "PICTUREHEADER_END")
+            (find-keyword path "PICTUREHEADER_BEGIN") 13))) ; allow for variation in dataSize and a few other parameters
+    (loop
+       for i from 0 to n
+       for picture-start =
+         (find-keyword path "PICTUREHEADER_BEGIN" 0) then
+         (find-keyword path "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
+       for picture-length = (find-keyword-value path "dataSize=" picture-start)
+       finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
+
+(defun send-nth-png (n output-stream path)
+  "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream."
+  (send-png output-stream path (find-nth-picture n path)))
+
