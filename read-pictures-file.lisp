@@ -80,10 +80,10 @@
      then (dpb (sbit bit-array bit-array-index) (byte 1 result-index) result)
      finally (return result)))
 
-(defun uncompress-picture (huffman-table compressed-picture height width)
+(defun uncompress-picture (huffman-table compressed-picture height width color-type)
   "Return the Bayer pattern extracted from compressed-picture in a zpng:png image."
   (let* ((png (make-instance 'zpng:png
-                             :color-type :truecolor
+                             :color-type color-type
                              :width width :height height))
          (uncompressed-picture (zpng:data-array png))
          (compressed-picture-index 0)
@@ -93,54 +93,57 @@
          (max-key-length (loop
                             for code being the hash-key in huffman-table
                             maximize (length code)))
-         (red 0) (green 1) (blue 2))
-    (loop
-       for row from 0 below height
-       do
+         red green blue)
+    (destructuring-bind (red green blue) (ecase color-type
+                                           (:grayscale (list 0 0 0))
+                                           (:truecolor (list 0 1 2)))
+      (loop
+         for row from 0 below height
+         do
          (if (evenp row)
              (progn
                (setf (aref uncompressed-picture row 0 green)
                      (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))
-                    (setf (aref uncompressed-picture row 1 blue)
-                          (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8)))))
+               (setf (aref uncompressed-picture row 1 blue)
+                     (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8)))))
              (progn
                (setf (aref uncompressed-picture row 0 red)
                      (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))
-                    (setf (aref uncompressed-picture row 1 green)
-                          (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))))
+               (setf (aref uncompressed-picture row 1 green)
+                     (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))))
          (loop
             for column from 2 below width
             for try-start from compressed-picture-index
             do
-              (loop
-                 for key-length from min-key-length to max-key-length
-                 for huffman-code = (subseq compressed-picture try-start (+ try-start key-length))
-                 for pixel-delta-maybe = (gethash huffman-code huffman-table)
-                 when pixel-delta-maybe
-                 do
-                   (if (evenp row)
-                       (if (evenp column)
-                           (setf (aref uncompressed-picture row column green)
-                                 (- (aref uncompressed-picture row (- column 2) green)
-                                    pixel-delta-maybe))
-                           (setf (aref uncompressed-picture row column blue)
-                                 (- (aref uncompressed-picture row (- column 2) blue)
-                                    pixel-delta-maybe)))
-                       (if (evenp column)
-                           (setf (aref uncompressed-picture row column red)
-                                 (- (aref uncompressed-picture row (- column 2) red)
-                                    pixel-delta-maybe))
-                           (setf (aref uncompressed-picture row column green)
-                                 (- (aref uncompressed-picture row (- column 2) green)
-                                    pixel-delta-maybe))))
-                 and do (incf try-start (1- key-length))
-                 and return nil
-                 finally (error "Decoder out of step at row ~S, column ~S.  Giving up." row column))
+            (loop
+               for key-length from min-key-length to max-key-length
+               for huffman-code = (subseq compressed-picture try-start (+ try-start key-length))
+               for pixel-delta-maybe = (gethash huffman-code huffman-table)
+               when pixel-delta-maybe
+               do
+               (if (evenp row)
+                   (if (evenp column)
+                       (setf (aref uncompressed-picture row column green)
+                             (- (aref uncompressed-picture row (- column 2) green)
+                                pixel-delta-maybe))
+                       (setf (aref uncompressed-picture row column blue)
+                             (- (aref uncompressed-picture row (- column 2) blue)
+                                pixel-delta-maybe)))
+                   (if (evenp column)
+                       (setf (aref uncompressed-picture row column red)
+                             (- (aref uncompressed-picture row (- column 2) red)
+                                pixel-delta-maybe))
+                       (setf (aref uncompressed-picture row column green)
+                             (- (aref uncompressed-picture row (- column 2) green)
+                                pixel-delta-maybe))))
+               and do (incf try-start (1- key-length))
+               and return nil
+               finally (error "Decoder out of step at row ~S, column ~S.  Giving up." row column))
             finally
-              (setf compressed-picture-index (1+ try-start))
-              ;;(print compressed-picture-index)
-              ))
-    png))
+            (setf compressed-picture-index (1+ try-start))
+            ;;(print compressed-picture-index)
+            ))
+      png)))
 
 (defun complete-horizontally (png row column color)
   "Fake a color component of a pixel based its neighbors."
@@ -178,37 +181,40 @@
                     (aref data-array (1+ row) (1+ column) color))
                  4))))
 
-(defun demosaic-png (png)
-  "Demosaic png in-place which is supposed to be partly filled with a Bayer color pattern.  Return demosaiced png.  The expected color pattern looks like this:
+(defun demosaic-png (png color-type)
+  "Demosaic color png in-place which is supposed to be partly filled with a Bayer color pattern.  Return demosaiced png.  The expected color pattern looks like this:
 
 GBGBGBGBGB...
 RGRGRGRGRG...
 GBGBGBGBGB...
 RGRGRGRGRG...
-..."
+...
+
+For a grayscale image do nothing."
   (let ((lowest-row (- (zpng:height png) 2))
         (rightmost-column (- (zpng:width png) 2))
         (red 0) (green 1) (blue 2))
-    (loop
-       for row from 1 to lowest-row by 2 do
+    (when (eq color-type :truecolor)
+      (loop
+         for row from 1 to lowest-row by 2 do
          (loop                          ; green on odd rows
             for column from 1 to rightmost-column by 2 do
-              (complete-horizontally png row column red)
-              (complete-vertically png row column blue))
+            (complete-horizontally png row column red)
+            (complete-vertically png row column blue))
          (loop                          ; red
             for column from 2 to rightmost-column by 2 do
-              (complete-squarely png row column green)
-              (complete-diagonally png row column blue)))
-    (loop
-       for row from 2 to lowest-row by 2 do
+            (complete-squarely png row column green)
+            (complete-diagonally png row column blue)))
+      (loop
+         for row from 2 to lowest-row by 2 do
          (loop                          ; blue
             for column from 1 to rightmost-column by 2 do
-              (complete-squarely png row column green)
-              (complete-diagonally png row column red))
+            (complete-squarely png row column green)
+            (complete-diagonally png row column red))
          (loop                          ; green on even rows
             for column from 2 to rightmost-column by 2 do
-              (complete-horizontally png row column blue)
-              (complete-vertically png row column red)))
+            (complete-horizontally png row column blue)
+            (complete-vertically png row column red))))
     png))
                             
 (defun send-png (output-stream path start)
@@ -219,9 +225,10 @@ RGRGRGRGRG...
         (image-height (find-keyword-value path "height=" start))
         (image-width (find-keyword-value path "width=" start))
         (compression-mode (find-keyword-value path "compressed=" start))
-        (channels (find-keyword-value path "channels=" start)))
+        (color-type (ecase (find-keyword-value path "channels=" start)
+                      (1 :grayscale)
+                      (3 :truecolor))))
     (assert (= 2 compression-mode))
-    (assert (= 3 channels))             ; TODO: we need one channel too.
     (with-open-file (input-stream path :element-type 'unsigned-byte)
       (zpng:write-png-stream
        (demosaic-png
@@ -229,7 +236,8 @@ RGRGRGRGRG...
                             (read-compressed-picture input-stream
                                                      (+ blob-start huffman-table-size)
                                                      (- blob-size huffman-table-size))
-                            image-height image-width))
+                            image-height image-width color-type)
+        color-type)
        output-stream))))
 
 ;;(time (with-open-file (s "png.png" :element-type 'unsigned-byte :direction :output :if-exists :supersede) 
@@ -252,3 +260,8 @@ RGRGRGRGRG...
   "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream."
   (send-png output-stream path (find-nth-picture n path)))
 
+;; TODO: (perhaps)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; raise red values by .2
+;; collect 4 single color pixels into a three-color one
+;; enhance contrast of grayscale images
