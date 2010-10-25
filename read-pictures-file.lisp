@@ -104,10 +104,10 @@
              (progn
                (setf (aref uncompressed-picture row 0 green)
                      (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))
-               (setf (aref uncompressed-picture row 1 blue)
+               (setf (aref uncompressed-picture row 1 red)
                      (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8)))))
              (progn
-               (setf (aref uncompressed-picture row 0 red)
+               (setf (aref uncompressed-picture row 0 blue)
                      (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))
                (setf (aref uncompressed-picture row 1 green)
                      (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))))
@@ -126,12 +126,12 @@
                        (setf (aref uncompressed-picture row column green)
                              (- (aref uncompressed-picture row (- column 2) green)
                                 pixel-delta-maybe))
-                       (setf (aref uncompressed-picture row column blue)
-                             (- (aref uncompressed-picture row (- column 2) blue)
-                                pixel-delta-maybe)))
-                   (if (evenp column)
                        (setf (aref uncompressed-picture row column red)
                              (- (aref uncompressed-picture row (- column 2) red)
+                                pixel-delta-maybe)))
+                   (if (evenp column)
+                       (setf (aref uncompressed-picture row column blue)
+                             (- (aref uncompressed-picture row (- column 2) blue)
                                 pixel-delta-maybe))
                        (setf (aref uncompressed-picture row column green)
                              (- (aref uncompressed-picture row (- column 2) green)
@@ -184,10 +184,10 @@
 (defun demosaic-png (png color-type)
   "Demosaic color png in-place which is supposed to be partly filled with a Bayer color pattern.  Return demosaiced png.  The expected color pattern looks like this:
 
-GBGBGBGBGB...
-RGRGRGRGRG...
-GBGBGBGBGB...
-RGRGRGRGRG...
+GRGRGRGRGR...
+BGBGBGBGBG...
+GRGRGRGRGR...
+BGBGBGBGBG...
 ...
 
 For a grayscale image do nothing."
@@ -199,22 +199,22 @@ For a grayscale image do nothing."
          for row from 1 to lowest-row by 2 do
          (loop                          ; green on odd rows
             for column from 1 to rightmost-column by 2 do
-            (complete-horizontally png row column red)
-            (complete-vertically png row column blue))
-         (loop                          ; red
+            (complete-horizontally png row column blue)
+            (complete-vertically png row column red))
+         (loop                          ; blue
             for column from 2 to rightmost-column by 2 do
             (complete-squarely png row column green)
-            (complete-diagonally png row column blue)))
+            (complete-diagonally png row column red)))
       (loop
          for row from 2 to lowest-row by 2 do
-         (loop                          ; blue
+         (loop                          ; red
             for column from 1 to rightmost-column by 2 do
             (complete-squarely png row column green)
-            (complete-diagonally png row column red))
+            (complete-diagonally png row column blue))
          (loop                          ; green on even rows
             for column from 2 to rightmost-column by 2 do
-            (complete-horizontally png row column blue)
-            (complete-vertically png row column red))))
+            (complete-horizontally png row column red)
+            (complete-vertically png row column blue))))
     png))
                             
 (defun send-png (output-stream path start)
