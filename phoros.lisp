@@ -36,8 +36,8 @@
                     :dx :dy :dz         ; outer orientation
                     :omega :phi :kappa  ; outer orientation
                     :c :xh :yh          ; inner orientation
-                    :a1 :a2 :a3 :b1 :b2 ; inner orientation
-                    :c1 :c2 :r0         ; inner orientation
+                    :a1 :a2 :a3 :b1 :b2 ; inner orientation: distortion: radial; asymmetric & tangential
+                    :c1 :c2 :r0         ; inner orientation: distortion: affinity & shear; 2nd zero-crossing of distortion curve
                     :b-dx :b-dy :b-dz       ; boresight alignment
                     :b-rotx :b-roty :b-rotz ; boresight alignment
                     :b-ddx :b-ddy :b-ddz       ; boresight alignment
