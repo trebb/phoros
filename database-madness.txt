@@ -134,8 +134,9 @@ Trigger:
 ######################################################################
 TODO: new table camera_stage_of_life
 
-camera_stage_of_life_id (PK)
-camera_hardware_id
+device_stage_of_life_id (PK)
+recorded_device_id
+camera_id
 lens_id
 vehicle_name
 casing_name
