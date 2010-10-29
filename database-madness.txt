@@ -66,21 +66,22 @@ Trigger:
          Spalte         |          Typ           |                 Attribute                  
 ------------------------+------------------------+--------------------------------------------
  measurement_id         | integer                | not null
- picture_no             | integer                | not null
- cam                    | integer                | not null
- channels               | integer                | not null
- compressed             | integer                | not null
- datasize               | integer                | not null
+ picture_no             | integer                | not null TODO: JUNK
+ cam                    | integer                | not null TODO: rename into recorded_device_id
+ channels               | integer                | not null TODO: JUNK
+ compressed             | integer                | not null TODO: JUNK
+ datasize               | integer                | not null TODO: JUNK
  height                 | integer                | not null TODO: JUNK
  width                  | integer                | not null TODO: JUNK
- gain                   | double precision       | not null TODO: delete or move into table motorrad_photos
- shutter                | double precision       | not null TODO: delete or move into table motorrad_photos
+ gain                   | double precision       | not null TODO: move into table motorrad_photos
+ shutter                | double precision       | not null TODO: move into table motorrad_photos
  time                   | double precision       | not null TODO: JUNK
- timetrigger            | double precision       | not null
+ timetrigger            | double precision       | not null TODO: rename into trigger_time
+ trigger_time_faked       boolean
  whitebalance           | double precision       | not null TODO: delete or move into table motorrad_photos
  time_appl              | double precision       | not null TODO: JUNK
- time_appl_utc          | double precision       | not null TODO: put this into the_geom
- distance               | double precision       | not null
+ time_appl_utc          | double precision       | not null TODO: put this into the_geom if possible
+ distance               | double precision       | not null TODO: JUNK
  easting                | double precision       | not null TODO: JUNK
  northing               | double precision       | not null TODO: JUNK
  ellipsoid_height       | double precision       | not null TODO: put this into the_geom
@@ -100,6 +101,7 @@ Trigger:
  pitch_sd               | double precision       | not null
  heading_sd             | double precision       | not null
  filename               | character varying(254) | not null Vorgabewert ''::character varying
+ byte_position            integer
  the_geom               | geometry               | 
 Indexe:
     "pk_motorrad_ccd" PRIMARY KEY, btree (measurement_id, picture_no, cam)
@@ -136,6 +138,7 @@ TODO: new table camera_stage_of_life
 
 device_stage_of_life_id (PK)
 recorded_device_id
+photogrammetry_version
 camera_id
 lens_id
 vehicle_name
