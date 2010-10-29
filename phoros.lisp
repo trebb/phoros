@@ -9,7 +9,7 @@
 (defvar *postgresql-credentials* "A list: (database user password host &key (port 5432))")
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
 (setf *read-default-float-format* 'double-float)
-(defvar *t*) (defvar *tt*)              ; debug output
+(defparameter *t* nil) (defparameter *tt* nil)              ; debug output
 (defun start-server () (hunchentoot:start *phoros-server*))
 
 (register-sql-operators :2+-ary :&&) ; PostGIS "intersects" operator

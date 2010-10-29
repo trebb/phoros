@@ -62,9 +62,10 @@ Trigger:
 
 ######################################################################
 
-                                Tabelle »public.motorrad_ccd« TODO: rename to motorrad_measurements
+                                Tabelle »public.motorrad_ccd« TODO: rename to motorrad_points
          Spalte         |          Typ           |                 Attribute                  
 ------------------------+------------------------+--------------------------------------------
+ point_id               | integer                | not null
  measurement_id         | integer                | not null
  picture_no             | integer                | not null TODO: JUNK
  cam                    | integer                | not null TODO: rename into recorded_device_id

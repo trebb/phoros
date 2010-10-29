@@ -1,16 +1,22 @@
 (in-package :phoros)
 
+(defparameter *picture-header-length-tolerance* 20
+  "Amount of leeway for the length of a picture header in a .pictures file.")
+
 (defun find-keyword-in-stream (stream keyword &optional (start-position 0))
   "Return file-position in binary stream after first occurence of keyword."
-  (file-position stream start-position)
-  (let ((chunk-size (length keyword)))
-    (cl:loop
-     for next-chunk = (let ((result (make-array '(0) :fill-pointer t)))
-                        (dotimes (i chunk-size (coerce result 'string))
-                          (vector-push-extend (code-char (read-byte stream)) result)))
-     if (string/= next-chunk keyword) 
-     do (file-position stream (- (file-position stream) chunk-size -1))
-     else return (file-position stream))))
+  (handler-case
+      (progn
+        (file-position stream start-position)
+        (let ((chunk-size (length keyword)))
+          (cl:loop
+           for next-chunk = (let ((result (make-array (list chunk-size) :fill-pointer 0)))
+                              (dotimes (i chunk-size (coerce result 'string))
+                                (vector-push-extend (code-char (read-byte stream)) result))) ; TODO: try read-sequence
+           if (string/= next-chunk keyword) 
+           do (file-position stream (- (file-position stream) chunk-size -1))
+           else return (file-position stream))))
+    (end-of-file () nil)))
 
 (defun find-keyword-value (path keyword &optional (start-position 0))
   "Return value associated with keyword."
@@ -34,7 +40,7 @@
     (file-position stream (+ (* 511 4) huffman-codes-start)) ; start of lengths
     (let* ((lengths (loop
                        repeat 511
-                       for length = (read-byte stream)
+                       for length = (read-byte stream) ; TODO: try read-sequence
                        collect length))
            (huffman-table (make-hash-table :size 1000 :test #'equal)))
       (file-position stream huffman-codes-start)
@@ -46,7 +52,7 @@
                       (setf code-part (dpb (read-byte stream) (byte 8 24) code-part))
                       (setf code-part (dpb (read-byte stream) (byte 8 16) code-part))
                       (setf code-part (dpb (read-byte stream) (byte 8 8) code-part))
-                      (dpb (read-byte stream) (byte 8 0) code-part))
+                      (dpb (read-byte stream) (byte 8 0) code-part)) ; TODO: try read-sequence
          unless (zerop length)
          do (loop
                for key-index from 0 below length
@@ -63,7 +69,7 @@
   (let ((compressed-picture (make-array (list (* 8 length)) :element-type 'bit)))
     (loop
        for byte-position from 0 below length
-       for byte = (read-byte stream)
+       for byte = (read-byte stream) ; TODO: try read-sequence
        do (loop
              for source-bit from 7 downto 0
              for destination-bit from 0 to 7
@@ -247,12 +253,13 @@ For a grayscale image do nothing."
   "Find file-position of zero-indexed nth picture in in .pictures file at path."
   (let ((estimated-header-length
          (- (find-keyword path "PICTUREHEADER_END")
-            (find-keyword path "PICTUREHEADER_BEGIN") 13))) ; allow for variation in dataSize and a few other parameters
+            (find-keyword path "PICTUREHEADER_BEGIN")
+            *picture-header-length-tolerance*))) ; allow for variation in dataSize and a few other parameters
     (loop
        for i from 0 to n
        for picture-start =
-         (find-keyword path "PICTUREHEADER_BEGIN" 0) then
-         (find-keyword path "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
+       (find-keyword path "PICTUREHEADER_BEGIN" 0) then
+       (find-keyword path "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
        for picture-length = (find-keyword-value path "dataSize=" picture-start)
        finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
 
@@ -260,8 +267,14 @@ For a grayscale image do nothing."
   "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream."
   (send-png output-stream path (find-nth-picture n path)))
 
+;;(defstruct picture-header               ; TODO: perhaps not needed
+;;  "Information for one image from a .pictures file."
+;;  trigger-time fake-trigger-time-p camera-timestamp recorded-device-id path file-position)
+
+
 ;; TODO: (perhaps)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; raise red values by .2
+;; allow for alternative bayer patterns
 ;; collect 4 single color pixels into a three-color one
 ;; enhance contrast of grayscale images
