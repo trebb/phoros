@@ -18,7 +18,8 @@
    (user-id
     :col-type integer))
   (:metaclass dao-class)
-  (:keys user-id))
+  (:keys user-id)
+  (:documentation "This is certainly not a full-fledged authentication system."))
 
 (defclass sys-project-user ()
   ((user-id
@@ -26,7 +27,8 @@
    (project-id
     :col-type integer)
    (user-role
-    :col-type text))
+    :col-type text
+    :documentation "Some well-defined string, e.g. read-only, r/w, etc."))
   (:metaclass dao-class)
   (:keys user-id project-id))
 
@@ -74,7 +76,8 @@
    (mounting-date
     :col-type timestamp)
    (unmounting-date
-    :col-type (or db-null timestamp)))
+    :col-type (or db-null timestamp)
+    :documentation "Date and time when this device was unmounted or altered in other ways that may render the current calibration invalid."))
   (:metaclass dao-class)
   (:keys camera-stage-of-life-id))
 
@@ -86,7 +89,8 @@
    (lens-id
     :col-type integer)
    (scanner-id
-    :col-type integer))
+    :col-type integer
+    :documentation "Scanners yet to be defined."))
   (:metaclass dao-class)
   (:keys generic-device-id))
 
@@ -101,16 +105,19 @@
     :col-type double-float)
    (channels
     :col-type integer)
-   (max-pix-value
+   (pix-depth
     :col-type integer)
    (color-raiser
-    :col-type integer[])
+    :col-type integer[]
+    :documentation "Array of multipliers for red, green, blue.")
    (pixel-colors
-    :col-type integer[])
+    :col-type integer[]
+    :documentation "Array containing the first pixels of the first two (or three) rows.  Each pixel is to be interpreted as a three-byte RGB value.")
    (serial-number
     :col-type (or db-null text))
-   (comments
-    :col-type (or db-null text)))
+   (description
+    :col-type (or db-null text)
+    :description "Camera type, manufacturer, etc."))
   (:metaclass dao-class)
   (:keys camera-hardware-id))
 
@@ -122,8 +129,9 @@
     :documentation "Focal length.")
    (serial-number
     :col-type (or db-null text))
-   (comment
-    :col-type (or db-null text)))
+   (description
+    :col-type (or db-null text)
+    :documentation "Lens type, manufacturer, etc."))
   (:metaclass dao-class)
   (:keys lens-id))
 
@@ -134,32 +142,21 @@
     :col-type timestamp)
    (person
     :col-type text)
-   (comment
-    :col-type (or db-null text))
+   (main-description
+    :col-type (or db-null text)
+    :documentation "Regarding this entire set of calibration data.  Note the special-purpose description fields inner-orientation-description, outer-orientation-description, boresight-description.")
+   (debug
+    :col-type boolean
+    :documentation "If true: not for production use; may be altered or deleted at any time.")
    (photogrammetry-version
     :col-type text
     :documentation "Software version used to create this data.")
    (mounting-angle
     :col-type integer
     :documentation "Head up = 0; right ear up = 90; left ear up = -90; head down = 180.")
-   (dx
-    :col-type double-float
-    :documentation "Outer orientation; in metres.")
-   (dy
-    :col-type double-float
-    :documentation "Outer orientation; in metres.")
-   (dz
-    :col-type double-float
-    :documentation "Outer orientation; in metres.")
-   (omega
-    :col-type double-float
-    :documentation "Outer orientation.")
-   (phi
-    :col-type double-float
-    :documentation "Outer orientation.")
-   (kappa
-    :col-type double-float
-    :documentation "Outer orientation.")
+   (inner-orientation-description
+    :col-type (or db-null text)
+    :documentation "Comments regarding inner orientation calibration.")
    (c
     :col-type double-float
     :documentation "Inner orientation: focal length.")
@@ -193,6 +190,30 @@
    (r0
     :col-type double-float
     :documentation "Inner orientation.")
+   (outer-orientation-description
+    :col-type (or db-null text)
+    :documentation "Comments regarding outer orientation calibration.")
+   (dx
+    :col-type double-float
+    :documentation "Outer orientation; in metres.")
+   (dy
+    :col-type double-float
+    :documentation "Outer orientation; in metres.")
+   (dz
+    :col-type double-float
+    :documentation "Outer orientation; in metres.")
+   (omega
+    :col-type double-float
+    :documentation "Outer orientation.")
+   (phi
+    :col-type double-float
+    :documentation "Outer orientation.")
+   (kappa
+    :col-type double-float
+    :documentation "Outer orientation.")
+   (boresight-description
+    :col-type (or db-null text)
+    :documentation "Comments regarding boresight alignment calibration.")
    (bdx
     :col-type double-float
     :documentation "Boresight alignment.")
@@ -230,7 +251,7 @@
     :col-type double-float
     :documentation "Boresight alignment."))
   (:metaclass dao-class)
-  (:keys boresight-alignment-id))
+  (:keys camera-calibration-id))
 
 (defclass data-template-point ()
   ((point-id
@@ -243,9 +264,6 @@
    (trigger-time-faked
     :col-type boolean
     :documentation "T if trigger-time has been reconstructed from adjacent data.")
-   (applanix-time
-    :col-type double-precision
-    :documentation "UNIX time, i.e. seconds from 1970.  TODO: scrap unless necessary to map point to measurement.")
    (roll
     :col-type double-precision)
    (pitch
@@ -270,7 +288,7 @@
     :col-type double-precision)
    (heading-sd
     :col-type double-precision)
-   (the-geom
+   (position
     :col-type geometry
     :documentation "Geographic coordinates."))
   (:metaclass dao-class)
