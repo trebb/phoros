@@ -4,4 +4,13 @@
                (:file "phoros")
                (:file "read-pictures-file")
                (:file "stuff-db"))
-  :depends-on (:photogrammetrie :hunchentoot :cl-who :parenscript :cl-json :postmodern :zpng :drakma :trivial-shell))
+  :depends-on (:photogrammetrie
+               :hunchentoot
+               :cl-who
+               :parenscript
+               :cl-json
+               :postmodern
+               :zpng
+               :drakma
+               :trivial-shell
+               :unix-options))
