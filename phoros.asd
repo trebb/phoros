@@ -3,6 +3,7 @@
   :components ((:file "package")
                (:file "phoros")
                (:file "read-pictures-file")
+               (:file "db-tables")
                (:file "stuff-db"))
   :depends-on (:photogrammetrie
                :hunchentoot
@@ -14,3 +15,4 @@
                :drakma
                :trivial-shell
                :unix-options))
+;; try: cl-log

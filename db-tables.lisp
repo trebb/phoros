@@ -25,61 +25,95 @@
     :col-type text))
   (:metaclass dao-class)
   (:keys user-id)
-  (:documentation "This is certainly not a full-fledged authentication system."))
+  (:documentation "List of users of the presentation front end.  This is certainly not a full-fledged authentication system."))
 
 (deftable sys-user
   (:create-sequence 'sys-user-id-seq)
   (!dao-def))
 
-(defclass sys-project ()
-  ((project-id
+(defclass sys-acquisition-project ()
+  ((acquisition-project-id
+    :reader acquisition-project-id
     :col-type integer
-    :col-default (:nextval 'sys-project-id-seq))
-   (project-name
-    :col-type text
-    :initarg :project-name)
+    :col-default (:nextval 'sys-acquisition-project-id-seq))
    (common-table-name
     :col-type text
     :initarg :common-table-name
     :documentation "Name of this project's data tables sans their canonical prefixes and suffixes.  Should be one table for all projects but this seems to come with a speed penalty."))
   (:metaclass dao-class)
-  (:keys project-id))
+  (:keys acquisition-project-id)
+  (:documentation "A acquisition project is basically a set of measurements that is stored in a common table."))
 
-(deftable sys-project
-  (:create-sequence 'sys-project-id-seq)
+(deftable sys-acquisition-project
+  (:create-sequence 'sys-acquisition-project-id-seq)
+  (!dao-def)
+  (sql-compile `(:alter-table ,*table-name* :add :constraint "common-table-name-unique" :unique 'common-table-name)))
+
+(defclass sys-presentation-project ()
+  ((presentation-project-id
+    :col-type integer
+    :col-default (:nextval 'sys-presentation-project-id-seq))
+   (presentation-project-name
+    :col-type text
+    :initarg :project-name))
+  (:metaclass dao-class)
+  (:keys presentation-project-id))
+
+(deftable sys-presentation-project
+  (:create-sequence 'sys-presentation-project-id-seq)
   (!dao-def))
 
 (defclass sys-user-role ()
   ((user-id
     :col-type integer)
-   (project-id
+   (presentation-project-id
     :col-type integer)
    (user-role
     :col-type text
-    :documentation "Some well-defined string, e.g. read-only, r/w, etc."))
+    :documentation "Some well-defined string, e.g. read-only, r/w, etc.  TODO: define some."))
   (:metaclass dao-class)
-  (:keys user-id project-id))
+  (:keys user-id presentation-project-id))
 
 (deftable sys-user-role
   (!dao-def)
   (!foreign 'sys-user 'user-id :on-delete :cascade :on-update :cascade)
-  (!foreign 'sys-project 'project-id :on-delete :cascade :on-update :cascade))
+  (!foreign 'sys-presentation-project 'presentation-project-id :on-delete :cascade :on-update :cascade))
 
 (defclass sys-measurement ()
   ((measurement-id
+    :reader measurement-id
     :col-type integer
     :col-default (:nextval 'sys-measurement-id-seq))
-   (project-id
+   (acquisition-project-id
+    :initarg :acquisition-project-id
     :col-type integer)
    (directory
+    :initarg :directory
     :col-type text
-    :documentation "Below some universal root common to all measurements; excluding `applanix/´ `images/´ etc."))
+    :documentation "Below some universal root common to all measurements; excluding `applanix/´ `images/´ etc.  The directory structure looks like this:
+/some/path/in/our/system/directory-part"))
   (:metaclass dao-class)
-  (:keys measurement-id))
+  (:keys measurement-id)
+  (:documentation "A measurement comprises .pictures files and one set of GPS event log files in a dedicated directory."))
 
 (deftable sys-measurement
   (:create-sequence 'sys-measurement-id-seq)
-  (!dao-def))
+  (!dao-def)
+  (!foreign 'sys-acquisition-project 'acquisition-project-id :on-delete :cascade :on-update :cascade))
+
+(defclass sys-presentation ()
+  ((presentation-project-id
+    :col-type integer)
+   (measurement-id
+    :col-type integer))
+  (:metaclass dao-class)
+  (:keys presentation-project-id measurement-id)
+  (:documentation "Tell us which measurements belong to which presentation project(s)."))
+
+(deftable sys-presentation
+  (!dao-def)
+  (!foreign 'sys-presentation-project 'presentation-project-id :on-delete :cascade :on-update :cascade)
+  (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade))
 
 (defclass sys-camera-hardware ()
   ((camera-hardware-id
@@ -185,7 +219,7 @@
   (:keys device-stage-of-life-id))
 
 (deftable sys-device-stage-of-life
-  (:create-sequence 'sys-device-stage-of-live-seq)
+  (:create-sequence 'sys-device-stage-of-life-seq)
   (!dao-def)
   (!index 'recorded-device-id)
   (!index 'mounting-date)
@@ -309,7 +343,8 @@
     :col-type double-float
     :documentation "Boresight alignment."))
   (:metaclass dao-class)
-  (:keys device-stage-of-life-id date))
+  (:keys device-stage-of-life-id date)
+  (:documentation "TODO: description of vehicle ground plane (for mono photogrammetry)"))
 
 (deftable sys-camera-calibration
   (!dao-def)
@@ -318,9 +353,11 @@
 (defun create-all-sys-tables ()
   "Create in current database a set of sys-* tables, i.e. tables that are used by all projects.  The database should probably be empty."
   (create-table 'sys-user)
-  (create-table 'sys-project)
+  (create-table 'sys-acquisition-project)
+  (create-table 'sys-presentation-project)
   (create-table 'sys-user-role)
   (create-table 'sys-measurement)
+  (create-table 'sys-presentation)
   (create-table 'sys-camera-hardware)
   (create-table 'sys-lens)
   (create-table 'sys-generic-device)
@@ -333,56 +370,149 @@
           (s-sql:to-sql-name field)
           (s-sql:to-sql-name index-type)))
 
+(defclass point-template ()
+  (;; We need a slot point-id which is defined in our subclasses.
+   (measurement-id
+    :writer (setf measurement-id)
+    :col-type integer)
+   (event-number
+    :documentation "Event that triggered this record.  Taken from the GPS file name: ...eventN.txt gives an event number N.  May be a string of any length.")
+   (gps-time
+    :reader gps-time
+    :documentation "UTC calculated from GPS week time.")
+   (trigger-time
+    :writer (setf trigger-time)
+    :col-type double-precision
+    :documentation "UNIX time, i.e. seconds from 1970.")
+   (roll
+    :col-type double-precision)
+   (pitch
+    :col-type double-precision)
+   (heading
+    :col-type double-precision)
+   (east-velocity
+    :col-type double-precision)
+   (north-velocity
+    :col-type double-precision)
+   (up-velocity
+    :col-type double-precision)
+   (east-sd
+    :col-type double-precision)
+   (north-sd
+    :col-type double-precision)
+   (height-sd
+    :col-type double-precision)
+   (roll-sd
+    :col-type double-precision)
+   (pitch-sd
+    :col-type double-precision)
+   (heading-sd
+    :col-type double-precision)
+   (longitude
+    :reader longitude
+    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+   (latitude
+    :reader latitude
+    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+   (ellipsoid-height
+    :reader ellipsoid-height
+    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+   (coordinates
+    :col-type (or db-null geometry)
+    :documentation "Geographic coordinates.")
+   (easting
+    :reader easting
+    :documentation "In the same coordinate system as the standard deviations.")
+   (northing
+    :reader northing
+    :documentation "In the same coordinate system as the standard deviations.")
+   (cartesian-height
+    :reader cartesian-height
+    :documentation "In the same coordinate system as the standard deviations."))
+  (:metaclass dao-class)
+  (:keys point-id)
+  (:documentation "Information about one GPS point, originally from applanix/**/*event*.txt.  There shouldn't be any point-id without a matching one in the *-image table.  This can't be enforced on database level.  Perhaps we should create some cleaning operation to maintain referential integrity. (TODO)"))
+
+(defclass image-template ()
+  ((measurement-id
+    :writer (setf measurement-id)
+    :col-type integer
+    :documentation "A primary key.  We need to recognize images should they come in twice, perhaps with slightly changed point data.  In such a case we want the old ones superseded.")
+   (filename
+    :initarg :filename
+    :col-type text
+    :documentation "Name without any directory components.")
+   (byte-position
+    :initarg :byte-position
+    :col-type integer
+    :documentation "Start of image in .pictures file named by slot filename.")
+   (point-id
+    :accessor point-id
+    :col-type integer)
+   (recorded-device-id
+    :initarg :recorded-device-id
+    :reader recorded-device-id
+    :col-type text
+    :documentation "As found in .pictures file, header tag `cam=´.")
+   (footprint
+    :col-type (or db-null geometry)
+    :documentation "Polygon on the ground describing the approximate area covered by this image.")
+   (gain
+    :initarg :gain
+    :col-type double-precision)
+   (shutter
+    :initarg :shutter
+    :col-type double-precision)
+   (trigger-time
+    :initarg :trigger-time
+    :accessor trigger-time
+    :documentation "UNIX time, i.e. seconds from 1970.")
+   (fake-trigger-time-p
+    :accessor fake-trigger-time-p
+    :initform nil
+    :documentation "T if trigger-time has been reconstructed from adjacent data.")
+   (camera-timestamp
+    :initarg :camera-timestamp
+    :reader camera-timestamp
+    :documentation "Some camera clocktick count starting at an unknown origin."))
+  (:metaclass dao-class)
+  (:keys measurement-id filename byte-position)
+  (:documentation "One row per image, originating from a .pictures file."))
+
+(defclass point-data (point-template)
+  ((point-id
+    :accessor point-id
+    :initform nil
+    :col-type integer
+    :col-default nil)                   ; to be redefined
+   point-id-sequence-name)              ; to be redefined
+  (:metaclass dao-class)
+  (:table-name nil))                    ; to be redefined
+
+(defclass image-data (image-template)
+  ()
+  (:metaclass dao-class)
+  (:table-name nil))                    ; to be redefined
+
 (defun create-data-table-definitions (common-table-name)
   "Define or redefine a bunch of dao-classes which can hold measuring data and which are connected to database tables named common-table-name plus type-specific prefix and/or suffix."
-  (let* ((table-prefix "data-")
+  (let* ((table-prefix "dat-")
          (image-data-table-name (format nil "~A~A-image" table-prefix common-table-name))
          (point-data-table-name (format nil "~A~A-point" table-prefix common-table-name))
          (point-id-sequence-name (make-symbol (format nil "~A~A-point-id-seq" table-prefix common-table-name))))
     (eval
-     `(defclass point-data ()
+     `(defclass point-data (point-template)
         ((point-id
+          :accessor point-id
+          :initform nil
           :col-type integer
-          :col-default (:nextval ,point-id-sequence-name))
-         (measurement-id
-          :col-type integer)
-         (trigger-time
-          :col-type double-precision
-          :documentation "UNIX time, i.e. seconds from 1970.")
-         (trigger-time-faked
-          :col-type boolean
-          :documentation "T if trigger-time has been reconstructed from adjacent data.")
-         (roll
-          :col-type double-precision)
-         (pitch
-          :col-type double-precision)
-         (Heading
-          :col-type double-precision)
-         (east-velocity
-          :col-type double-precision)
-         (north-velocity
-          :col-type double-precision)
-         (up-velocity
-          :col-type double-precision)
-         (east-sd
-          :col-type double-precision)
-         (north-sd
-          :col-type double-precision)
-         (height-sd
-          :col-type double-precision)
-         (roll-sd
-          :col-type double-precision)
-         (pitch-sd
-          :col-type double-precision)
-         (heading-sd
-          :col-type double-precision)
-         (coordinates
-          :col-type geometry
-          :documentation "Geographic coordinates."))
+          :col-default (:nextval ,point-id-sequence-name)) ; redefinition
+         (point-id-sequence-name
+          :initform ,(string point-id-sequence-name) ; redefinition
+          :reader point-id-sequence-name
+          :allocation :class))
         (:metaclass dao-class)
-        (:table-name ,point-data-table-name)
-        (:keys point-id)
-        (:documentation "There shouldn't be any point-id without an equal one in the *-image table.  This can't be enforced on database level.  Perhaps we should create some cleaning operation to maintain referential integrity. (TODO)")))
+        (:table-name ,point-data-table-name))) ;redefinition
     (deftable point-data
       (:create-sequence point-id-sequence-name)
       (!dao-def)
@@ -394,31 +524,13 @@
             (*table-name*  (s-sql:to-sql-name point-data-table-name)))
         (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade)))
     (eval
-     `(defclass image-data ()
-        ((point-id
-          :col-type integer)
-         (filename
-          :col-type text
-          :documentation "Name without any directory components.")
-         (byte-position
-          :col-type integer
-          :documentation "Start of image in .pictures file named by slot filename.")
-         (recorded-device-id
-          :col-type text
-          :documentation "As found in .pictures file, header tag `cam=´.")
-         (footprint
-          :col-type geometry
-          :documentation "Polygon on the ground describing the approximate area covered by this image.")
-         (gain
-          :col-type double-precision)
-         (shutter
-          :col-type double-precision))
+     `(defclass image-data (image-template)
+        ()
         (:metaclass dao-class)
-        (:table-name ,image-data-table-name)
-        (:keys point-id filename byte-position)
-        (:documentation "One row per image.")))
+        (:table-name ,image-data-table-name))) ; redefintion
     (deftable image-data
       (!dao-def)
+      (!!index image-data-table-name 'measurement-id)
       (!!index image-data-table-name 'recorded-device-id)
       (!!index image-data-table-name 'gain)
       (!!index image-data-table-name 'shutter)
@@ -426,20 +538,21 @@
       ;; The following let shouldn't be necessary. (Wart in !foreign.)
       (let ((*table-symbol* image-data-table-name)
             (*table-name*  (s-sql:to-sql-name image-data-table-name)))
-        (!foreign point-data-table-name 'point-id :on-delete :cascade :on-update :cascade)))))
+        (!foreign point-data-table-name 'point-id :on-delete :cascade :on-update :cascade)
+        (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade))
+      )))
 
-(defun create-data-tables (project-name &optional (common-table-name project-name))
-  "Create in current database a (previously non-existing) set of canonically named tables.  common-table-name should in most cases resemble the project name and will be stored in table sys-project, field table-name."
+(defun create-data-tables (common-table-name)
+  "Create in current database a fresh set of canonically named tables.  common-table-name should in most cases resemble the project name and will be stored in table sys-acquisition-project, field common-table-name."
   (create-data-table-definitions common-table-name)
   (handler-case (create-all-sys-tables) ; Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
-  (when (select-dao 'sys-project (:= 'common-table-name
+  (when (select-dao 'sys-acquisition-project (:= 'common-table-name
                                      (s-sql:to-sql-name common-table-name)))
     (error "There is already a row with a common_table_name of ~A in table ~A."
-           common-table-name (s-sql:to-sql-name (dao-table-name 'sys-project))))
+           common-table-name (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
   (create-table 'point-data)
   (create-table 'image-data)
   (insert-dao
-   (make-instance 'sys-project
-                  :project-name project-name
+   (make-instance 'sys-acquisition-project
                   :common-table-name common-table-name)))

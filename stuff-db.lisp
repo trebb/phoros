@@ -1,45 +1,7 @@
 (in-package :phoros)
 
-(defstruct gps-point
-  "Information about one gps point from applanix/**/*event*.txt."
-  event-number
-  time
-  longitude latitude ellipsoid-height
-  roll pitch heading
-  east-velocity north-velocity up-velocity
-  east-sd north-sd height-sd
-  roll-sd pitch-sd heading-sd
-  easting northing cartesian-height)
-
-(defstruct (positioned-image (:include gps-point))
-  "Information for one image from a .pictures file, and matching information from applanix/**/*event*.txt."
-  trigger-time fake-trigger-time-p camera-timestamp recorded-device-id path file-position orphanp)
-
-(defun positioned-image-slots-setf (positioned-image gps-point)
-  "Set slots of positioned-image to the respective values from gps-point."
-  (setf (positioned-image-event-number positioned-image) (gps-point-event-number gps-point))
-  (setf (positioned-image-time positioned-image) (gps-point-time gps-point))
-  (setf (positioned-image-longitude positioned-image) (gps-point-longitude gps-point))
-  (setf (positioned-image-latitude positioned-image) (gps-point-latitude gps-point))
-  (setf (positioned-image-ellipsoid-height positioned-image) (gps-point-ellipsoid-height gps-point))
-  (setf (positioned-image-roll positioned-image) (gps-point-roll gps-point))
-  (setf (positioned-image-pitch positioned-image) (gps-point-pitch gps-point))
-  (setf (positioned-image-heading positioned-image) (gps-point-heading gps-point))
-  (setf (positioned-image-east-velocity positioned-image) (gps-point-east-velocity gps-point))
-  (setf (positioned-image-north-velocity positioned-image) (gps-point-north-velocity gps-point))
-  (setf (positioned-image-up-velocity positioned-image) (gps-point-up-velocity gps-point))
-  (setf (positioned-image-east-sd positioned-image) (gps-point-east-sd gps-point))
-  (setf (positioned-image-north-sd positioned-image) (gps-point-north-sd gps-point))
-  (setf (positioned-image-height-sd positioned-image) (gps-point-height-sd gps-point))
-  (setf (positioned-image-roll-sd positioned-image) (gps-point-roll-sd gps-point))
-  (setf (positioned-image-pitch-sd positioned-image) (gps-point-pitch-sd gps-point))
-  (setf (positioned-image-heading-sd positioned-image) (gps-point-heading-sd gps-point))
-  (setf (positioned-image-easting positioned-image) (gps-point-easting gps-point))
-  (setf (positioned-image-northing positioned-image) (gps-point-northing gps-point))
-  (setf (positioned-image-cartesian-height positioned-image) (gps-point-cartesian-height gps-point)))                  
-
-(defun collect-pictures-file-data (path root-dir-path)
-  "Return vector of positioned-image structures containing data from the picture-headers of the .pictures file in path; path is stored relative to root-dir-path."
+(defun collect-pictures-file-data (path)
+  "Return vector of image-data structures containing data from the picture-headers of the .pictures file in path."
   (let ((estimated-header-length
          (- (find-keyword path "PICTUREHEADER_END")
             (find-keyword path "PICTUREHEADER_BEGIN") *picture-header-length-tolerance*))) ; allow for variation in dataSize and a few other parameters
@@ -47,61 +9,68 @@
       (loop
          with pictures-data = (make-array '(600) :fill-pointer 0)
          for picture-start =
-         (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
-         (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
+           (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
+           (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
          for picture-length = (find-keyword-value path "dataSize=" picture-start)
-         and trigger-time = (utc-from-unix (find-keyword-value path "timeTrigger=" picture-start))
-         and camera-timestamp = (find-keyword-value path "cameraTimestamp=" picture-start)
+         and time-trigger = (utc-from-unix (find-keyword-value path "timeTrigger=" picture-start))
+         and timestamp = (find-keyword-value path "cameraTimestamp=" picture-start)
          and recorded-device-id = (find-keyword-value path "cam=" picture-start)
+         and gain = (find-keyword-value path "gain=" picture-start)
+         and shutter = (find-keyword-value path "shutter=" picture-start)
          while picture-start
-         do (vector-push-extend (make-positioned-image :trigger-time trigger-time
-                                                       :camera-timestamp camera-timestamp
-                                                       :recorded-device-id recorded-device-id
-                                                       :path (enough-namestring path root-dir-path)
-                                                       :file-position picture-start)
-                                pictures-data)
+         
+         do (vector-push-extend
+             (make-instance
+              'image-data
+              :trigger-time time-trigger
+              :camera-timestamp timestamp
+              :recorded-device-id recorded-device-id
+              :filename (file-namestring path)
+              :gain gain
+              :shutter shutter
+              :byte-position picture-start)
+             pictures-data)
          finally
          (repair-missing-trigger-times pictures-data)
          (return  pictures-data)))))
 
-(defun repair-missing-trigger-times (positioned-images)
+(defun repair-missing-trigger-times (images)
   "Use slot camera-timestamp to fake missing trigger-times."
   (labels ((slope (offending-index good-index)
-             (/ (- (positioned-image-trigger-time (aref positioned-images (+ offending-index (- good-index 2))))
-                   (positioned-image-trigger-time (aref positioned-images (+ offending-index (+ good-index 2)))))
-                (- (positioned-image-camera-timestamp (aref positioned-images (+ offending-index (- good-index 2))))
-                   (positioned-image-camera-timestamp (aref positioned-images (+ offending-index (+ good-index 2)))))))
+             (/ (- (trigger-time (aref images (+ offending-index (- good-index 2))))
+                   (trigger-time (aref images (+ offending-index (+ good-index 2)))))
+                (- (camera-timestamp (aref images (+ offending-index (- good-index 2))))
+                   (camera-timestamp (aref images (+ offending-index (+ good-index 2)))))))
            (intercept (offending-index good-index slope)
-             (- (positioned-image-trigger-time (aref positioned-images (+ offending-index good-index)))
-                (* slope (positioned-image-camera-timestamp (aref positioned-images (+ offending-index good-index))))))
+             (- (trigger-time (aref images (+ offending-index good-index)))
+                (* slope (camera-timestamp (aref images (+ offending-index good-index))))))
            (fake-trigger-time (offending-index good-index)
              (let* ((m (slope offending-index good-index))
                     (t-0 (intercept offending-index good-index m)))
-               (+ (* m (positioned-image-camera-timestamp (aref positioned-images offending-index)))
+               (+ (* m (camera-timestamp (aref images offending-index)))
                   t-0))))
     (dolist (offending-index
-              (print(loop
+              (loop
                  with previous-trigger-time = 0
-                 for h across positioned-images
+                 for h across images
                  for i from 0
-                 for trigger-time = (positioned-image-trigger-time h)
+                 for trigger-time = (trigger-time h)
                  if (> (+ trigger-time 1d-4) previous-trigger-time)
                  do (setf previous-trigger-time trigger-time)
-                 else collect i)))
+                 else collect i))
       (let ((good-index-offset -3))
         (handler-bind ((error #'(lambda (x) (invoke-restart 'next-try))))
-          (setf (positioned-image-trigger-time (aref positioned-images offending-index))
+          (setf (trigger-time (aref images offending-index))
                 (restart-case (fake-trigger-time offending-index good-index-offset)
                   (next-try ()
                     (incf good-index-offset 6)
                     (fake-trigger-time offending-index good-index-offset)))
-                (positioned-image-fake-trigger-time-p (aref positioned-images offending-index))
-                t))))))
+                (fake-trigger-time-p (aref images offending-index)) t))))))
 
-(defun collect-pictures-directory-data (dir-path root-dir-path)
-  "Return vector of positioned-image structures of the .pictures files in dir-path; path is stored relative to root-dir-path."
-  (reduce #'(lambda (x1 x2) (merge 'vector x1 x2 #'< :key #'positioned-image-trigger-time))
-          (mapcar #'(lambda (x) (collect-pictures-file-data x root-dir-path))
+(defun collect-pictures-directory-data (dir-path)
+  "Return vector of instances of class image-data with data from the .pictures files in dir-path."
+  (reduce #'(lambda (x1 x2) (merge 'vector x1 x2 #'< :key #'trigger-time))
+          (mapcar #'collect-pictures-file-data
                   (directory (make-pathname
                               :directory (append (pathname-directory dir-path) '(:wild-inferiors))
                               :name :wild :type "pictures")))))
@@ -146,40 +115,42 @@
              for line = (read-line stream nil)
              while line
              do (vector-push-extend
-                 (with-input-from-string (line-content line)
-                   (let ((gps-week-time (read line-content nil))
-                         (distance (read line-content nil))
-                         (easting (read line-content nil))
-                         (northing (read line-content nil))
-                         (ellipsoid-height (read line-content nil))
-                         (latitude (read line-content nil))
-                         (longitude (read line-content nil))
-                         (cartesian-height (read line-content nil))
-                         (roll (read line-content nil))
-                         (pitch (read line-content nil))
-                         (heading (read line-content nil))
-                         (east-velocity (read line-content nil))
-                         (north-velocity (read line-content nil))
-                         (up-velocity (read line-content nil))
-                         (east-sd (read line-content nil))
-                         (north-sd (read line-content nil))
-                         (height-sd (read line-content nil))
-                         (roll-sd (read line-content nil))
-                         (pitch-sd (read line-content nil))
-                         (heading-sd (read line-content nil)))
-                     (make-gps-point
-                      :time (utc-from-gps estimated-utc gps-week-time)
-                      :event-number gps-event-number
-                      :longitude longitude :latitude latitude
-                      :ellipsoid-height ellipsoid-height
-                      :roll roll :pitch pitch :heading heading
-                      :east-velocity east-velocity
-                      :north-velocity north-velocity
-                      :up-velocity up-velocity
-                      :east-sd east-sd :north-sd north-sd :height-sd height-sd
-                      :roll-sd roll-sd :pitch-sd pitch-sd :heading-sd heading-sd
-                      :easting easting :northing northing
-                      :cartesian-height cartesian-height)))
+                 (let ((point (make-instance 'point-data)))
+                   (with-slots
+                         (gps-time
+                          event-number
+                          longitude latitude ellipsoid-height
+                          roll pitch heading
+                          east-velocity north-velocity up-velocity
+                          east-sd north-sd height-sd
+                          roll-sd pitch-sd heading-sd
+                          easting northing cartesian-height)
+                       point
+                     (with-input-from-string (line-content line)
+                       (setf event-number gps-event-number
+                             gps-time
+                             (utc-from-gps estimated-utc ; From GPS week time.
+                                           (read line-content nil)))
+                       (read line-content nil) ; Discard distance.
+                       (setf easting (read line-content nil)
+                             northing (read line-content nil)
+                             cartesian-height (read line-content nil)
+                             latitude (read line-content nil)
+                             longitude (read line-content nil)
+                             ellipsoid-height (read line-content nil)
+                             roll (read line-content nil)
+                             pitch (read line-content nil)
+                             heading (read line-content nil)
+                             east-velocity (read line-content nil)
+                             north-velocity (read line-content nil)
+                             up-velocity (read line-content nil)
+                             east-sd (read line-content nil)
+                             north-sd (read line-content nil)
+                             height-sd (read line-content nil)
+                             roll-sd (read line-content nil)
+                             pitch-sd (read line-content nil)
+                             heading-sd (read line-content nil))))
+                   point)
                  gps-points)
              finally (return gps-points)))))))
 
@@ -302,17 +273,17 @@
   (loop
      for gps-event in gps-points
      for gps-event-vector = (cdr gps-event)
-     for first-latitude = (gps-point-latitude (aref gps-event-vector 0))
-     for first-longitude = (gps-point-longitude (aref gps-event-vector 0))
-     for first-geographic-height = (gps-point-ellipsoid-height (aref gps-event-vector 0))
-     for first-easting = (gps-point-easting (aref gps-event-vector 0))
-     for first-northing = (gps-point-northing (aref gps-event-vector 0))
-     for first-cartesian-height = (gps-point-cartesian-height (aref gps-event-vector 0))
+     for first-latitude = (latitude (aref gps-event-vector 0))
+     for first-longitude = (longitude (aref gps-event-vector 0))
+     for first-geographic-height = (ellipsoid-height (aref gps-event-vector 0))
+     for first-easting = (easting (aref gps-event-vector 0))
+     for first-northing = (northing (aref gps-event-vector 0))
+     for first-cartesian-height = (cartesian-height (aref gps-event-vector 0))
      for longitude-median =
        (loop
           for point across gps-event-vector
           for i from 1
-          sum (gps-point-longitude point) into longitude-sum
+          sum (longitude point) into longitude-sum
           finally (return (/ longitude-sum i)))
      do (assert-utm-zone longitude-median 1
                          first-latitude first-longitude
@@ -320,39 +291,67 @@
                          first-easting first-northing
                          first-cartesian-height)))
 
-(defun collect-positioned-images (dir-path root-path &optional (epsilon 1d-4))
-  "Return a vector of positioned images.  Images get positioned by merging with gps-points when their respective times differ by less than epsilon seconds."
+(defun get-measurement-id (common-table-name dir-path)
+  "Get measurement-id associated with dir-path and acquisition-project-id.  Create a fresh matching record if necessary."
+  (let ((acquisition-project
+         (car (select-dao 'sys-acquisition-project
+                          (:= 'common-table-name common-table-name)))))
+    (assert acquisition-project)
+    (let* ((acquisition-project-id (acquisition-project-id acquisition-project))
+           (measurement
+            (or (car (select-dao 'sys-measurement
+                                 (:and (:= 'acquisition-project-id acquisition-project-id)
+                                       (:= 'directory dir-path))))
+                (insert-dao (make-instance 'sys-measurement
+                                           :acquisition-project-id acquisition-project-id
+                                           :directory dir-path
+                                           :fetch-defaults t)))))
+      (measurement-id measurement))))
+
+(defun store-images-and-points (common-table-name dir-path &key (epsilon 1d-4) (root-dir (user-homedir-pathname)))
+  "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  dir-path is a (probably absolute) path to a directory that contains one set of measuring data.  root-dir must be equal for all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
   (initialize-leap-seconds)
   (let* ((images
-          (collect-pictures-directory-data dir-path root-path))
+          (collect-pictures-directory-data dir-path))
          (estimated-time
           (loop
              for i across images
-             unless (positioned-image-fake-trigger-time-p i)
-             do (return (positioned-image-trigger-time i))))
+             unless (fake-trigger-time-p i)
+             do (return (trigger-time i))))
          (gps-points
           (collect-gps-data dir-path estimated-time))
          (gps-start-pointers (loop
                                 for i in gps-points
-                                collect (cons (car i) 0))))
+                                collect (cons (car i) 0)))
+         (dir-below-root-dir (print(enough-namestring (string-right-trim "/\\ " dir-path) root-dir))))
     (assert-gps-points-sanity gps-points)
-    (time(loop
+    (loop
        for i across images
-       for image-event-number = (event-number (positioned-image-recorded-device-id i))
-       for image-time = (positioned-image-trigger-time i)
+       for image-event-number = (event-number (recorded-device-id i))
+       for image-time = (trigger-time i)
        for matching-point =
-              (let ((gps-start-pointer
-                     (cdr (assoc image-event-number gps-start-pointers :test #'equal))))
-                (loop
-                   for gps-pointer from gps-start-pointer
-                   for gps-point across (subseq (cdr (assoc image-event-number gps-points :test #'equal))
-                                                gps-start-pointer)
-                   when (almost= (gps-point-time gps-point) image-time epsilon)
-                   do (setf (cdr (assoc image-event-number gps-start-pointers :test #'equal))
-                            gps-pointer)
-                   and return gps-point))
+       (let ((gps-start-pointer
+              (cdr (assoc image-event-number gps-start-pointers :test #'equal))))
+         (loop
+            for gps-pointer from gps-start-pointer
+            for gps-point across (subseq (cdr (assoc image-event-number gps-points :test #'equal))
+                                         gps-start-pointer)
+            when (almost= (gps-time gps-point) image-time epsilon)
+            do (setf (cdr (assoc image-event-number gps-start-pointers :test #'equal))
+                     gps-pointer) ; remember index of last matching point
+            and return gps-point))
        if matching-point
-       do (positioned-image-slots-setf i matching-point)
-       else do (setf (positioned-image-orphanp i) t)))
-    images))
+       do (let ((point-id               ; TODO: consider using transaction
+                 (or (point-id matching-point) ; We've hit a point twice.
+                     (sequence-next (point-id-sequence-name matching-point))))
+                (measurement-id (get-measurement-id common-table-name dir-below-root-dir)))
+            (setf (point-id i) point-id
+                  (point-id matching-point) point-id
+                  (measurement-id matching-point) measurement-id
+                  (measurement-id i) measurement-id
+                  (trigger-time matching-point) image-time)
+            (save-dao matching-point)
+            (save-dao i))
+       else do (print i))               ; TODO: log orphaned images
+    ))
