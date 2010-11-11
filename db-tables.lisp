@@ -90,8 +90,30 @@
    (directory
     :initarg :directory
     :col-type text
-    :documentation "Below some universal root common to all measurements; excluding `applanix/´ `images/´ etc.  The directory structure looks like this:
-/some/path/in/our/system/directory-part"))
+    :documentation "Below some universal root common to all measurements; excluding `applanix/´ `images/´ etc.
+
+The entire directory structure looks like this:
+
+Points
+======
+/some/path/in/our/system/this/measurement/blah/applanix/points/xyz-event1.txt
+/some/path/in/our/system/this/measurement/blah/applanix/points/uvw-event2.txt
+                                          ---- +++++++++++++++ ----+++++ ++++
+^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^                               ^
+    universal root       stored here in                                event
+                         slot directory                                number
+
+Images
+======
+/some/path/in/our/system/this/measurement/blah/images/front77.pictures
+/some/path/in/our/system/this/measurement/blah/images/front78.pictures
+                                          ---- ++++++         ++++++++
+^^^^^^^^^^^^^^^^^^^^^^^^ ^^^^^^^^^^^^^^^^             ^^^^^^^^^^^^^^^^
+    universal root       stored here in               stored file name 
+                         slot directory
+
+++++ means constant
+---- means unimportant"))
   (:metaclass dao-class)
   (:keys measurement-id)
   (:documentation "A measurement comprises .pictures files and one set of GPS event log files in a dedicated directory."))
@@ -117,6 +139,7 @@
 
 (defclass sys-camera-hardware ()
   ((camera-hardware-id
+    :reader camera-hardware-id
     :col-type integer
     :col-default (:nextval 'sys-camera-hardware-id-seq))
    (sensor-width-pix
@@ -132,7 +155,7 @@
    (color-raiser
     :col-type integer[]
     :documentation "Array of multipliers for red, green, blue.")
-   (pixel-colors
+   (pix-colors
     :col-type integer[]
     :documentation "Array containing the colors the first pixels of the first two (or three) rows.  Each pixel is to be interpreted as a three-byte RGB value.")
    (serial-number
@@ -149,6 +172,7 @@
 
 (defclass sys-lens ()
   ((lens-id
+    :reader lens-id
     :col-type integer
     :col-default (:nextval 'sys-lens-id-seq))
    (c
@@ -168,13 +192,17 @@
 
 (defclass sys-generic-device ()
   ((generic-device-id
+    :reader generic-device-id
     :col-type integer
     :col-default (:nextval 'sys-generic-device-id-seq))
    (camera-hardware-id
+    :initarg :camera-hardware-id
     :col-type (or db-null integer))
    (lens-id
+    :initarg :lens-id
     :col-type (or db-null integer))
    (scanner-id
+    :initarg :scanner-id
     :col-type (or db-null integer)
     :documentation "Scanners yet to be defined."))
   (:metaclass dao-class)
@@ -192,11 +220,15 @@
 
 (defclass sys-device-stage-of-life ()
   ((device-stage-of-life-id
+    :reader device-stage-of-life-id
     :col-type integer
     :col-default (:nextval 'sys-device-stage-of-life-seq))
    (recorded-device-id
     :col-type text
-    :documentation "Must be stored next to each data record.")
+    :documentation "Must be stored next to each data record.  Example: in a .pictures file, this is the value of `cam=´.")
+   (event-number
+    :col-type text
+    :documentation "Identifier for the GPS event that triggers this device.  Must correspond to the N the GPS file name: ...eventN.txt.")
    (generic-device-id
     :col-type integer)
    (vehicle-name
@@ -211,12 +243,13 @@
     :col-type text
     :documentation "Things like `eth0´, `COM1´ etc.")
    (mounting-date
-    :col-type timestamp)
+    :col-type :timestamp-with-time-zone)
    (unmounting-date
-    :col-type (or db-null timestamp)
+    :col-type (or db-null :timestamp-with-time-zone)
     :documentation "Date and time when this device was unmounted or altered in other ways that may render the current calibration invalid."))
   (:metaclass dao-class)
-  (:keys device-stage-of-life-id))
+  (:keys device-stage-of-life-id)
+  (:documentation "This data is to be collected on the measuring vehicle.  There must be a new record for every relevant change (including accidental ones) in device configuration."))
 
 (deftable sys-device-stage-of-life
   (:create-sequence 'sys-device-stage-of-life-seq)

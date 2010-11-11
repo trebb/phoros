@@ -355,3 +355,137 @@
             (save-dao i))
        else do (print i))               ; TODO: log orphaned images
     ))
+
+(defun store-camera-hardware
+    (&key sensor-width-pix sensor-height-pix pix-size
+     channels
+     pix-depth color-raiser pix-colors
+     serial-number
+     description
+     (try-overwrite t))
+  "Store a new record in table sys-camera-hardware, or try updating an existing one.  Return camera-hardware-id of the altered record."
+  (assert sensor-width-pix) (assert sensor-height-pix)
+  (assert channels) (assert pix-depth) (assert color-raiser) (assert pix-colors)
+  (assert serial-number) (assert description)
+  (let ((record
+         (or (when try-overwrite
+               (car (select-dao 'sys-camera-hardware
+                                (:and (:= 'sensor-width-pix sensor-width-pix)
+                                      (:= 'sensor-height-pix sensor-height-pix)
+                                      (:= 'pix-size pix-size)
+                                      (:= 'channels channels)
+                                      (:= 'serial-number serial-number)
+                                      (:= 'pix-depth pix-depth)))))
+             (make-instance 'sys-camera-hardware :fetch-defaults t))))
+    (with-slots ((sensor-width-pix-slot sensor-width-pix)
+                 (sensor-height-pix-slot sensor-height-pix)
+                 (pix-size-slot pix-size)
+                 (channels-slot channels)
+                 (pix-depth-slot pix-depth)
+                 (color-raiser-slot color-raiser)
+                 (pix-colors-slot pix-colors)
+                 (serial-number-slot serial-number)
+                 (description-slot description))
+        record
+      (setf sensor-width-pix-slot sensor-width-pix)
+      (setf sensor-height-pix-slot sensor-height-pix)
+      (setf pix-size-slot pix-size)
+      (setf channels-slot channels)
+      (setf pix-depth-slot pix-depth)
+      (setf color-raiser-slot color-raiser)
+      (setf pix-colors-slot pix-colors)
+      (setf serial-number-slot serial-number)
+      (setf description-slot description))
+    (save-dao record)
+    (camera-hardware-id record)))
+
+(defun store-lens
+    (&key c serial-number description
+     (try-overwrite t))
+  "Store a new record in table sys-lens, or try updating an existing one.  Return lens-id of the altered record."
+  (assert c) (assert serial-number) (assert description)
+  (let ((record
+         (or (when try-overwrite
+               (car (select-dao 'sys-lens
+                                (:and (:= 'c c)
+                                      (:= 'serial-number serial-number)))))
+             (make-instance 'sys-lens :fetch-defaults t))))
+    (with-slots ((c-slot c)
+                 (serial-number-slot serial-number)
+                 (description-slot description))
+        record
+      (setf c-slot c)
+      (setf serial-number-slot serial-number)
+      (setf description-slot description))
+    (save-dao record)
+    (lens-id record)))
+
+(defun store-generic-device
+    (&key (camera-hardware-id :null) (lens-id :null) (scanner-id :null))
+  "Store a new record in table sys-generic-device.  Return generic-device-id of the new record."
+  (assert (notevery #'(lambda (x) (eq :null x)) (list camera-hardware-id lens-id scanner-id)))
+  (let ((record (make-instance 'sys-generic-device
+                               :camera-hardware-id camera-hardware-id
+                               :lens-id lens-id
+                               :scanner-id scanner-id
+                               :fetch-defaults t)))
+    (save-dao record)
+    (generic-device-id record)))
+
+(defun store-device-stage-of-life
+    (&key recorded-device-id event-number
+     generic-device-id
+     vehicle-name
+     casing-name computer-name computer-interface-name
+     mounting-date
+     (unmounting-date :null)
+     (try-overwrite t))
+  "Store a new record in table sys-device-stage-of-life, or try updating an existing one.  Return device-stage-of-life-id of the altered record."
+  (assert recorded-device-id) (assert event-number)
+  (assert generic-device-id)
+  (assert vehicle-name)
+  (assert casing-name) (assert computer-name) (assert computer-interface-name)
+  (assert mounting-date)
+  (let ((record
+         (or (when try-overwrite
+               (car (select-dao 'sys-device-stage-of-life
+                                (:and (:= 'recorded-device-id recorded-device-id)
+                                      (:= 'event-number event-number)
+                                      (:= 'generic-device-id generic-device-id)
+                                      (:= 'vehicle-name vehicle-name)
+                                      (:= 'mounting-date mounting-date)))))
+             (make-instance 'sys-device-stage-of-life :fetch-defaults t))))
+    (with-slots ((recorded-device-id-slot recorded-device-id)
+                 (event-number-slot event-number)
+                 (generic-device-id-slot generic-device-id)
+                 (vehicle-name-slot vehicle-name)
+                 (casing-name-slot casing-name)
+                 (computer-name-slot computer-name)
+                 (computer-interface-name-slot computer-interface-name)
+                 (mounting-date-slot mounting-date)
+                 (unmounting-date-slot unmounting-date))
+        record
+      (setf recorded-device-id-slot recorded-device-id)
+      (setf event-number-slot event-number)
+      (setf generic-device-id-slot generic-device-id)
+      (setf vehicle-name-slot vehicle-name)
+      (setf casing-name-slot casing-name)
+      (setf computer-name-slot computer-name)
+      (setf computer-interface-name-slot computer-interface-name)
+      (setf mounting-date-slot mounting-date)
+      (setf unmounting-date-slot unmounting-date))
+    (save-dao record)
+    (device-stage-of-life-id record)))
+
+
+;; (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :pix-colors #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
+;; (store-lens :c 10.5 :serial-number "17.8.8" :description "blahBlah3" :try-overwrite nil)
+;; (store-generic-device :camera-hardware-id 1 :lens-id 1)
+;; (store-device-stage-of-life :recorded-device-id "1"
+;;                             :event-number "777"
+;;                             :generic-device-id 1
+;;                             :vehicle-name "Auto" 
+;;                             :casing-name "Vorn links" 
+;;                             :computer-name "ccdheck" 
+;;                             :computer-interface-name "eth0"
+;;                             :mounting-date "2010-01-30T07:00-1")
