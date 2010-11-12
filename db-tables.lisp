@@ -11,6 +11,28 @@
       (execute (format nil "DROP TABLE IF EXISTS ~A CASCADE" (s-sql:to-sql-name user-table))))
     (dolist (sequence sequences)
       (execute (format nil "DROP SEQUENCE IF EXISTS ~A CASCADE" (s-sql:to-sql-name sequence))))))
+ 
+;;TODO: make a spatial-ref-sys table
+;;
+;;CREATE TABLE spatial_ref_sys ( 
+;;  srid       INTEGER NOT NULL PRIMARY KEY, 
+;;  auth_name  VARCHAR(256), 
+;;  auth_srid  INTEGER, 
+;;  srtext     VARCHAR(2048), 
+;;  proj4text  VARCHAR(2048) 
+;;)
+
+;;TODO: make a geometry-columns table
+;;
+;;CREATE TABLE geometry_columns ( 
+;;  f_table_catalog    VARRCHAR(256) NOT NULL, 
+;;  f_table_schema     VARCHAR(256) NOT NULL,
+;;  f_table_nam        VARCHAR(256) NOT NULL, 
+;;  f_geometry_column  VARCHAR(256) NOT NULL, 
+;;  coord_dimension    INTEGER NOT NULL, 
+;;  srid               INTEGER NOT NULL, 
+;;  type               VARCHAR(30) NOT NULL 
+;;)
 
 (defclass sys-user ()
   ((user-id

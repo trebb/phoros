@@ -234,7 +234,7 @@
 
 (defun geographic-to-utm (utm-zone longitude latitude &optional (height 0))
   "Return UTM utm-zone representation of geographic coordinates."
-  (let ((command
+  (let ((command                        ; TODO:  perhaps reduce dependencies by asking PostGIS; we need a PostgreSQL connection anyway (or do we?)
          (format nil "cs2cs +proj=latlong +datum=WGS84 +to +proj=utm +ellps=WGS84 +zone=~D +units=m +no_defs -f %.9f" utm-zone)))
     (multiple-value-bind (standard-output error-output exit-status) 
         (trivial-shell:shell-command command
@@ -352,6 +352,13 @@
                   (measurement-id i) measurement-id
                   (trigger-time matching-point) image-time)
             (save-dao matching-point)
+            (execute (:update (dao-table-name (class-of matching-point))
+                              :set 'coordinates
+                              (:st_geomfromewkt (format nil "SRID=4326; POINT(~E ~E ~E)"
+                                                        (longitude matching-point)
+                                                        (latitude matching-point)
+                                                        (ellipsoid-height matching-point)))
+                              :where (:= 'point-id (point-id matching-point))))
             (save-dao i))
        else do (print i))               ; TODO: log orphaned images
     ))
@@ -478,14 +485,14 @@
     (device-stage-of-life-id record)))
 
 
-;; (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :pix-colors #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
-;; (store-lens :c 10.5 :serial-number "17.8.8" :description "blahBlah3" :try-overwrite nil)
-;; (store-generic-device :camera-hardware-id 1 :lens-id 1)
-;; (store-device-stage-of-life :recorded-device-id "1"
-;;                             :event-number "777"
-;;                             :generic-device-id 1
-;;                             :vehicle-name "Auto" 
-;;                             :casing-name "Vorn links" 
-;;                             :computer-name "ccdheck" 
-;;                             :computer-interface-name "eth0"
-;;                             :mounting-date "2010-01-30T07:00-1")
+
+#|
+(with-connection '("phoros-dev" "postgres" "passwd" "host")
+  (nuke-all-tables)
+  (create-data-tables "yyyy")
+  (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :pix-colors #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
+  (store-lens :c 10.5 :serial-number "17.8.8" :description "blahBlah3" :try-overwrite nil)
+  (store-generic-device :camera-hardware-id 1 :lens-id 1)
+  (store-device-stage-of-life :recorded-device-id "1" :event-number "777" :generic-device-id 1 :vehicle-name "Auto" :casing-name "Vorn links" :computer-name "ccdheck" :computer-interface-name "eth0" :mounting-date "2010-01-30T07:00-1")
+  (store-images-and-points "yyyy" "/home/bertb/phoros-testdata/mitsa-small/"))
+|#
