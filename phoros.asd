@@ -1,10 +1,17 @@
 (defsystem :phoros
+  :description "PHOROS (Photogrammetric Road Survey)"
+  :author "Bert Burgemeister"
+  :maintainer "Bert Burgemeister"
+  :long-description "TODO"
+  :version "0.0"
+  :licence "GPL"
   :serial t
   :components ((:file "package")
                (:file "phoros")
                (:file "read-pictures-file")
                (:file "db-tables")
-               (:file "stuff-db"))
+               (:file "stuff-db")
+               (:file "cli"))
   :depends-on (:photogrammetrie
                :hunchentoot
                :cl-who
@@ -14,5 +21,5 @@
                :zpng
                :drakma
                :trivial-shell
-               :unix-options))
+               :command-line-arguments))
 ;; try: cl-log
