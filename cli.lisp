@@ -1,53 +1,54 @@
 (in-package :phoros)
 
-(defparameter *opt-spec*
- '((("all" #\a) :type boolean :documentation "do it all")
-   ("blah" :type string :initial-value "blob" :documentation "This is a very long multi line documentation. The function SHOW-OPTION-HELP should display this properly indented, that is all lines should start at the same column.")
-   ("check-db" :action #'check-database-connection :documentation "Check usability of database connection and exit.")
-   ("host" :type string :action *pg-host* :documentation "Database server.")
-   ("port" :type integer :action *pg-port* :documentation "Port on database server.")
-   ("database" :type string :action *pg-database* :documentation "Name of database.")
-   ("user" :type string :action *pg-user* :documentation "Database user.")
-   ("password" :type string :action *pg-password* :documentation "Database user's password.")
-   ("use-ssl" :type string :action *pg-use-ssl* :documentation "Use SSL in database connection.")
-   (("help" #\h) :action #'cli-help :documentation "Display this help and exit.")
-   (("version") :action #'cli-version :documentation "Output version information and exit.")))
+(defparameter *cli-db-options*
+  '(("host" :type string :initial-value "localhost" :documentation "Database server.")
+    ("port" :type integer :initial-value 5432 :documentation "Port on database server.")
+    ("database" :type string :initial-value "phoros" :documentation "Name of database.")
+    ("user" :type string :documentation "Database user.")
+    ("password" :type string :documentation "Database user's password.")
+    ("use-ssl" :type string :initial-value "no" :documentation "Use SSL in database connection. [yes|no|try]")))
+
+(defparameter *cli-main-options*
+  '((("help" #\h) :action #'cli-help-action  :documentation "Print this help and exit.")
+    (("version") :action #'cli-version-action :documentation "Output version information and exit.")
+    ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")))
+
+(defparameter *opt-spec* (append *cli-main-options* *cli-db-options*))
 
 (defun main ()
   "The UNIX command line entry point."
-  (let ((arglist
-         (command-line-arguments:handle-command-line *opt-spec* #'list)))))
+  (handler-case
+      (command-line-arguments:compute-and-process-command-line-options *opt-spec*)
+    (error (e) (format *error-output* "~A~&" e))))
 
-(defun cli-help (&rest rest)
+(defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
   (format *standard-output* "~&Usage: ...~&~A"
           (asdf:system-long-description (asdf:find-system :phoros)))
   (command-line-arguments:show-option-help *opt-spec*))
 
-(defun cli-version (&rest rest)
+(defun cli-version-action (&rest rest)
   "Print --version message."
   (declare (ignore rest))
-  (format *standard-output* "~&~A ~A~&"
+  (format *standard-output* "~&~A ~A~%"
           (asdf:system-description (asdf:find-system :phoros))
           (asdf:component-version (asdf:find-system :phoros))))
 
-(defparameter *pg-database* "")
-(defparameter *pg-user* "")
-(defparameter *pg-password* "")
-(defparameter *pg-host* "")
-(defparameter *pg-port* 5432)
-(defparameter *pg-use-ssl* :no)
-
-(defun check-database-connection (&rest rest)
+(defun check-db-action (&rest rest)
   (declare (ignore rest))
-  (command-line-arguments:handle-command-line *opt-spec* #'list)
+  (apply #'check-database-connection (command-line-arguments:process-command-line-options *opt-spec* command-line-arguments:*command-line-arguments*)))
+
+(defun check-database-connection (&key host port database (user "") (password "") use-ssl &allow-other-keys)
   (let (connection)
     (handler-case
         (setf
          connection
-         (connect *pg-database* *pg-user* *pg-password* *pg-host* :port *pg-port* :use-ssl *pg-use-ssl*))
-      (error (e) (format t "~A~&" e)))
-    (and connection (disconnect connection))))
-
-
+         (connect database user password host :port port
+                  :use-ssl (cond ((string-equal use-ssl "no") :no)
+                                 ((string-equal use-ssl "yes") :yes)
+                                 ((string-equal use-ssl "try") :try))))
+      (error (e) (format *error-output* "~A~&" e)))
+    (when connection
+      (disconnect connection)
+      (format *error-output* "~&OK~%"))))
