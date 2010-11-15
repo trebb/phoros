@@ -494,10 +494,12 @@ Images
     :col-type integer
     :documentation "A primary key.  We need to recognize images should they come in twice, perhaps with slightly changed point data.  In such a case we want the old ones superseded.")
    (filename
+    :reader filename
     :initarg :filename
     :col-type text
     :documentation "Name without any directory components.")
    (byte-position
+    :reader image-byte-position
     :initarg :byte-position
     :col-type integer
     :documentation "Start of image in .pictures file named by slot filename.")

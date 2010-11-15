@@ -7,6 +7,7 @@
   :licence "GPL"
   :serial t
   :components ((:file "package")
+               (:file "log")
                (:file "phoros")
                (:file "read-pictures-file")
                (:file "db-tables")
@@ -21,5 +22,5 @@
                :zpng
                :drakma
                :trivial-shell
-               :command-line-arguments))
-;; try: cl-log
+               :command-line-arguments
+               :cl-log))

@@ -173,14 +173,16 @@
 (defun initialize-leap-seconds ()
   (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
       (drakma:http-request *time-steps-history-url*)
+    (declare (ignore headers stream must-close reason-phrase))
     (if (= status-code 200)
         (with-open-file (stream *time-steps-history-file*
                                 :direction :output
                                 :if-exists :supersede
                                 :if-does-not-exist :create)
-          (write-string body stream))
-        (warn "Coudn't get the latest leap seconds information from ~A.~%Falling back to cached data in ~A."
-              uri *time-steps-history-file*)))
+          (write-string body stream)
+          (cl-log:log-message :debug "Downloaded leap second information from ~A" uri))
+        (cl-log:log-message :warning "Coudn't get the latest leap seconds information from ~A.~%Falling back to cached data in ~A."
+                            uri *time-steps-history-file*)))
   (with-open-file (stream *time-steps-history-file*
                           :direction :input :if-does-not-exist :error)
     (loop for time-record = (string-trim " 	" (read-line stream))
@@ -360,8 +362,8 @@
                                                         (ellipsoid-height matching-point)))
                               :where (:= 'point-id (point-id matching-point))))
             (save-dao i))
-       else do (print i))               ; TODO: log orphaned images
-    ))
+       else do (cl-log:log-message :orphan "Couldn't map to any point: ~A, byte ~A. ~:[~; It didn't have a decent trigger time anyway.~]"
+                                   (filename i) (image-byte-position i) (fake-trigger-time-p i)))))
 
 (defun store-camera-hardware
     (&key sensor-width-pix sensor-height-pix pix-size
