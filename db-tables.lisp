@@ -286,6 +286,7 @@ Images
     :col-type integer
     :documentation "This tells us what hardware this calibration is for.")
    (date
+    :reader date
     :col-type timestamp)
    (person
     :col-type text)

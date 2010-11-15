@@ -1,24 +1,103 @@
 (in-package :phoros)
 
-(defparameter *cli-db-options*
-  '(("host" :type string :initial-value "localhost" :documentation "Database server.")
-    ("port" :type integer :initial-value 5432 :documentation "Port on database server.")
-    ("database" :type string :initial-value "phoros" :documentation "Name of database.")
-    ("user" :type string :documentation "Database user.")
-    ("password" :type string :documentation "Database user's password.")
-    ("use-ssl" :type string :initial-value "no" :documentation "Use SSL in database connection. [yes|no|try]")))
-
 (defparameter *cli-main-options*
   '((("help" #\h) :action #'cli-help-action  :documentation "Print this help and exit.")
-    (("version") :action #'cli-version-action :documentation "Output version information and exit.")
-    ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")))
+    ("version" :action #'cli-version-action :documentation "Output version information and exit.")
+    ("verbose" :type integer :initial-value 0 :documentation "Emit increasing amounts of debugging output.")
+    ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
+    ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
+    ("store-camera-hardware" :action #'store-camera-hardware-action :documentation "Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
+    ("store-lens" :action #'store-lens-action :documentation "Put new lens data into the database; print lens-id to stdout.")
+    ("store-generic-device" :action #'store-generic-device-action :documentation "Put a newly defined generic-device into the database; print generic-device-id to stdout.")
+    ("store-device-stage-of-life" :action #'store-device-stage-of-life-action :documentation "Put a newly defined device-stage-of-life into the database; print device-stage-of-life-id to stdout.")
+    ("store-camera-calibration" :action #'store-camera-calibration-action :documentation "Put new camera-calibration into the database; print generic-device-id and calibration date to stdout.")))
 
-(defparameter *opt-spec* (append *cli-main-options* *cli-db-options*))
+(defparameter *cli-db-connection-options*
+  '((("host" #\H) :type string :initial-value "localhost" :documentation "Database server.")
+    (("port" #\P) :type integer :initial-value 5432 :documentation "Port on database server.")
+    (("database" #\D) :type string :initial-value "phoros" :documentation "Name of database.")
+    (("user" #\U) :type string :documentation "Database user.")
+    (("password" #\W) :type string :documentation "Database user's password.")
+    ("use-ssl" :type string :initial-value "no" :documentation "Use SSL in database connection. [yes|no|try]")))
+
+(defparameter *cli-camera-hardware-options*
+  '(("sensor-width-pix" :type integer :documentation "Width of camera sensor.")
+    ("sensor-height-pix" :type integer :documentation "Height of camera sensor.")
+    ("pix-size" :type string :documentation "Camera pixel size in millimetres (float).")
+    ("channels" :type integer :documentation "Number of color channels")
+    ("pix-depth" :type integer :initial-value 255 :documentation "Greatest possible pixel value.")
+    ("color-raiser" :type string :documentation "Yet to be defined.  Try '{r,g,b}'")
+    ("pix-colors" :type string :documentation "Yet to be defined.")
+    ("serial-number" :type string :documentation "Serial number.")
+    ("description" :type string :documentation "Description of camera.")
+    ("try-overwrite" :type boolean :initial-value "yes" :documentation "Overwrite matching camera-hardware record if any.")))
+
+(defparameter *cli-lens-options*
+  '(("c" :type string :documentation "Nominal focal length in millimetres.")
+    ("serial-number" :type string :documentation "Serial number.")
+    ("description" :type string :documentation "Lens desription.")
+    ("try-overwrite" :type boolean :initial-value "yes" :documentation "Overwrite matching lens record if any.")))
+
+(defparameter *cli-generic-device-options*
+  '(("camera-hardware-id" :type integer :documentation "Numeric camera hardware id in database.")
+    ("lens-id" :type integer :documentation "Numeric lens id in database.")))
+
+(defparameter *cli-device-stage-of-life-options*
+  '(("recorded-device-id" :type string :documentation "Device id stored next to the measuring data.")
+    ("event-number" :type string :documentation "GPS event that triggers this generic device.")
+    ("vehicle-name" :type string :documentation "Descriptive name of vehicle.")
+    ("casing-name" :type string :documentation "Descriptive name of device casing.")
+    ("computer-name" :type string :documentation "Name of the recording device.")
+    ("computer-interface-name" :type string :documentation "Interface at device.")
+    ("mounting-date" :type string :documentation "Time this device constellation became effective.  Format: `2010-11-19T13:49-01´.")))
+
+(defparameter *cli-camera-calibration-options*
+  '(("device-stage-of-life-id" :type string :documentation "This tells us what hardware this calibration is for.")
+    ("date" :type string :documentation "Date of calibration.  Format: `2010-11-19T13:49-01´.")
+    ("person" :type string :documentation "Person who did the calibration.")
+    ("main-description" :type string :documentation "Regarding this entire set of calibration data.  Note the special-purpose description fields inner-orientation-description, outer-orientation-description, boresight-description.")
+    ("debug" :type string :documentation "If true: not for production use; may be altered or deleted at any time.")
+    ("photogrammetry-version" :type string :documentation "Software version used to create this data.")
+    ("mounting-angle" :type integer :documentation "Head up = 0; right ear up = 90; left ear up = -90; head down = 180.")
+    ("inner-orientation-description" :type string :documentation "Comments regarding inner orientation calibration.")
+    ("c" :type string :documentation "Inner orientation: focal length.")
+    ("xh" :type string :documentation "Inner orientation.")
+    ("yh" :type string :documentation "Inner orientation.")
+    ("a1" :type string :documentation "Inner orientation: radial distortion.")
+    ("a2" :type string :documentation "Inner orientation: radial distortion.")
+    ("a3" :type string :documentation "Inner orientation: radial distortion.")
+    ("b1" :type string :documentation "Inner orientation: asymmetric and tangential distortion.")
+    ("b2" :type string :documentation "Inner orientation: asymmetric and tangential distortion.")
+    ("c1" :type string :documentation "Inner orientation: affinity and shear distortion.")
+    ("c2" :type string :documentation "Inner orientation: affinity and shear distortion.")
+    ("r0" :type string :documentation "Inner orientation.")
+    ("outer-orientation-description" :type string :documentation "Comments regarding outer orientation calibration.")
+    ("dx" :type string :documentation "Outer orientation; in metres.")
+    ("dy" :type string :documentation "Outer orientation; in metres.")
+    ("dz" :type string :documentation "Outer orientation; in metres.")
+    ("omega" :type string :documentation "Outer orientation.")
+    ("phi" :type string :documentation "Outer orientation.")
+    ("kappa" :type string :documentation "Outer orientation.")
+    ("boresight-description" :type string :documentation "Comments regarding boresight alignment calibration.")
+    ("bdx" :type string :documentation "Boresight alignment.")
+    ("bdy" :type string :documentation "Boresight alignment.")
+    ("bdz" :type string :documentation "Boresight alignment.")
+    ("bddx" :type string :documentation "Boresight alignment.")
+    ("bddy" :type string :Documentation "Boresight alignment.")
+    ("bddz" :type string :documentation "Boresight alignment.")
+    ("brotx" :type string :documentation "Boresight alignment.")
+    ("broty" :type string :documentation "Boresight alignment.")
+    ("brotz" :type string :documentation "Boresight alignment.")
+    ("bdrotx" :type string :documentation "Boresight alignment.")
+    ("bdroty" :type string :documentation "Boresight alignment.")
+    ("bdrotz" :type string :documentation "Boresight alignment.")))    
+
+(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-camera-calibration-options*))
 
 (defun main ()
   "The UNIX command line entry point."
   (handler-case
-      (command-line-arguments:compute-and-process-command-line-options *opt-spec*)
+      (command-line-arguments:compute-and-process-command-line-options *cli-options*)
     (error (e) (format *error-output* "~A~&" e))))
 
 (defun cli-help-action (&rest rest)
@@ -26,7 +105,19 @@
   (declare (ignore rest))
   (format *standard-output* "~&Usage: ...~&~A"
           (asdf:system-long-description (asdf:find-system :phoros)))
-  (command-line-arguments:show-option-help *opt-spec*))
+  (command-line-arguments:show-option-help *cli-main-options*)
+  (format *standard-output* "~&Database connection:")
+  (command-line-arguments:show-option-help *cli-db-connection-options*)
+  (format *standard-output* "~&Camera hardware parameters:")
+  (command-line-arguments:show-option-help *cli-camera-hardware-options*)
+  (format *standard-output* "~&Lens parameters:")
+  (command-line-arguments:show-option-help *cli-lens-options*)
+  (format *standard-output* "~&Generic device definition:")
+  (command-line-arguments:show-option-help *cli-generic-device-options*)
+  (format *standard-output* "~&Device stage-of-life definition:")
+  (command-line-arguments:show-option-help *cli-device-stage-of-life-options*)
+  (format *standard-output* "~&Camera calibration parameters:")
+  (command-line-arguments:show-option-help *cli-camera-calibration-options*))
 
 (defun cli-version-action (&rest rest)
   "Print --version message."
@@ -36,19 +127,60 @@
           (asdf:component-version (asdf:find-system :phoros))))
 
 (defun check-db-action (&rest rest)
+  "Say `OK´ if database is accessible."
   (declare (ignore rest))
-  (apply #'check-database-connection (command-line-arguments:process-command-line-options *opt-spec* command-line-arguments:*command-line-arguments*)))
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+      (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (let (connection)
+      (handler-case
+          (setf
+           connection
+           (connect database user password host :port port
+                    :use-ssl (s-sql:from-sql-name use-ssl))) ; string to keyword
+        (error (e) (format *error-output* "~A~&" e)))
+      (when connection
+        (disconnect connection)
+        (format *error-output* "~&OK~%")))))
 
-(defun check-database-connection (&key host port database (user "") (password "") use-ssl &allow-other-keys)
-  (let (connection)
-    (handler-case
-        (setf
-         connection
-         (connect database user password host :port port
-                  :use-ssl (cond ((string-equal use-ssl "no") :no)
-                                 ((string-equal use-ssl "yes") :yes)
-                                 ((string-equal use-ssl "try") :try))))
-      (error (e) (format *error-output* "~A~&" e)))
-    (when connection
-      (disconnect connection)
-      (format *error-output* "~&OK~%"))))
+(defun nuke-all-tables-action (&rest rest)
+  "Drop the bomb.  Ask for confirmation first."
+  (declare (ignore rest))
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+      (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (when (yes-or-no-p "You asked me to delete anything in database ~A at ~A:~D.  Proceed?"
+                       database host port)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
+        (nuke-all-tables)))))
+
+(defun store-stuff (store-function)
+  "Open database connection and call store-function on command line options.  Print return values to *standard-output*.  store-function should only take keyargs."
+  (let ((command-line-options
+         (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)))
+    (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+        command-line-options
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl))
+        (format *standard-output* "~&~{~D~#^ ~}~%"
+                (multiple-value-list (apply store-function :allow-other-keys t command-line-options)))))))
+
+(defun store-camera-hardware-action (&rest rest)
+  (declare (ignore rest))
+  (store-stuff #'store-camera-hardware))
+          
+(defun store-lens-action (&rest rest)
+  (declare (ignore rest))
+  (store-stuff #'store-lens))
+
+(defun store-generic-device-action (&rest rest)
+  (declare (ignore rest))
+  (store-stuff #'store-generic-device))
+
+(defun store-device-stage-of-life-action (&rest rest)
+  (declare (ignore rest))
+  (store-stuff #'store-device-stage-of-life))
+
+(defun store-camera-calibration-action (&rest rest)
+  (declare (ignore rest))
+  (store-stuff #'store-camera-calibration))
+

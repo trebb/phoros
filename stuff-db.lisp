@@ -366,16 +366,17 @@
                                    (filename i) (image-byte-position i) (fake-trigger-time-p i)))))
 
 (defun store-camera-hardware
-    (&key sensor-width-pix sensor-height-pix pix-size
-     channels
-     pix-depth color-raiser pix-colors
-     serial-number
-     description
+    (&key (sensor-width-pix (error "sensor-width-pix needed."))
+     (sensor-height-pix (error "sensor-height-pix needed."))
+     (pix-size (error "pix-size needed."))
+     (channels (error "channels needed."))
+     (pix-depth (error "pix-depth needed."))
+     (color-raiser (error "color-raiser needed."))
+     (pix-colors (error "pix-colors needed."))
+     (serial-number (error "serial-number needed."))
+     (description (error "description needed."))
      (try-overwrite t))
   "Store a new record in table sys-camera-hardware, or try updating an existing one.  Return camera-hardware-id of the altered record."
-  (assert sensor-width-pix) (assert sensor-height-pix)
-  (assert channels) (assert pix-depth) (assert color-raiser) (assert pix-colors)
-  (assert serial-number) (assert description)
   (let ((record
          (or (when try-overwrite
                (car (select-dao 'sys-camera-hardware
@@ -396,23 +397,24 @@
                  (serial-number-slot serial-number)
                  (description-slot description))
         record
-      (setf sensor-width-pix-slot sensor-width-pix)
-      (setf sensor-height-pix-slot sensor-height-pix)
-      (setf pix-size-slot pix-size)
-      (setf channels-slot channels)
-      (setf pix-depth-slot pix-depth)
-      (setf color-raiser-slot color-raiser)
-      (setf pix-colors-slot pix-colors)
-      (setf serial-number-slot serial-number)
-      (setf description-slot description))
+      (setf sensor-width-pix-slot sensor-width-pix
+            sensor-height-pix-slot sensor-height-pix
+            pix-size-slot pix-size
+            channels-slot channels
+            pix-depth-slot pix-depth
+            color-raiser-slot color-raiser
+            pix-colors-slot pix-colors
+            serial-number-slot serial-number
+            description-slot description))
     (save-dao record)
     (camera-hardware-id record)))
 
 (defun store-lens
-    (&key c serial-number description
+    (&key (c (error "c needed."))
+     (serial-number (error "serial-number needed."))
+     (description (error "description needed."))
      (try-overwrite t))
   "Store a new record in table sys-lens, or try updating an existing one.  Return lens-id of the altered record."
-  (assert c) (assert serial-number) (assert description)
   (let ((record
          (or (when try-overwrite
                (car (select-dao 'sys-lens
@@ -423,16 +425,17 @@
                  (serial-number-slot serial-number)
                  (description-slot description))
         record
-      (setf c-slot c)
-      (setf serial-number-slot serial-number)
-      (setf description-slot description))
+      (setf c-slot c
+            serial-number-slot serial-number
+            description-slot description))
     (save-dao record)
     (lens-id record)))
 
 (defun store-generic-device
     (&key (camera-hardware-id :null) (lens-id :null) (scanner-id :null))
   "Store a new record in table sys-generic-device.  Return generic-device-id of the new record."
-  (assert (notevery #'(lambda (x) (eq :null x)) (list camera-hardware-id lens-id scanner-id)))
+  (assert (notevery #'(lambda (x) (eq :null x)) (list camera-hardware-id lens-id scanner-id))
+          () "Generic device: not enough components.")
   (let ((record (make-instance 'sys-generic-device
                                :camera-hardware-id camera-hardware-id
                                :lens-id lens-id
@@ -442,19 +445,17 @@
     (generic-device-id record)))
 
 (defun store-device-stage-of-life
-    (&key recorded-device-id event-number
-     generic-device-id
-     vehicle-name
-     casing-name computer-name computer-interface-name
-     mounting-date
+    (&key (recorded-device-id (error "recorded-device-id needed."))
+     (event-number (error "event-number needed."))
+     (generic-device-id (error "generic-device-id needed."))
+     (vehicle-name (error "vehicle-name needed."))
+     (casing-name (error "casing-name needed."))
+     (computer-name (error "computer-name needed."))
+     (computer-interface-name (error "computer-interface-name needed."))
+     (mounting-date (error "mounting-date needed."))
      (unmounting-date :null)
      (try-overwrite t))
   "Store a new record in table sys-device-stage-of-life, or try updating an existing one.  Return device-stage-of-life-id of the altered record."
-  (assert recorded-device-id) (assert event-number)
-  (assert generic-device-id)
-  (assert vehicle-name)
-  (assert casing-name) (assert computer-name) (assert computer-interface-name)
-  (assert mounting-date)
   (let ((record
          (or (when try-overwrite
                (car (select-dao 'sys-device-stage-of-life
@@ -474,19 +475,148 @@
                  (mounting-date-slot mounting-date)
                  (unmounting-date-slot unmounting-date))
         record
-      (setf recorded-device-id-slot recorded-device-id)
-      (setf event-number-slot event-number)
-      (setf generic-device-id-slot generic-device-id)
-      (setf vehicle-name-slot vehicle-name)
-      (setf casing-name-slot casing-name)
-      (setf computer-name-slot computer-name)
-      (setf computer-interface-name-slot computer-interface-name)
-      (setf mounting-date-slot mounting-date)
-      (setf unmounting-date-slot unmounting-date))
+      (setf recorded-device-id-slot recorded-device-id
+            event-number-slot event-number
+            generic-device-id-slot generic-device-id
+            vehicle-name-slot vehicle-name
+            casing-name-slot casing-name
+            computer-name-slot computer-name
+            computer-interface-name-slot computer-interface-name
+            mounting-date-slot mounting-date
+            unmounting-date-slot unmounting-date))
     (save-dao record)
     (device-stage-of-life-id record)))
 
-
+(defun store-camera-calibration
+    (&key
+     (device-stage-of-life-id (error "device-stage-of-life-id needed."))
+     (date (error "date needed."))
+     (person (error "person needed."))
+     (main-description (error "main-description needed."))
+     (debug (error "debug needed."))
+     (photogrammetry-version (error "photogrammetry-version needed."))
+     (mounting-angle (error "mounting-angle needed."))
+     (inner-orientation-description (error "inner-orientation-description needed."))
+     (c (error "c needed."))
+     (xh (error "xh needed."))
+     (yh (error "yh needed."))
+     (a1 (error "a1 needed."))
+     (a2 (error "a2 needed."))
+     (a3 (error "a3 needed."))
+     (b1 (error "b1 needed."))
+     (b2 (error "b2 needed."))
+     (c1 (error "c1 needed."))
+     (c2 (error "c2 needed."))
+     (r0 (error "r0 needed."))
+     (outer-orientation-description (error "outer-orientation-description needed."))
+     (dx (error "dx needed."))
+     (dy (error "dy needed."))
+     (dz (error "dz needed."))
+     (omega (error "omega needed."))
+     (phi (error "phi needed."))
+     (kappa (error "kappa needed."))
+     (boresight-description (error "boresight-description needed."))
+     (bdx (error "bdx needed."))
+     (bdy (error "bdy needed."))
+     (bdz (error "bdz needed."))
+     (bddx (error "bddx needed."))
+     (bddy (error "bddy needed."))
+     (bddz (error "bddz needed."))
+     (brotx (error "brotx needed."))
+     (broty (error "broty needed."))
+     (brotz (error "brotz needed."))
+     (bdrotx (error "bdrotx needed."))
+     (bdroty (error "bdroty needed."))
+     (bdrotz (error "bdrotz needed.")))
+  "Store a new record of camera-calibration in table sys-device-stage-of-life, or update an existing one.  Return device-stage-of-life-id and date of the altered record."
+  (let ((record
+         (or (car (select-dao 'sys-camera-calibration
+                              (:and (:= 'device-stage-of-life-id device-stage-of-life-id)
+                                    (:= 'dat date))))
+             (make-instance 'sys-camera-calibration :fetch-defaults t))))
+    (with-slots
+          ((device-stage-of-life-id-slot device-stage-of-life-id)
+           (date-slot date)
+           (person-slot person)
+           (main-description-slot main-description)
+           (debug-slot debug)
+           (photogrammetry-version-slot photogrammetry-version)
+           (mounting-angle-slot mounting-angle)
+           (inner-orientation-description-slot inner-orientation-description)
+           (c-slot c)
+           (xh-slot xh)
+           (yh-slot yh)
+           (a1-slot a1)
+           (a2-slot a2)
+           (a3-slot a3)
+           (b1-slot b1)
+           (b2-slot b2)
+           (c1-slot c1)
+           (c2-slot c2)
+           (r0-slot r0)
+           (outer-orientation-description-slot outer-orientation-description)
+           (dx-slot dx)
+           (dy-slot dy)
+           (dz-slot dz)
+           (omega-slot omega)
+           (phi-slot phi)
+           (kappa-slot kappa)
+           (boresight-description-slot boresight-description)
+           (bdx-slot bdx)
+           (bdy-slot bdy)
+           (bdz-slot bdz)
+           (bddx-slot bddx)
+           (bddy-slot bddy)
+           (bddz-slot bddz)
+           (brotx-slot brotx)
+           (broty-slot broty)
+           (brotz-slot brotz)
+           (bdrotx-slot bdrotx)
+           (bdroty-slot bdroty)
+           (bdrotz-slot bdrotz))
+        record
+      (setf device-stage-of-life-id-slot device-stage-of-life-id
+            date-slot date
+            person-slot person
+            main-description-slot main-description
+            debug-slot debug
+            photogrammetry-version-slot photogrammetry-version
+            mounting-angle-slot mounting-angle
+            inner-orientation-description-slot inner-orientation-description
+            c-slot c
+            xh-slot xh
+            yh-slot yh
+            a1-slot a1
+            a2-slot a2
+            a3-slot a3
+            b1-slot b1
+            b2-slot b2
+            c1-slot c1
+            c2-slot c2
+            r0-slot r0
+            outer-orientation-description-slot outer-orientation-description
+            dx-slot dx
+            dy-slot dy
+            dz-slot dz
+            omega-slot omega
+            phi-slot phi
+            kappa-slot kappa
+            boresight-description-slot boresight-description
+            bdx-slot bdx
+            bdy-slot bdy
+            bdz-slot bdz
+            bddx-slot bddx
+            bddy-slot bddy
+            bddz-slot bddz
+            brotx-slot brotx
+            broty-slot broty
+            brotz-slot brotz
+            bdrotx-slot bdrotx
+            bdroty-slot bdroty
+            bdrotz-slot bdrotz))
+    (save-dao record)
+    (values (device-stage-of-life-id record)
+            (date record))))
 
 #|
 (with-connection '("phoros-dev" "postgres" "passwd" "host")
