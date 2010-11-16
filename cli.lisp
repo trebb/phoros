@@ -1,3 +1,5 @@
+;;;; UNIX command line interface
+
 (in-package :phoros)
 
 (defparameter *cli-main-options*
@@ -5,6 +7,7 @@
     ("version" :action #'cli-version-action :documentation "Output version information and exit.")
     ("verbose" :type integer :initial-value 0 :documentation "Emit increasing amounts of debugging output.")
     ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
+    ("get-image" :action #'get-image-action :documentation "Get a single image from a .pictures file and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
     ("store-camera-hardware" :action #'store-camera-hardware-action :documentation "Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
     ("store-lens" :action #'store-lens-action :documentation "Put new lens data into the database; print lens-id to stdout.")
@@ -19,6 +22,12 @@
     (("user" #\U) :type string :documentation "Database user.")
     (("password" #\W) :type string :documentation "Database user's password.")
     ("use-ssl" :type string :initial-value "no" :documentation "Use SSL in database connection. [yes|no|try]")))
+
+(defparameter *cli-get-image-options*
+  '(("count" :type integer :initial-value 0 :documentation "Image number in .pictures file.")
+    ("byte-position" :type integer :documentation "Byte position of image in .pictures file.")
+    ("in" :type string :documentation "Path to .pictures file.")
+    ("out" :type string :initial-value "phoros-get-image.png" :documentation "Path to to output .png file.")))
 
 (defparameter *cli-camera-hardware-options*
   '(("sensor-width-pix" :type integer :documentation "Width of camera sensor.")
@@ -92,7 +101,7 @@
     ("bdroty" :type string :documentation "Boresight alignment.")
     ("bdrotz" :type string :documentation "Boresight alignment.")))    
 
-(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-camera-calibration-options*))
+(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-camera-calibration-options*))
 
 (defun main ()
   "The UNIX command line entry point."
@@ -103,20 +112,23 @@
 (defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
-  (format *standard-output* "~&Usage: ...~&~A"
+  (format *standard-output*
+          "~&Usage: phoros command [options] ...~&~A~&### Commands:"
           (asdf:system-long-description (asdf:find-system :phoros)))
   (command-line-arguments:show-option-help *cli-main-options*)
-  (format *standard-output* "~&Database connection:")
+  (format *standard-output* "~&### Database connection:")
   (command-line-arguments:show-option-help *cli-db-connection-options*)
-  (format *standard-output* "~&Camera hardware parameters:")
+  (format *standard-output* "~&### Examine .pictures file:")
+  (command-line-arguments:show-option-help *cli-get-image-options*)
+  (format *standard-output* "~&### Camera hardware parameters:")
   (command-line-arguments:show-option-help *cli-camera-hardware-options*)
-  (format *standard-output* "~&Lens parameters:")
+  (format *standard-output* "~&### Lens parameters:")
   (command-line-arguments:show-option-help *cli-lens-options*)
-  (format *standard-output* "~&Generic device definition:")
+  (format *standard-output* "~&### Generic device definition:")
   (command-line-arguments:show-option-help *cli-generic-device-options*)
-  (format *standard-output* "~&Device stage-of-life definition:")
+  (format *standard-output* "~&### Device stage-of-life definition:")
   (command-line-arguments:show-option-help *cli-device-stage-of-life-options*)
-  (format *standard-output* "~&Camera calibration parameters:")
+  (format *standard-output* "~&### Camera calibration parameters:")
   (command-line-arguments:show-option-help *cli-camera-calibration-options*))
 
 (defun cli-version-action (&rest rest)
@@ -184,3 +196,13 @@
   (declare (ignore rest))
   (store-stuff #'store-camera-calibration))
 
+(defun get-image-action (&rest rest)
+  "Output a PNG file extracted from a .pictures file."
+  (declare (ignore rest))
+  (destructuring-bind (&key count byte-position in out &allow-other-keys)
+      (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (with-open-file (out-stream out :direction :output :element-type 'unsigned-byte
+                                :if-exists :supersede)
+      (if byte-position
+          (send-png out-stream in byte-position)
+          (send-nth-png count out-stream in)))))

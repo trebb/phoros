@@ -1,5 +1,3 @@
-;;; -*- mode: lisp; indent-tabs: nil -*-
-
 (in-package :phoros)
 
 (setf *js-target-version* 1.8)

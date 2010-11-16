@@ -61,10 +61,10 @@
    (common-table-name
     :col-type text
     :initarg :common-table-name
-    :documentation "Name of this project's data tables sans their canonical prefixes and suffixes.  Should be one table for all projects but this seems to come with a speed penalty."))
+    :documentation "Name of this project's data tables sans their canonical prefixes and suffixes.  Serves as a human-readable acquisition procect identifier.  Should be one table for all projects but this seems to come with a speed penalty."))
   (:metaclass dao-class)
   (:keys acquisition-project-id)
-  (:documentation "A acquisition project is basically a set of measurements that is stored in a common table."))
+  (:documentation "An acquisition project is basically a set of measurements that is stored in a common table."))
 
 (deftable sys-acquisition-project
   (:create-sequence 'sys-acquisition-project-id-seq)

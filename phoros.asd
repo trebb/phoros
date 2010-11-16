@@ -9,7 +9,7 @@
   :components ((:file "package")
                (:file "log")
                (:file "phoros")
-               (:file "read-pictures-file")
+               (:file "pictures-file")
                (:file "db-tables")
                (:file "stuff-db")
                (:file "cli"))
