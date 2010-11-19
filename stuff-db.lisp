@@ -487,6 +487,18 @@
     (save-dao record)
     (device-stage-of-life-id record)))
 
+(defun store-device-stage-of-life-end
+    (&key (device-stage-of-life-id (error "device-stage-of-life-id needed."))
+     (unmounting-date (error "unmounting-date needed.")))
+  "Update record in table sys-device-stage-of-life with an unmounting date.  Return device-stage-of-life-id of the altered record."
+  (let ((record
+         (get-dao 'sys-device-stage-of-life device-stage-of-life-id)))
+    (with-slots ((unmounting-date-slot unmounting-date))
+        record
+      (setf unmounting-date-slot unmounting-date))
+    (update-dao record)
+    (device-stage-of-life-id record)))
+
 (defun store-camera-calibration
     (&key
      (device-stage-of-life-id (error "device-stage-of-life-id needed."))

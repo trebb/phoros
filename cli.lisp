@@ -13,6 +13,7 @@
     ("store-lens" :action #'store-lens-action :documentation "Put new lens data into the database; print lens-id to stdout.")
     ("store-generic-device" :action #'store-generic-device-action :documentation "Put a newly defined generic-device into the database; print generic-device-id to stdout.")
     ("store-device-stage-of-life" :action #'store-device-stage-of-life-action :documentation "Put a newly defined device-stage-of-life into the database; print device-stage-of-life-id to stdout.")
+    ("store-device-stage-of-life-end" :action #'store-device-stage-of-life-end-action :documentation "Put an end date to a device-stage-of-life in the database; print device-stage-of-life-id to stdout.")
     ("store-camera-calibration" :action #'store-camera-calibration-action :documentation "Put new camera-calibration into the database; print generic-device-id and calibration date to stdout.")))
 
 (defparameter *cli-db-connection-options*
@@ -54,17 +55,22 @@
 (defparameter *cli-device-stage-of-life-options*
   '(("recorded-device-id" :type string :documentation "Device id stored next to the measuring data.")
     ("event-number" :type string :documentation "GPS event that triggers this generic device.")
+    ("generic-device-id" :type integer :documentation "Numeric generic-device id in database.")
     ("vehicle-name" :type string :documentation "Descriptive name of vehicle.")
     ("casing-name" :type string :documentation "Descriptive name of device casing.")
     ("computer-name" :type string :documentation "Name of the recording device.")
     ("computer-interface-name" :type string :documentation "Interface at device.")
     ("mounting-date" :type string :documentation "Time this device constellation became effective.  Format: `2010-11-19T13:49-01´.")))
 
+(defparameter *cli-device-stage-of-life-end-options*
+  '(("device-stage-of-life-id" :type string :documentation "Id of the device-stage-of-life to put to an end.")
+    ("unmounting-date" :type string :documentation "Time this device constellation ceased to be effective.  Format: `2010-11-19T17:02-01´.")))
+
 (defparameter *cli-camera-calibration-options*
   '(("device-stage-of-life-id" :type string :documentation "This tells us what hardware this calibration is for.")
     ("date" :type string :documentation "Date of calibration.  Format: `2010-11-19T13:49-01´.")
     ("person" :type string :documentation "Person who did the calibration.")
-    ("main-description" :type string :documentation "Regarding this entire set of calibration data.  Note the special-purpose description fields inner-orientation-description, outer-orientation-description, boresight-description.")
+    ("main-description" :type string :documentation "Regarding this entire set of calibration data")
     ("debug" :type string :documentation "If true: not for production use; may be altered or deleted at any time.")
     ("photogrammetry-version" :type string :documentation "Software version used to create this data.")
     ("mounting-angle" :type integer :documentation "Head up = 0; right ear up = 90; left ear up = -90; head down = 180.")
@@ -101,7 +107,7 @@
     ("b-droty" :type string :documentation "Boresight alignment.")
     ("b-drotz" :type string :documentation "Boresight alignment.")))    
 
-(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-camera-calibration-options*))
+(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-device-stage-of-life-end-options* *cli-camera-calibration-options*))
 
 (defun main ()
   "The UNIX command line entry point."
@@ -128,6 +134,8 @@
   (command-line-arguments:show-option-help *cli-generic-device-options*)
   (format *standard-output* "~&### Device stage-of-life definition:")
   (command-line-arguments:show-option-help *cli-device-stage-of-life-options*)
+  (format *standard-output* "~&### Put an end to a device's stage-of-life:")
+  (command-line-arguments:show-option-help *cli-device-stage-of-life-end-options*)
   (format *standard-output* "~&### Camera calibration parameters:")
   (command-line-arguments:show-option-help *cli-camera-calibration-options*))
 
@@ -191,6 +199,10 @@
 (defun store-device-stage-of-life-action (&rest rest)
   (declare (ignore rest))
   (store-stuff #'store-device-stage-of-life))
+
+(defun store-device-stage-of-life-end-action (&rest rest)
+  (declare (ignore rest))
+  (store-stuff #'store-device-stage-of-life-end))
 
 (defun store-camera-calibration-action (&rest rest)
   (declare (ignore rest))
