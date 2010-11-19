@@ -310,10 +310,10 @@ Images
     :documentation "Inner orientation: focal length.")
    (xh
     :col-type double-float
-    :documentation "Inner orientation.")
+    :documentation "Inner orientation: principal point displacement.")
    (yh
     :col-type double-float
-    :documentation "Inner orientation.")
+    :documentation "Inner orientation: principal point displacement.")
    (a1
     :col-type double-float
     :documentation "Inner orientation: radial distortion.")
@@ -362,40 +362,40 @@ Images
    (boresight-description
     :col-type text
     :documentation "Comments regarding boresight alignment calibration.")
-   (bdx
+   (b-dx
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bdy
+   (b-dy
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bdz
+   (b-dz
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bddx
+   (b-ddx
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bddy
+   (b-ddy
     :col-type double-float
     :Documentation "Boresight alignment.")
-   (bddz
+   (b-ddz
     :col-type double-float
     :documentation "Boresight alignment.")
-   (brotx
+   (b-rotx
     :col-type double-float
     :documentation "Boresight alignment.")
-   (broty
+   (b-roty
     :col-type double-float
     :documentation "Boresight alignment.")
-   (brotz
+   (b-rotz
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bdrotx
+   (b-drotx
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bdroty
+   (b-droty
     :col-type double-float
     :documentation "Boresight alignment.")
-   (bdrotz
+   (b-drotz
     :col-type double-float
     :documentation "Boresight alignment."))
   (:metaclass dao-class)

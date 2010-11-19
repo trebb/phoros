@@ -516,18 +516,18 @@
      (phi (error "phi needed."))
      (kappa (error "kappa needed."))
      (boresight-description (error "boresight-description needed."))
-     (bdx (error "bdx needed."))
-     (bdy (error "bdy needed."))
-     (bdz (error "bdz needed."))
-     (bddx (error "bddx needed."))
-     (bddy (error "bddy needed."))
-     (bddz (error "bddz needed."))
-     (brotx (error "brotx needed."))
-     (broty (error "broty needed."))
-     (brotz (error "brotz needed."))
-     (bdrotx (error "bdrotx needed."))
-     (bdroty (error "bdroty needed."))
-     (bdrotz (error "bdrotz needed.")))
+     (b-dx (error "b-dx needed."))
+     (b-dy (error "b-dy needed."))
+     (b-dz (error "b-dz needed."))
+     (b-ddx (error "b-ddx needed."))
+     (b-ddy (error "b-ddy needed."))
+     (b-ddz (error "b-ddz needed."))
+     (b-rotx (error "b-rotx needed."))
+     (b-roty (error "b-roty needed."))
+     (b-rotz (error "b-rotz needed."))
+     (b-drotx (error "b-drotx needed."))
+     (b-droty (error "b-droty needed."))
+     (b-drotz (error "b-drotz needed.")))
   "Store a new record of camera-calibration in table sys-device-stage-of-life, or update an existing one.  Return device-stage-of-life-id and date of the altered record."
   (let ((record
          (or (car (select-dao 'sys-camera-calibration
@@ -562,18 +562,18 @@
            (phi-slot phi)
            (kappa-slot kappa)
            (boresight-description-slot boresight-description)
-           (bdx-slot bdx)
-           (bdy-slot bdy)
-           (bdz-slot bdz)
-           (bddx-slot bddx)
-           (bddy-slot bddy)
-           (bddz-slot bddz)
-           (brotx-slot brotx)
-           (broty-slot broty)
-           (brotz-slot brotz)
-           (bdrotx-slot bdrotx)
-           (bdroty-slot bdroty)
-           (bdrotz-slot bdrotz))
+           (b-dx-slot b-dx)
+           (b-dy-slot b-dy)
+           (b-dz-slot b-dz)
+           (b-ddx-slot b-ddx)
+           (b-ddy-slot b-ddy)
+           (b-ddz-slot b-ddz)
+           (b-rotx-slot b-rotx)
+           (b-roty-slot b-roty)
+           (b-rotz-slot b-rotz)
+           (b-drotx-slot b-drotx)
+           (b-droty-slot b-droty)
+           (b-drotz-slot b-drotz))
         record
       (setf device-stage-of-life-id-slot device-stage-of-life-id
             date-slot date
@@ -602,18 +602,18 @@
             phi-slot phi
             kappa-slot kappa
             boresight-description-slot boresight-description
-            bdx-slot bdx
-            bdy-slot bdy
-            bdz-slot bdz
-            bddx-slot bddx
-            bddy-slot bddy
-            bddz-slot bddz
-            brotx-slot brotx
-            broty-slot broty
-            brotz-slot brotz
-            bdrotx-slot bdrotx
-            bdroty-slot bdroty
-            bdrotz-slot bdrotz))
+            b-dx-slot b-dx
+            b-dy-slot b-dy
+            b-dz-slot b-dz
+            b-ddx-slot b-ddx
+            b-ddy-slot b-ddy
+            b-ddz-slot b-ddz
+            b-rotx-slot b-rotx
+            b-roty-slot b-roty
+            b-rotz-slot b-rotz
+            b-drotx-slot b-drotx
+            b-droty-slot b-droty
+            b-drotz-slot b-drotz))
     (save-dao record)
     (values (device-stage-of-life-id record)
             (date record))))
