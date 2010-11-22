@@ -9,6 +9,7 @@
     ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
     ("get-image" :action #'get-image-action :documentation "Get a single image from a .pictures file and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
+    ("create-sys-tables" :action #'create-sys-tables-action :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")
     ("store-camera-hardware" :action #'store-camera-hardware-action :documentation "Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
     ("store-lens" :action #'store-lens-action :documentation "Put new lens data into the database; print lens-id to stdout.")
     ("store-generic-device" :action #'store-generic-device-action :documentation "Put a newly defined generic-device into the database; print generic-device-id to stdout.")
@@ -60,15 +61,15 @@
     ("casing-name" :type string :documentation "Descriptive name of device casing.")
     ("computer-name" :type string :documentation "Name of the recording device.")
     ("computer-interface-name" :type string :documentation "Interface at device.")
-    ("mounting-date" :type string :documentation "Time this device constellation became effective.  Format: `2010-11-19T13:49-01´.")))
+    ("mounting-date" :type string :documentation "Time this device constellation became effective.  Format: `2010-11-19T13:49+01´.")))
 
 (defparameter *cli-device-stage-of-life-end-options*
   '(("device-stage-of-life-id" :type string :documentation "Id of the device-stage-of-life to put to an end.")
-    ("unmounting-date" :type string :documentation "Time this device constellation ceased to be effective.  Format: `2010-11-19T17:02-01´.")))
+    ("unmounting-date" :type string :documentation "Time this device constellation ceased to be effective.  Format: `2010-11-19T17:02+01´.")))
 
 (defparameter *cli-camera-calibration-options*
   '(("device-stage-of-life-id" :type string :documentation "This tells us what hardware this calibration is for.")
-    ("date" :type string :documentation "Date of calibration.  Format: `2010-11-19T13:49-01´.")
+    ("date" :type string :documentation "Date of calibration.  Format: `2010-11-19T13:49+01´.")
     ("person" :type string :documentation "Person who did the calibration.")
     ("main-description" :type string :documentation "Regarding this entire set of calibration data")
     ("debug" :type string :documentation "If true: not for production use; may be altered or deleted at any time.")
@@ -172,6 +173,17 @@
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
         (nuke-all-tables)))))
+
+(defun create-sys-tables-action (&rest rest)
+  "Make a set of sys-* tables.  Ask for confirmation first."
+  (declare (ignore rest))
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+      (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (when (yes-or-no-p "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
+                       database host port)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
+        (create-sys-tables)))))
 
 (defun store-stuff (store-function)
   "Open database connection and call store-function on command line options.  Print return values to *standard-output*.  store-function should only take keyargs."

@@ -544,7 +544,7 @@
   (let ((record
          (or (car (select-dao 'sys-camera-calibration
                               (:and (:= 'device-stage-of-life-id device-stage-of-life-id)
-                                    (:= 'dat date))))
+                                    (:= 'date date))))
              (make-instance 'sys-camera-calibration :fetch-defaults t))))
     (with-slots
           ((device-stage-of-life-id-slot device-stage-of-life-id)

@@ -283,6 +283,7 @@ Images
 
 (defclass sys-camera-calibration ()
   ((device-stage-of-life-id
+    :reader device-stage-of-life-id
     :col-type integer
     :documentation "This tells us what hardware this calibration is for.")
    (date
@@ -406,7 +407,7 @@ Images
   (!dao-def)
   (!foreign 'sys-device-stage-of-life 'device-stage-of-life-id :on-delete :restrict :on-update :restrict))
 
-(defun create-all-sys-tables ()
+(defun create-sys-tables ()
   "Create in current database a set of sys-* tables, i.e. tables that are used by all projects.  The database should probably be empty."
   (create-table 'sys-user)
   (create-table 'sys-acquisition-project)
@@ -603,7 +604,7 @@ Images
 (defun create-data-tables (common-table-name)
   "Create in current database a fresh set of canonically named tables.  common-table-name should in most cases resemble the project name and will be stored in table sys-acquisition-project, field common-table-name."
   (create-data-table-definitions common-table-name)
-  (handler-case (create-all-sys-tables) ; Create system tables if necessary.
+  (handler-case (create-sys-tables) ; Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (when (select-dao 'sys-acquisition-project (:= 'common-table-name
                                      (s-sql:to-sql-name common-table-name)))
