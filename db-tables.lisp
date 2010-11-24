@@ -177,7 +177,7 @@ Images
    (color-raiser
     :col-type integer[]
     :documentation "Array of multipliers for red, green, blue.")
-   (pix-colors
+   (bayer-pattern
     :col-type integer[]
     :documentation "Array containing the colors the first pixels of the first two (or three) rows.  Each pixel is to be interpreted as a three-byte RGB value.")
    (serial-number

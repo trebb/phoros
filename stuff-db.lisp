@@ -372,7 +372,7 @@
      (channels (error "channels needed."))
      (pix-depth (error "pix-depth needed."))
      (color-raiser (error "color-raiser needed."))
-     (pix-colors (error "pix-colors needed."))
+     (bayer-pattern (error "bayer-pattern needed."))
      (serial-number (error "serial-number needed."))
      (description (error "description needed."))
      (try-overwrite t))
@@ -393,7 +393,7 @@
                  (channels-slot channels)
                  (pix-depth-slot pix-depth)
                  (color-raiser-slot color-raiser)
-                 (pix-colors-slot pix-colors)
+                 (bayer-pattern-slot bayer-pattern)
                  (serial-number-slot serial-number)
                  (description-slot description))
         record
@@ -403,7 +403,7 @@
             channels-slot channels
             pix-depth-slot pix-depth
             color-raiser-slot color-raiser
-            pix-colors-slot pix-colors
+            bayer-pattern-slot bayer-pattern
             serial-number-slot serial-number
             description-slot description))
     (save-dao record)
@@ -634,7 +634,7 @@
 (with-connection '("phoros-dev" "postgres" "passwd" "host")
   (nuke-all-tables)
   (create-data-tables "yyyy")
-  (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :pix-colors #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
+  (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :bayer-pattern #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
   (store-lens :c 10.5 :serial-number "17.8.8" :description "blahBlah3" :try-overwrite nil)
   (store-generic-device :camera-hardware-id 1 :lens-id 1)
   (store-device-stage-of-life :recorded-device-id "1" :event-number "777" :generic-device-id 1 :vehicle-name "Auto" :casing-name "Vorn links" :computer-name "ccdheck" :computer-interface-name "eth0" :mounting-date "2010-01-30T07:00-1")
