@@ -164,7 +164,7 @@
                     (aref data-array (1+ row) (1+ column) color))
                  4))))
 
-(defun demosaic-png (png bayer-pattern)
+(defun demosaic-png (png bayer-pattern color-raiser)
   "Demosaic color png in-place whose color channel 0 is supposed to be filled with a Bayer color pattern.  Return demosaiced png.
 bayer-pattern is an array of 24-bit RGB values (red occupying the least significant byte), describing the upper left corner of the image.  Currently, only pixels 0, 1 on row 0 are taken into account.
 For a grayscale image do nothing."
@@ -175,6 +175,10 @@ For a grayscale image do nothing."
           (bayer-pattern-green #x00ff00)
           (bayer-pattern-blue #xff0000)
           (red 0) (green 1) (blue 2)    ;color coordinate in PNG array
+          (color-raiser-red (elt color-raiser 0))
+          (color-raiser-green (elt color-raiser 1))
+          (color-raiser-blue (elt color-raiser 2))
+          (pix-depth 255)     ;may some day become a function argument
           complete-even-row-even-column
           complete-even-row-odd-column
           complete-odd-row-even-column
@@ -195,13 +199,21 @@ For a grayscale image do nothing."
              (complete-blue (row column)
                (complete-squarely png row column green)
                (complete-diagonally png row column red))
-             (colorize-red (row column) (declare (ignore row column)))
+             (colorize-red (row column)
+               (setf (aref (zpng:data-array png) row column red)
+                     (min pix-depth
+                          (round (* color-raiser-red
+                                    (aref (zpng:data-array png) row column red))))))
              (colorize-green (row column)
                (setf (aref (zpng:data-array png) row column green)
-                     (aref (zpng:data-array png) row column red)))
+                     (min pix-depth
+                          (round (* color-raiser-green
+                                    (aref (zpng:data-array png) row column red))))))
              (colorize-blue (row column)
                (setf (aref (zpng:data-array png) row column blue)
-                     (aref (zpng:data-array png) row column red))))
+                     (min pix-depth
+                          (round (* color-raiser-blue
+                                    (aref (zpng:data-array png) row column red)))))))
         (cond
           ((= (aref bayer-pattern 0 0) bayer-pattern-red)
            (setf colorize-even-row-even-column #'colorize-red)
@@ -273,7 +285,7 @@ For a grayscale image do nothing."
               (funcall complete-odd-row-odd-column row column))))))
   png)
                             
-(defun send-png (output-stream path start &key (bayer-pattern (error "bayer-pattern needed.")))
+(defun send-png (output-stream path start &key (bayer-pattern (error "bayer-pattern needed.")) (color-raiser #(1 1 1)))
   "Read an image at position start in .pictures file at path and send it to the binary output-stream."
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
         (blob-size (find-keyword-value path "dataSize=" start))
@@ -294,11 +306,9 @@ For a grayscale image do nothing."
                                                      (+ blob-start huffman-table-size)
                                                      (- blob-size huffman-table-size))
                             image-height image-width color-type)
-        bayer-pattern)
+        bayer-pattern
+        color-raiser)
        output-stream))))
-
-;;(time (with-open-file (s "png.png" :element-type 'unsigned-byte :direction :output :if-exists :supersede) 
-;;                (send-png s "singlepic" 0)))
 
 (defun find-nth-picture (n path)
   "Find file-position of zero-indexed nth picture in in .pictures file at path."
@@ -314,9 +324,9 @@ For a grayscale image do nothing."
        for picture-length = (find-keyword-value path "dataSize=" picture-start)
        finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
 
-(defun send-nth-png (n output-stream path &key (bayer-pattern (error "bayer-pattern needed.")))
+(defun send-nth-png (n output-stream path &key (bayer-pattern (error "bayer-pattern needed.")) color-raiser)
   "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream."
-  (send-png output-stream path (find-nth-picture n path) :bayer-pattern bayer-pattern))
+  (send-png output-stream path (find-nth-picture n path) :bayer-pattern bayer-pattern :color-raiser color-raiser))
 
 ;;(defstruct picture-header               ; TODO: perhaps not needed
 ;;  "Information for one image from a .pictures file."
@@ -325,7 +335,5 @@ For a grayscale image do nothing."
 
 ;; TODO: (perhaps)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; raise red values by .2
-;; allow for alternative bayer patterns
 ;; collect 4 single color pixels into a three-color one
 ;; enhance contrast of grayscale images

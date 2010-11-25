@@ -179,7 +179,7 @@ Images
     :documentation "Array of multipliers for red, green, blue.")
    (bayer-pattern
     :col-type integer[]
-    :documentation "Array containing the colors the first pixels of the first two (or three) rows.  Each pixel is to be interpreted as a three-byte RGB value.")
+    :documentation "Array containing the colors of the first pixels of the first rows.  Each pixel is to be interpreted as a three-byte RGB value, red in the least-significant byte.")
    (serial-number
     :col-type text)
    (description

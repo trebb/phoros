@@ -23,4 +23,5 @@
                :drakma
                :trivial-shell
                :command-line-arguments
+               :cl-utilities
                :cl-log))

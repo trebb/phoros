@@ -29,7 +29,8 @@
   '(("count" :type integer :initial-value 0 :documentation "Image number in .pictures file.")
     ("byte-position" :type integer :documentation "Byte position of image in .pictures file.")
     ("in" :type string :documentation "Path to .pictures file.")
-    ("out" :type string :initial-value "phoros-get-image.png" :documentation "Path to to output .png file.")))
+    ("out" :type string :initial-value "phoros-get-image.png" :documentation "Path to to output .png file.")
+    ("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")))
 
 (defparameter *cli-camera-hardware-options*
   '(("sensor-width-pix" :type integer :documentation "Width of camera sensor.")
@@ -37,8 +38,8 @@
     ("pix-size" :type string :documentation "Camera pixel size in millimetres (float).")
     ("channels" :type integer :documentation "Number of color channels")
     ("pix-depth" :type integer :initial-value 255 :documentation "Greatest possible pixel value.")
-    ("color-raiser" :type string :documentation "TODO: Yet to be defined.  Try '{r,g,b}'")
-    ("bayer-pattern" :type string :documentation "TODO: Yet to be defined.")
+    ("color-raiser" :type string :initial-value "1,1,1" :action :raw-color-raiser :documentation "Multipliers for the individual color components.  Example: 1.2,1,.8 multiplies red by 1.2 and blue by 0.8.")
+    ("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
     ("serial-number" :type string :documentation "Serial number.")
     ("description" :type string :documentation "Description of camera.")
     ("try-overwrite" :type boolean :initial-value "yes" :documentation "Overwrite matching camera-hardware record if any.")))
@@ -185,10 +186,48 @@
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
         (create-sys-tables)))))
 
+(defun canonicalize-bayer-pattern (raw &optional sql-string-p)
+  "Convert list of strings of comma-separated hex color strings (ex: #0000ff for red) into an array of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
+  (let* ((array
+          (loop
+             for row in raw
+             collect
+               (loop
+                  for hex-color in (cl-utilities:split-sequence #\, row)
+                  collect
+                    (let ((*read-base* 16))
+                      (assert (eql (elt hex-color 0) #\#) () "~A is not a valid color" hex-color)
+                      (read-from-string
+                       (concatenate 'string
+                                    (subseq hex-color 5 7)
+                                    (subseq hex-color 3 5)
+                                    (subseq hex-color 1 3))
+                       nil)))))
+         (rows (length array))
+         (columns (length (elt array 0))))
+    (if sql-string-p
+        (format nil "{~{{~{~A~#^,~}}~}}" array)
+        (make-array (list rows columns) :initial-contents array))))
+
+(defun canonicalize-color-raiser (raw &optional sql-string-p)
+  "Convert string of comma-separated numbers into a vector of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
+  (let* ((vector
+          (loop
+             for multiplier in (cl-utilities:split-sequence #\, raw :count 3)
+             collect
+             (read-from-string multiplier nil))))
+    (if sql-string-p
+        (format nil "{~{~A~#^,~}}" vector)
+        (make-array '(3) :initial-contents vector))))
+
 (defun store-stuff (store-function)
   "Open database connection and call store-function on command line options.  Print return values to *standard-output*.  store-function should only take keyargs."
   (let ((command-line-options
          (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)))
+    (setf (getf command-line-options :bayer-pattern)
+          (canonicalize-bayer-pattern (getf command-line-options :raw-bayer-pattern) t)
+          (getf command-line-options :color-raiser)
+          (canonicalize-color-raiser (getf command-line-options :raw-color-raiser) t))
     (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
         command-line-options
       (with-connection (list database user password host :port port
@@ -223,10 +262,10 @@
 (defun get-image-action (&rest rest)
   "Output a PNG file extracted from a .pictures file."
   (declare (ignore rest))
-  (destructuring-bind (&key count byte-position in out &allow-other-keys)
+  (destructuring-bind (&key count byte-position in out raw-bayer-pattern raw-color-raiser &allow-other-keys)
       (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
     (with-open-file (out-stream out :direction :output :element-type 'unsigned-byte
                                 :if-exists :supersede)
       (if byte-position
-          (send-png out-stream in byte-position)
-          (send-nth-png count out-stream in)))))
+          (send-png out-stream in byte-position :bayer-pattern (canonicalize-bayer-pattern raw-bayer-pattern) :color-raiser (canonicalize-color-raiser raw-color-raiser))
+          (send-nth-png count out-stream in :bayer-pattern (canonicalize-bayer-pattern raw-bayer-pattern) :color-raiser (canonicalize-color-raiser raw-color-raiser))))))
