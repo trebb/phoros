@@ -188,37 +188,39 @@
 
 (defun canonicalize-bayer-pattern (raw &optional sql-string-p)
   "Convert list of strings of comma-separated hex color strings (ex: #0000ff for red) into an array of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
-  (let* ((array
-          (loop
-             for row in raw
-             collect
+  (when raw
+    (let* ((array
+            (loop
+               for row in raw
+               collect
                (loop
                   for hex-color in (cl-utilities:split-sequence #\, row)
                   collect
-                    (let ((*read-base* 16))
-                      (assert (eql (elt hex-color 0) #\#) () "~A is not a valid color" hex-color)
-                      (read-from-string
-                       (concatenate 'string
-                                    (subseq hex-color 5 7)
-                                    (subseq hex-color 3 5)
-                                    (subseq hex-color 1 3))
-                       nil)))))
-         (rows (length array))
-         (columns (length (elt array 0))))
-    (if sql-string-p
-        (format nil "{~{{~{~A~#^,~}}~}}" array)
-        (make-array (list rows columns) :initial-contents array))))
+                  (let ((*read-base* 16))
+                    (assert (eql (elt hex-color 0) #\#) () "~A is not a valid color" hex-color)
+                    (read-from-string
+                     (concatenate 'string
+                                  (subseq hex-color 5 7)
+                                  (subseq hex-color 3 5)
+                                  (subseq hex-color 1 3))
+                     nil)))))
+           (rows (length array))
+           (columns (length (elt array 0))))
+      (if sql-string-p
+          (format nil "{~{{~{~A~#^,~}}~}}" array)
+          (make-array (list rows columns) :initial-contents array)))))
 
 (defun canonicalize-color-raiser (raw &optional sql-string-p)
   "Convert string of comma-separated numbers into a vector of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
-  (let* ((vector
-          (loop
-             for multiplier in (cl-utilities:split-sequence #\, raw :count 3)
-             collect
-             (read-from-string multiplier nil))))
-    (if sql-string-p
-        (format nil "{~{~A~#^,~}}" vector)
-        (make-array '(3) :initial-contents vector))))
+  (when raw
+    (let* ((vector
+            (loop
+               for multiplier in (cl-utilities:split-sequence #\, raw :count 3)
+               collect
+               (read-from-string multiplier nil))))
+      (if sql-string-p
+          (format nil "{~{~A~#^,~}}" vector)
+          (make-array '(3) :initial-contents vector)))))
 
 (defun store-stuff (store-function)
   "Open database connection and call store-function on command line options.  Print return values to *standard-output*.  store-function should only take keyargs."

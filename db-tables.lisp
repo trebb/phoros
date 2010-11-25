@@ -175,7 +175,7 @@ Images
    (pix-depth
     :col-type integer)
    (color-raiser
-    :col-type integer[]
+    :col-type float[]
     :documentation "Array of multipliers for red, green, blue.")
    (bayer-pattern
     :col-type integer[]
