@@ -128,6 +128,24 @@
             ))
       png))
 
+(defun fetch-picture (stream start-position length height width color-type)
+  "Return the Bayer pattern taken from stream in a zpng:png image, everything in color channel 0.  Start at start-position or, if that is nil, at stream's file position."
+  (when start-position (file-position stream start-position))
+  (let* ((png (make-instance 'zpng:png
+                             :color-type color-type
+                             :width width :height height))
+         (png-image-data (zpng:image-data png))
+         (raw-image (make-array (list length) :element-type 'unsigned-byte)))
+    (ecase color-type
+      (:grayscale
+       (read-sequence png-image-data stream))
+      (:truecolor                       ; TODO: needs testing
+       (read-sequence raw-image stream)
+       (loop
+          for pixel across raw-image and red from 0 by 3 do
+            (setf (svref png-image-data red) pixel))))
+    png))
+
 (defun complete-horizontally (png row column color)
   "Fake a color component of a pixel based its neighbors."
   (let ((data-array (zpng:data-array png)))
@@ -296,16 +314,21 @@ For a grayscale image do nothing."
         (color-type (ecase (find-keyword-value path "channels=" start)
                       (1 :grayscale)
                       (3 :truecolor))))
-    (assert (or (= 2 compression-mode) ; compressed with individual huffman table
-                (= 1 compression-mode))) ; compressed with pre-built huffman table
+    ;;(assert (or (= 2 compression-mode) ;compressed with individual huffman table
+    ;;            (= 1 compression-mode) ; compressed with pre-built huffman table
+    ;;            (= 0 compression-mode))) ; uncompressed
     (with-open-file (input-stream path :element-type 'unsigned-byte)
       (zpng:write-png-stream
        (demosaic-png
-        (uncompress-picture (read-huffman-table input-stream blob-start)
-                            (read-compressed-picture input-stream
-                                                     (+ blob-start huffman-table-size)
-                                                     (- blob-size huffman-table-size))
-                            image-height image-width color-type)
+        (ecase compression-mode
+          ((2 1)   ;compressed with individual/pre-built huffman table
+           (uncompress-picture (read-huffman-table input-stream blob-start)
+                               (read-compressed-picture input-stream
+                                                        (+ blob-start huffman-table-size)
+                                                        (- blob-size huffman-table-size))
+                               image-height image-width color-type))
+          (0                            ;uncompressed
+           (fetch-picture input-stream blob-start blob-size image-height image-width color-type)))
         bayer-pattern
         color-raiser)
        output-stream))))
