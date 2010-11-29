@@ -6,16 +6,12 @@
   '((("help" #\h) :action #'cli-help-action  :documentation "Print this help and exit.")
     ("version" :action #'cli-version-action :documentation "Output version information and exit.")
     ("verbose" :type integer :initial-value 0 :documentation "Emit increasing amounts of debugging output.")
+    ("log-dir" :type string :initial-value "" :documentation "Where to put the log files.")
     ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
     ("get-image" :action #'get-image-action :documentation "Get a single image from a .pictures file and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
     ("create-sys-tables" :action #'create-sys-tables-action :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")
-    ("store-camera-hardware" :action #'store-camera-hardware-action :documentation "Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
-    ("store-lens" :action #'store-lens-action :documentation "Put new lens data into the database; print lens-id to stdout.")
-    ("store-generic-device" :action #'store-generic-device-action :documentation "Put a newly defined generic-device into the database; print generic-device-id to stdout.")
-    ("store-device-stage-of-life" :action #'store-device-stage-of-life-action :documentation "Put a newly defined device-stage-of-life into the database; print device-stage-of-life-id to stdout.")
-    ("store-device-stage-of-life-end" :action #'store-device-stage-of-life-end-action :documentation "Put an end date to a device-stage-of-life in the database; print device-stage-of-life-id to stdout.")
-    ("store-camera-calibration" :action #'store-camera-calibration-action :documentation "Put new camera-calibration into the database; print generic-device-id and calibration date to stdout.")))
+    ("create-acquisition-project" :type string :action #'create-acquisition-project-action :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")))
 
 (defparameter *cli-db-connection-options*
   '((("host" #\H) :type string :initial-value "localhost" :documentation "Database server.")
@@ -30,32 +26,40 @@
     ("byte-position" :type integer :documentation "Byte position of image in .pictures file.")
     ("in" :type string :documentation "Path to .pictures file.")
     ("out" :type string :initial-value "phoros-get-image.png" :documentation "Path to to output .png file.")
-    ("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")))
+    ;; The way it should be had we two-dimensional arrays in postmodern:
+    ;;("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
+    ("bayer-pattern" :type string :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")))
 
 (defparameter *cli-camera-hardware-options*
-  '(("sensor-width-pix" :type integer :documentation "Width of camera sensor.")
+  '(("store-camera-hardware" :action #'store-camera-hardware-action :documentation "Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
+    ("sensor-width-pix" :type integer :documentation "Width of camera sensor.")
     ("sensor-height-pix" :type integer :documentation "Height of camera sensor.")
     ("pix-size" :type string :documentation "Camera pixel size in millimetres (float).")
     ("channels" :type integer :documentation "Number of color channels")
     ("pix-depth" :type integer :initial-value 255 :documentation "Greatest possible pixel value.")
     ("color-raiser" :type string :initial-value "1,1,1" :action :raw-color-raiser :documentation "Multipliers for the individual color components.  Example: 1.2,1,.8 multiplies red by 1.2 and blue by 0.8.")
-    ("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
+    ;; The way it should be had we two-dimensional arrays in postmodern:
+    ;;("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
+    ("bayer-pattern" :type string :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
     ("serial-number" :type string :documentation "Serial number.")
     ("description" :type string :documentation "Description of camera.")
     ("try-overwrite" :type boolean :initial-value "yes" :documentation "Overwrite matching camera-hardware record if any.")))
 
 (defparameter *cli-lens-options*
-  '(("c" :type string :documentation "Nominal focal length in millimetres.")
+  '(("store-lens" :action #'store-lens-action :documentation "Put new lens data into the database; print lens-id to stdout.")
+    ("c" :type string :documentation "Nominal focal length in millimetres.")
     ("serial-number" :type string :documentation "Serial number.")
     ("description" :type string :documentation "Lens desription.")
     ("try-overwrite" :type boolean :initial-value "yes" :documentation "Overwrite matching lens record if any.")))
 
 (defparameter *cli-generic-device-options*
-  '(("camera-hardware-id" :type integer :documentation "Numeric camera hardware id in database.")
+  '(("store-generic-device" :action #'store-generic-device-action :documentation "Put a newly defined generic-device into the database; print generic-device-id to stdout.")
+    ("camera-hardware-id" :type integer :documentation "Numeric camera hardware id in database.")
     ("lens-id" :type integer :documentation "Numeric lens id in database.")))
 
 (defparameter *cli-device-stage-of-life-options*
-  '(("recorded-device-id" :type string :documentation "Device id stored next to the measuring data.")
+  '(("store-device-stage-of-life" :action #'store-device-stage-of-life-action :documentation "Put a newly defined device-stage-of-life into the database; print device-stage-of-life-id to stdout.")
+    ("recorded-device-id" :type string :documentation "Device id stored next to the measuring data.")
     ("event-number" :type string :documentation "GPS event that triggers this generic device.")
     ("generic-device-id" :type integer :documentation "Numeric generic-device id in database.")
     ("vehicle-name" :type string :documentation "Descriptive name of vehicle.")
@@ -65,11 +69,13 @@
     ("mounting-date" :type string :documentation "Time this device constellation became effective.  Format: `2010-11-19T13:49+01´.")))
 
 (defparameter *cli-device-stage-of-life-end-options*
-  '(("device-stage-of-life-id" :type string :documentation "Id of the device-stage-of-life to put to an end.")
+  '(("store-device-stage-of-life-end" :action #'store-device-stage-of-life-end-action :documentation "Put an end date to a device-stage-of-life in the database; print device-stage-of-life-id to stdout.")
+    ("device-stage-of-life-id" :type string :documentation "Id of the device-stage-of-life to put to an end.")
     ("unmounting-date" :type string :documentation "Time this device constellation ceased to be effective.  Format: `2010-11-19T17:02+01´.")))
 
 (defparameter *cli-camera-calibration-options*
-  '(("device-stage-of-life-id" :type string :documentation "This tells us what hardware this calibration is for.")
+  '(("store-camera-calibration" :action #'store-camera-calibration-action :documentation "Put new camera-calibration into the database; print generic-device-id and calibration date to stdout.")
+    ("device-stage-of-life-id" :type string :documentation "This tells us what hardware this calibration is for.")
     ("date" :type string :documentation "Date of calibration.  Format: `2010-11-19T13:49+01´.")
     ("person" :type string :documentation "Person who did the calibration.")
     ("main-description" :type string :documentation "Regarding this entire set of calibration data")
@@ -109,37 +115,51 @@
     ("b-droty" :type string :documentation "Boresight alignment.")
     ("b-drotz" :type string :documentation "Boresight alignment.")))    
 
-(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-device-stage-of-life-end-options* *cli-camera-calibration-options*))
+(defparameter *cli-store-images-and-points-options*
+  '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
+    (("directory" #\d) :type string :documentation "Directory containing one set of measuring data.")
+    (("common-root" #\r) :type string :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
+    ("epsilon" :type string :initial-value ".0001" :documentation "Difference in seconds below which two timestamps are considered equal.")))
+
+(defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-device-stage-of-life-end-options* *cli-camera-calibration-options* *cli-store-images-and-points-options*))
 
 (defun main ()
   "The UNIX command line entry point."
+;;  (handler-bind ((serious-condition (lambda (c)
+;;                                      (declare (ignore c))
+;;                                      (sb-debug:backtrace))))
   (handler-case
       (command-line-arguments:compute-and-process-command-line-options *cli-options*)
-    (error (e) (format *error-output* "~A~&" e))))
+    (serious-condition (c) (format *error-output* "~A~&" c))))
 
 (defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
-  (format *standard-output*
-          "~&Usage: phoros command [options] ...~&~A~&### Commands:"
-          (asdf:system-long-description (asdf:find-system :phoros)))
-  (command-line-arguments:show-option-help *cli-main-options*)
-  (format *standard-output* "~&### Database connection:")
-  (command-line-arguments:show-option-help *cli-db-connection-options*)
-  (format *standard-output* "~&### Examine .pictures file:")
-  (command-line-arguments:show-option-help *cli-get-image-options*)
-  (format *standard-output* "~&### Camera hardware parameters:")
-  (command-line-arguments:show-option-help *cli-camera-hardware-options*)
-  (format *standard-output* "~&### Lens parameters:")
-  (command-line-arguments:show-option-help *cli-lens-options*)
-  (format *standard-output* "~&### Generic device definition:")
-  (command-line-arguments:show-option-help *cli-generic-device-options*)
-  (format *standard-output* "~&### Device stage-of-life definition:")
-  (command-line-arguments:show-option-help *cli-device-stage-of-life-options*)
-  (format *standard-output* "~&### Put an end to a device's stage-of-life:")
-  (command-line-arguments:show-option-help *cli-device-stage-of-life-end-options*)
-  (format *standard-output* "~&### Camera calibration parameters:")
-  (command-line-arguments:show-option-help *cli-camera-calibration-options*))
+  (let ((format-headline (formatter "~&~95,,,'#@<~A ~>")))
+    (format *standard-output*
+            "~&Usage: phoros [options] ...~&~A"
+            (asdf:system-long-description (asdf:find-system :phoros)))
+    (format *standard-output* format-headline "Main Options")
+    (command-line-arguments:show-option-help *cli-main-options*)
+    (command-line-arguments:show-option-help *cli-primary-main-options*)
+    (format *standard-output* format-headline "Database Connection")
+    (command-line-arguments:show-option-help *cli-db-connection-options*)
+    (format *standard-output* format-headline "Examine .pictures File")
+    (command-line-arguments:show-option-help *cli-get-image-options*)
+    (format *standard-output* format-headline "Camera Hardware Parameters")
+    (command-line-arguments:show-option-help *cli-camera-hardware-options*)
+    (format *standard-output* format-headline "Lens Parameters")
+    (command-line-arguments:show-option-help *cli-lens-options*)
+    (format *standard-output* format-headline "Generic Device Definition")
+    (command-line-arguments:show-option-help *cli-generic-device-options*)
+    (format *standard-output* format-headline "Device Stage-Of-Life Definition")
+    (command-line-arguments:show-option-help *cli-device-stage-of-life-options*)
+    (format *standard-output* format-headline "Put An End To A Device's Stage-Of-Life")
+    (command-line-arguments:show-option-help *cli-device-stage-of-life-end-options*)
+    (format *standard-output* format-headline "Camera Calibration Parameters")
+    (command-line-arguments:show-option-help *cli-camera-calibration-options*)
+    (format *standard-output* format-headline "Store Measure Data")
+    (command-line-arguments:show-option-help *cli-store-images-and-points-options*)))
 
 (defun cli-version-action (&rest rest)
   "Print --version message."
@@ -167,51 +187,104 @@
 (defun nuke-all-tables-action (&rest rest)
   "Drop the bomb.  Ask for confirmation first."
   (declare (ignore rest))
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir &allow-other-keys)
       (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
     (when (yes-or-no-p "You asked me to delete anything in database ~A at ~A:~D.  Proceed?"
                        database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
-        (nuke-all-tables)))))
+        (nuke-all-tables))
+      (cl-log:log-message :db "Nuked database ~A at ~A:~D.  Back to square one!" database host port))))
 
 (defun create-sys-tables-action (&rest rest)
   "Make a set of sys-* tables.  Ask for confirmation first."
   (declare (ignore rest))
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir &allow-other-keys)
       (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
     (when (yes-or-no-p "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
                        database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
-        (create-sys-tables)))))
+        (create-sys-tables))
+      (cl-log:log-message :db "Created a fresh set of system tables in database ~A at ~A:~D." database host port))))
+
+(defun create-acquisition-project-action (common-table-name)
+  "Make a set of data tables."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir &allow-other-keys)
+      (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (create-acquisition-project common-table-name))
+    (cl-log:log-message :db "Created a fresh acquisition project by the name of ~A in database ~A at ~A:~D." common-table-name database host port)))
+
+(defun store-images-and-points-action (common-table-name)
+  "Put data into the data tables."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            directory epsilon common-root &allow-other-keys)
+      (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (cl-log:log-message :db "Start: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)
+      (store-images-and-points common-table-name directory
+                               :epsilon (read-from-string epsilon nil)
+                               :root-dir common-root))
+    (cl-log:log-message :db "Finish: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)))
+
+;;; We don't seem to have two-dimensional arrays in postmodern
+;;(defun canonicalize-bayer-pattern (raw &optional sql-string-p)
+;;  "Convert list of strings of comma-separated hex color strings (ex: #ff0000 for red) into an array of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
+;;  (when raw
+;;    (let* ((array
+;;            (loop
+;;               for row in raw
+;;               collect
+;;               (loop
+;;                  for hex-color in (cl-utilities:split-sequence #\, row)
+;;                  collect
+;;                  (let ((*read-base* 16))
+;;                    (assert (eql (elt hex-color 0) #\#) () "~A is not a valid color" hex-color)
+;;                    (read-from-string
+;;                     (concatenate 'string
+;;                                  (subseq hex-color 5 7)
+;;                                  (subseq hex-color 3 5)
+;;                                  (subseq hex-color 1 3))
+;;                     nil)))))
+;;           (rows (length array))
+;;           (columns (length (elt array 0))))
+;;      (if sql-string-p
+;;          (format nil "{~{{~{~A~#^,~}}~}}" array)
+;;          (make-array (list rows columns) :initial-contents array)))))
 
 (defun canonicalize-bayer-pattern (raw &optional sql-string-p)
-  "Convert list of strings of comma-separated hex color strings (ex: #0000ff for red) into an array of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
+  "Convert a string of comma-separated hex color strings (ex: #ff0000 for red) into a vector integers.  If sql-string-p is t, convert it into a string in SQL syntax."
   (when raw
-    (let* ((array
+    (let* ((vector
             (loop
-               for row in raw
+               for hex-color in (cl-utilities:split-sequence #\, raw)
                collect
-               (loop
-                  for hex-color in (cl-utilities:split-sequence #\, row)
-                  collect
-                  (let ((*read-base* 16))
-                    (assert (eql (elt hex-color 0) #\#) () "~A is not a valid color" hex-color)
-                    (read-from-string
-                     (concatenate 'string
-                                  (subseq hex-color 5 7)
-                                  (subseq hex-color 3 5)
-                                  (subseq hex-color 1 3))
-                     nil)))))
-           (rows (length array))
-           (columns (length (elt array 0))))
+                 (let ((*read-base* 16))
+                   (assert (eql (elt hex-color 0) #\#) () "~A is not a valid color" hex-color)
+                   (read-from-string
+                    (concatenate 'string
+                                 (subseq hex-color 5 7)
+                                 (subseq hex-color 3 5)
+                                 (subseq hex-color 1 3))
+                    nil))))
+           (columns (length vector)))
       (if sql-string-p
-          (format nil "{~{{~{~A~#^,~}}~}}" array)
-          (make-array (list rows columns) :initial-contents array)))))
+          (format nil "{~{~A~#^,~}}" vector)
+          (make-array (list columns) :initial-contents vector)))))
 
 (defun canonicalize-color-raiser (raw &optional sql-string-p)
-  "Convert string of comma-separated numbers into a vector of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
+  "Convert string of comma-separated numbers into a vector.  If sql-string-p is t, convert it into a string in SQL syntax."
   (when raw
     (let* ((vector
             (loop
@@ -230,8 +303,10 @@
           (canonicalize-bayer-pattern (getf command-line-options :raw-bayer-pattern) t)
           (getf command-line-options :color-raiser)
           (canonicalize-color-raiser (getf command-line-options :raw-color-raiser) t))
-    (destructuring-bind (&key host port database (user "") (password "") use-ssl &allow-other-keys)
+    (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                              log-dir &allow-other-keys)
         command-line-options
+      (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
         (format *standard-output* "~&~{~D~#^ ~}~%"

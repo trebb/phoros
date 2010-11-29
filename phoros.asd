@@ -2,7 +2,7 @@
   :description "PHOROS (Photogrammetric Road Survey)"
   :author "Bert Burgemeister"
   :maintainer "Bert Burgemeister"
-  :long-description "TODO"
+  :long-description "TODO: write blurb"
   :version "0.0"
   :licence "GPL"
   :serial t

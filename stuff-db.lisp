@@ -6,6 +6,7 @@
          (- (find-keyword path "PICTUREHEADER_END")
             (find-keyword path "PICTUREHEADER_BEGIN") *picture-header-length-tolerance*))) ; allow for variation in dataSize and a few other parameters
     (with-open-file (stream (print path) :element-type 'unsigned-byte)
+      (cl-log:log-message :db "Digesting ~A." path)
       (loop
          with pictures-data = (make-array '(600) :fill-pointer 0)
          for picture-start =
@@ -31,8 +32,8 @@
               :byte-position picture-start)
              pictures-data)
          finally
-         (repair-missing-trigger-times pictures-data)
-         (return  pictures-data)))))
+           (repair-missing-trigger-times pictures-data)
+           (return  pictures-data)))))
 
 (defun repair-missing-trigger-times (images)
   "Use slot camera-timestamp to fake missing trigger-times."
@@ -95,6 +96,7 @@
                                            (search "event" gps-basename
                                                    :from-end t))))
              when event-number collect (list event-number gps-file))))
+    (cl-log:log-message :db "Digesting GPS data from ~{~A~#^, ~}." (mapcar #'cadr gps-event-files))
     (loop
        for gps-event-file-entry in gps-event-files
        for gps-event-number = (first gps-event-file-entry)
@@ -167,22 +169,24 @@
   (merge-pathnames (make-pathname :name "TimeSteps" :type "history"))
   "Month names as used in http://hpiers.obspm.fr/eoppc/bul/bulc/TimeSteps.history.")
 
-(defparameter *leap-second-months* (pairlis '(jan. feb. march apr. may jun. jul. aug. sept. oct. nov. dec.)
+(defparameter *leap-second-months* (pairlis '("jan." "feb." "march" "apr." "may" "jun." "jul." "aug." "sept." "oct." "nov." "dec.")
                                             '(1 2 3 4 5 6 7 8 9 10 11 12)))
 
-(defun initialize-leap-seconds ()
-  (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
-      (drakma:http-request *time-steps-history-url*)
-    (declare (ignore headers stream must-close reason-phrase))
-    (if (= status-code 200)
+(defun initialize-leap-seconds ()       ; TODO: Security hole: read-from-string
+  (handler-case
+      (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
+          (drakma:http-request *time-steps-history-url*)
+        (declare (ignore headers stream must-close reason-phrase))
+        (assert (= status-code 200))
         (with-open-file (stream *time-steps-history-file*
                                 :direction :output
                                 :if-exists :supersede
                                 :if-does-not-exist :create)
           (write-string body stream)
-          (cl-log:log-message :debug "Downloaded leap second information from ~A" uri))
-        (cl-log:log-message :warning "Coudn't get the latest leap seconds information from ~A.~%Falling back to cached data in ~A."
-                            uri *time-steps-history-file*)))
+          (cl-log:log-message :debug "Downloaded leap second information from ~A" uri)))
+    (error (e)
+      (cl-log:log-message :warning "Couldn't get the latest leap seconds information from ~A. (~A)  Falling back to cached data in ~A."
+                            *time-steps-history-url* e *time-steps-history-file*)))
   (with-open-file (stream *time-steps-history-file*
                           :direction :input :if-does-not-exist :error)
     (loop for time-record = (string-trim " 	" (read-line stream))
@@ -194,7 +198,7 @@
         until (string-equal (subseq time-record 1 20) (make-string 19 :initial-element #\-))
         do (with-input-from-string (line time-record)
              (let ((year (read line))
-                   (month (cdr (assoc (read line) *leap-second-months*)))
+                   (month (cdr (assoc(read line) *leap-second-months* :test #'string-equal)))
                    (date (read line))
                    (sign (read line))
                    (seconds (read line)))
@@ -313,6 +317,7 @@
 (defun store-images-and-points (common-table-name dir-path &key (epsilon 1d-4) (root-dir (user-homedir-pathname)))
   "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  dir-path is a (probably absolute) path to a directory that contains one set of measuring data.  root-dir must be equal for all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
+  (create-data-table-definitions common-table-name)
   (initialize-leap-seconds)
   (let* ((images
           (collect-pictures-directory-data dir-path))
@@ -326,7 +331,7 @@
          (gps-start-pointers (loop
                                 for i in gps-points
                                 collect (cons (car i) 0)))
-         (dir-below-root-dir (print(enough-namestring (string-right-trim "/\\ " dir-path) root-dir))))
+         (dir-below-root-dir (enough-namestring (string-right-trim "/\\ " dir-path) root-dir)))
     (assert-gps-points-sanity gps-points)
     (loop
        for i across images
@@ -406,7 +411,9 @@
             bayer-pattern-slot bayer-pattern
             serial-number-slot serial-number
             description-slot description))
-    (save-dao record)
+    (let ((new-row-p (save-dao record)))
+      (cl-log:log-message :db "sys-camera-hardware: ~:[Updated~;Stored new~] camera-hardware-id ~A"
+                          new-row-p (camera-hardware-id record)))
     (camera-hardware-id record)))
 
 (defun store-lens
@@ -428,7 +435,9 @@
       (setf c-slot c
             serial-number-slot serial-number
             description-slot description))
-    (save-dao record)
+    (let ((new-row-p (save-dao record)))
+      (cl-log:log-message :db "sys-lens: ~:[Updated~;Stored new~] lens-id ~A"
+                          new-row-p (lens-id record)))
     (lens-id record)))
 
 (defun store-generic-device
@@ -441,7 +450,9 @@
                                :lens-id lens-id
                                :scanner-id scanner-id
                                :fetch-defaults t)))
-    (save-dao record)
+    (let ((new-row-p (save-dao record)))
+      (cl-log:log-message :db "sys-generic-device: ~:[Updated~;Stored new~] generic-device-id ~A"
+                          new-row-p (generic-device-id record)))
     (generic-device-id record)))
 
 (defun store-device-stage-of-life
@@ -484,7 +495,9 @@
             computer-interface-name-slot computer-interface-name
             mounting-date-slot mounting-date
             unmounting-date-slot unmounting-date))
-    (save-dao record)
+    (let ((new-row-p (save-dao record)))
+      (cl-log:log-message :db "sys-device-stage-of-life: ~:[Updated~;Stored new~] device-stage-of-life-id ~A"
+                          new-row-p (device-stage-of-life-id record)))
     (device-stage-of-life-id record)))
 
 (defun store-device-stage-of-life-end
@@ -626,14 +639,16 @@
             b-drotx-slot b-drotx
             b-droty-slot b-droty
             b-drotz-slot b-drotz))
-    (save-dao record)
+    (let ((new-row-p (save-dao record)))
+      (cl-log:log-message :db "sys-camera-calibration: ~:[Updated~;Stored new~] record for ~A, device-stage-of-life-id ~A"
+                          new-row-p (date record) (device-stage-of-life-id record)))
     (values (device-stage-of-life-id record)
             (date record))))
 
 #|
 (with-connection '("phoros-dev" "postgres" "passwd" "host")
   (nuke-all-tables)
-  (create-data-tables "yyyy")
+  (create-acquisition-project "yyyy")
   (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :bayer-pattern #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
   (store-lens :c 10.5 :serial-number "17.8.8" :description "blahBlah3" :try-overwrite nil)
   (store-generic-device :camera-hardware-id 1 :lens-id 1)

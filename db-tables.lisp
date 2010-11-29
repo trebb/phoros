@@ -179,7 +179,7 @@ Images
     :documentation "Array of multipliers for red, green, blue.")
    (bayer-pattern
     :col-type integer[]
-    :documentation "Array containing the colors of the first pixels of the first rows.  Each pixel is to be interpreted as a three-byte RGB value, red in the least-significant byte.")
+    :documentation "Array containing the colors of the first pixels of the first rows (actually, row, as postmodern can't handle two-dimensional arrays (and if it could, we wouldn't use them anyway)).  Each pixel is to be interpreted as a three-byte RGB value, red in the least-significant byte.")
    (serial-number
     :col-type text)
    (description
@@ -513,9 +513,9 @@ Images
     :reader recorded-device-id
     :col-type text
     :documentation "As found in .pictures file, header tag `cam=´.")
-   (footprint
-    :col-type (or db-null geometry)
-    :documentation "Polygon on the ground describing the approximate area covered by this image.")
+   ;;(footprint
+   ;; :col-type (or db-null geometry)
+   ;; :documentation "Polygon on the ground describing the approximate area covered by this image.")
    (gain
     :initarg :gain
     :col-type double-precision)
@@ -593,7 +593,7 @@ Images
       (!!index image-data-table-name 'recorded-device-id)
       (!!index image-data-table-name 'gain)
       (!!index image-data-table-name 'shutter)
-      (!!index image-data-table-name 'footprint :index-type :gist)
+      ;;TODO: disabled as we don't have footprints: (!!index image-data-table-name 'footprint :index-type :gist)
       ;; The following let shouldn't be necessary. (Wart in !foreign.)
       (let ((*table-symbol* image-data-table-name)
             (*table-name*  (s-sql:to-sql-name image-data-table-name)))
@@ -601,14 +601,14 @@ Images
         (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade))
       )))
 
-(defun create-data-tables (common-table-name)
+(defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.  common-table-name should in most cases resemble the project name and will be stored in table sys-acquisition-project, field common-table-name."
   (create-data-table-definitions common-table-name)
   (handler-case (create-sys-tables) ; Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (when (select-dao 'sys-acquisition-project (:= 'common-table-name
                                      (s-sql:to-sql-name common-table-name)))
-    (error "There is already a row with a common_table_name of ~A in table ~A."
+    (error "There is already a row with a common-table-name of ~A in table ~A."
            common-table-name (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
   (create-table 'point-data)
   (create-table 'image-data)

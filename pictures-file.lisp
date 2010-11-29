@@ -184,7 +184,7 @@
 
 (defun demosaic-png (png bayer-pattern color-raiser)
   "Demosaic color png in-place whose color channel 0 is supposed to be filled with a Bayer color pattern.  Return demosaiced png.
-bayer-pattern is an array of 24-bit RGB values (red occupying the least significant byte), describing the upper left corner of the image.  Currently, only pixels 0, 1 on row 0 are taken into account.
+bayer-pattern is an array of 24-bit RGB values (red occupying the least significant byte), describing the upper left corner of the image.  Currently, only pixels 0, 1 on row 0 are taken into account.  And, it's currently not even an array but a vector due to limitations in postmodern.
 For a grayscale image do nothing."
   (when (eq (zpng:color-type png) :truecolor)
     (let ((lowest-row (- (zpng:height png) 2))
@@ -233,7 +233,7 @@ For a grayscale image do nothing."
                           (round (* color-raiser-blue
                                     (aref (zpng:data-array png) row column red)))))))
         (cond
-          ((= (aref bayer-pattern 0 0) bayer-pattern-red)
+          ((= (aref bayer-pattern 0) bayer-pattern-red)
            (setf colorize-even-row-even-column #'colorize-red)
            (setf colorize-even-row-odd-column #'colorize-green)
            (setf colorize-odd-row-even-column #'colorize-green)
@@ -242,7 +242,7 @@ For a grayscale image do nothing."
            (setf complete-even-row-odd-column #'complete-green-on-red-row)
            (setf complete-odd-row-even-column #'complete-green-on-blue-row)
            (setf complete-odd-row-odd-column #'complete-blue))
-          ((= (aref bayer-pattern 0 0) bayer-pattern-blue)
+          ((= (aref bayer-pattern 0) bayer-pattern-blue)
            (setf colorize-even-row-even-column #'colorize-blue)
            (setf colorize-even-row-odd-column #'colorize-green)
            (setf colorize-odd-row-even-column #'colorize-green)
@@ -251,9 +251,9 @@ For a grayscale image do nothing."
            (setf complete-even-row-odd-column #'complete-green-on-blue-row)
            (setf complete-odd-row-even-column #'complete-green-on-red-row)
            (setf complete-odd-row-odd-column #'complete-red))
-          ((= (aref bayer-pattern 0 0) bayer-pattern-green)
+          ((= (aref bayer-pattern 0) bayer-pattern-green)
            (cond
-             ((=(aref bayer-pattern 0 1) bayer-pattern-red)
+             ((=(aref bayer-pattern 1) bayer-pattern-red)
               (setf colorize-even-row-even-column #'colorize-green)
               (setf colorize-even-row-odd-column #'colorize-red)
               (setf colorize-odd-row-even-column #'colorize-blue)
@@ -262,7 +262,7 @@ For a grayscale image do nothing."
               (setf complete-even-row-odd-column #'complete-red)
               (setf complete-odd-row-even-column #'complete-blue)
               (setf complete-odd-row-odd-column #'complete-green-on-blue-row))
-             ((=(aref bayer-pattern 0 1) bayer-pattern-blue)
+             ((=(aref bayer-pattern 1) bayer-pattern-blue)
               (setf colorize-even-row-even-column #'colorize-green)
               (setf colorize-even-row-odd-column #'colorize-blue)
               (setf colorize-odd-row-even-column #'colorize-red)
