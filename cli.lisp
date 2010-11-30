@@ -134,7 +134,9 @@
 ;;                                      (sb-debug:backtrace))))
   (handler-case
       (command-line-arguments:compute-and-process-command-line-options *cli-options*)
-    (serious-condition (c) (format *error-output* "~A~&" c))))
+    (serious-condition (c)
+      (cl-log:log-message :warning "Cancelled: ~A" c)
+      (format *error-output* "~A~&" c))))
 
 (defun cli-help-action (&rest rest)
   "Print --help message."

@@ -2,10 +2,10 @@
 
 (cl-log:defcategory :db-sys)
 (cl-log:defcategory :db-dat)
-(cl-log:defcategory :db (or :db-sys :db-dat))
 (cl-log:defcategory :orphan)
 (cl-log:defcategory :warning)
-(cl-log:defcategory :debug (or :debug :db :warning :orphan))
+(cl-log:defcategory :db (or :db-sys :db-dat :warning))
+(cl-log:defcategory :debug (or :debug :orphan))
 
 (defun launch-logger (log-dir)
   (let ((log-dir (pathname-directory log-dir)))
