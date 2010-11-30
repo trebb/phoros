@@ -499,7 +499,7 @@
             mounting-date-slot mounting-date
             unmounting-date-slot unmounting-date))
     (let ((new-row-p (save-dao record)))
-      (cl-log:log-message :db "sys-device-stage-of-life: ~:[Updated~;Stored new~] device-stage-of-life-id ~A"
+      (cl-log:log-message :db-sys "sys-device-stage-of-life: ~:[Updated~;Stored new~] device-stage-of-life-id ~A"
                           new-row-p (device-stage-of-life-id record)))
     (device-stage-of-life-id record)))
 
@@ -555,7 +555,11 @@
      (b-rotz (error "b-rotz needed."))
      (b-drotx (error "b-drotx needed."))
      (b-droty (error "b-droty needed."))
-     (b-drotz (error "b-drotz needed.")))
+     (b-drotz (error "b-drotz needed."))
+     (nx (error "nx needed."))
+     (ny (error "ny needed."))
+     (nz (error "nz needed."))
+     (d (error "d needed.")))
   "Store a new record of camera-calibration in table sys-device-stage-of-life, or update an existing one.  Return device-stage-of-life-id and date of the altered record."
   (let ((record
          (or (car (select-dao 'sys-camera-calibration
@@ -601,7 +605,11 @@
            (b-rotz-slot b-rotz)
            (b-drotx-slot b-drotx)
            (b-droty-slot b-droty)
-           (b-drotz-slot b-drotz))
+           (b-drotz-slot b-drotz)
+           (nx-slot nx)
+           (ny-slot ny)
+           (nz-slot nz)
+           (d-slot d))
         record
       (setf device-stage-of-life-id-slot device-stage-of-life-id
             date-slot date
@@ -641,9 +649,13 @@
             b-rotz-slot b-rotz
             b-drotx-slot b-drotx
             b-droty-slot b-droty
-            b-drotz-slot b-drotz))
+            b-drotz-slot b-drotz
+            nx-slot nx
+            ny-slot ny
+            nz-slot nz
+            d-slot d))
     (let ((new-row-p (save-dao record)))
-      (cl-log:log-message :db "sys-camera-calibration: ~:[Updated~;Stored new~] record for ~A, device-stage-of-life-id ~A"
+      (cl-log:log-message :db-sys "sys-camera-calibration: ~:[Updated~;Stored new~] record for ~A, device-stage-of-life-id ~A"
                           new-row-p (date record) (device-stage-of-life-id record)))
     (values (device-stage-of-life-id record)
             (date record))))

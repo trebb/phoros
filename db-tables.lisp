@@ -400,10 +400,22 @@ TODO: /images/ part not currently enforced."))
     :documentation "Boresight alignment.")
    (b-drotz
     :col-type double-float
-    :documentation "Boresight alignment."))
+    :documentation "Boresight alignment.")
+   (nx
+    :col-type double-float
+    :documentation "Component of unit vector of vehicle ground plane.")
+   (ny
+    :col-type double-float
+    :documentation "Component of unit vector of vehicle ground plane.")
+   (nz
+    :col-type double-float
+    :documentation "Component of unit vector of vehicle ground plane.")
+   (d
+    :col-type double-float
+    :documentation "Distance of vehicle ground plane."))
   (:metaclass dao-class)
   (:keys device-stage-of-life-id date)
-  (:documentation "TODO: description of vehicle ground plane (for mono photogrammetry)"))
+  (:documentation "Camera calibration parameters."))
 
 (deftable sys-camera-calibration
   (!dao-def)

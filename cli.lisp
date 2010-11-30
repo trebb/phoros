@@ -113,7 +113,11 @@
     ("b-rotz" :type string :documentation "Boresight alignment.")
     ("b-drotx" :type string :documentation "Boresight alignment.")
     ("b-droty" :type string :documentation "Boresight alignment.")
-    ("b-drotz" :type string :documentation "Boresight alignment.")))    
+    ("b-drotz" :type string :documentation "Boresight alignment.")
+    ("nx" :type string :documentation "X component of unit vector of vehicle ground plane.")
+    ("ny" :type string :documentation "Y component of unit vector of vehicle ground plane.")
+    ("nz" :type string :documentation "Z component of unit vector of vehicle ground plane.")
+    ("d" :type string :documentation "Distance of vehicle ground plane.")))
 
 (defparameter *cli-store-images-and-points-options*
   '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
@@ -141,7 +145,6 @@
             (asdf:system-long-description (asdf:find-system :phoros)))
     (format *standard-output* format-headline "Main Options")
     (command-line-arguments:show-option-help *cli-main-options*)
-    (command-line-arguments:show-option-help *cli-primary-main-options*)
     (format *standard-output* format-headline "Database Connection")
     (command-line-arguments:show-option-help *cli-db-connection-options*)
     (format *standard-output* format-headline "Examine .pictures File")
