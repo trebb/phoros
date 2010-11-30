@@ -135,7 +135,9 @@ Images
                          slot directory
 
 ++++ means constant
----- means unimportant"))
+---- means unimportant
+
+TODO: /images/ part not currently enforced."))
   (:metaclass dao-class)
   (:keys measurement-id)
   (:documentation "A measurement comprises .pictures files and one set of GPS event log files in a dedicated directory."))
@@ -440,7 +442,7 @@ Images
    (trigger-time
     :writer (setf trigger-time)
     :col-type double-precision
-    :documentation "UNIX time, i.e. seconds from 1970.")
+    :documentation "UNIX time, i.e. seconds from 1970.  Values before 1980-01-06T00:00:00Z are considered invalid.")
    (roll
     :col-type double-precision)
    (pitch

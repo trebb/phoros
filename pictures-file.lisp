@@ -304,7 +304,7 @@ For a grayscale image do nothing."
   png)
                             
 (defun send-png (output-stream path start &key (bayer-pattern (error "bayer-pattern needed.")) (color-raiser #(1 1 1)))
-  "Read an image at position start in .pictures file at path and send it to the binary output-stream."
+  "Read an image at position start in .pictures file at path and send it to the binary output-stream.  Return UNIX trigger-time of image."
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
         (blob-size (find-keyword-value path "dataSize=" start))
         (huffman-table-size (* 511 (+ 1 4)))
@@ -313,10 +313,8 @@ For a grayscale image do nothing."
         (compression-mode (find-keyword-value path "compressed=" start))
         (color-type (ecase (find-keyword-value path "channels=" start)
                       (1 :grayscale)
-                      (3 :truecolor))))
-    ;;(assert (or (= 2 compression-mode) ;compressed with individual huffman table
-    ;;            (= 1 compression-mode) ; compressed with pre-built huffman table
-    ;;            (= 0 compression-mode))) ; uncompressed
+                      (3 :truecolor)))
+        (trigger-time (find-keyword-value path "timeTrigger=" start)))
     (with-open-file (input-stream path :element-type 'unsigned-byte)
       (zpng:write-png-stream
        (demosaic-png
@@ -331,7 +329,8 @@ For a grayscale image do nothing."
            (fetch-picture input-stream blob-start blob-size image-height image-width color-type)))
         bayer-pattern
         color-raiser)
-       output-stream))))
+       output-stream))
+    trigger-time))
 
 (defun find-nth-picture (n path)
   "Find file-position of zero-indexed nth picture in in .pictures file at path."
@@ -348,7 +347,7 @@ For a grayscale image do nothing."
        finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
 
 (defun send-nth-png (n output-stream path &key (bayer-pattern (error "bayer-pattern needed.")) color-raiser)
-  "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream."
+  "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream.  Return UNIX trigger-time of image."
   (send-png output-stream path (find-nth-picture n path) :bayer-pattern bayer-pattern :color-raiser color-raiser))
 
 ;;(defstruct picture-header               ; TODO: perhaps not needed

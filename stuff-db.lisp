@@ -6,7 +6,7 @@
          (- (find-keyword path "PICTUREHEADER_END")
             (find-keyword path "PICTUREHEADER_BEGIN") *picture-header-length-tolerance*))) ; allow for variation in dataSize and a few other parameters
     (with-open-file (stream (print path) :element-type 'unsigned-byte)
-      (cl-log:log-message :db "Digesting ~A." path)
+      (cl-log:log-message :db-dat "Digesting ~A." path)
       (loop
          with pictures-data = (make-array '(600) :fill-pointer 0)
          for picture-start =
@@ -96,7 +96,7 @@
                                            (search "event" gps-basename
                                                    :from-end t))))
              when event-number collect (list event-number gps-file))))
-    (cl-log:log-message :db "Digesting GPS data from ~{~A~#^, ~}." (mapcar #'cadr gps-event-files))
+    (cl-log:log-message :db-dat "Digesting GPS data from ~{~A~#^, ~}." (mapcar #'cadr gps-event-files))
     (loop
        for gps-event-file-entry in gps-event-files
        for gps-event-number = (first gps-event-file-entry)
@@ -216,6 +216,7 @@
   "Begin of a GPS week (approximately Sunday 00:00)"
   (let ((week-length (* 7 24 3600))
         (leap-seconds (cdr (find time *leap-seconds* :key #'car :test #'> :from-end t))))
+    (assert leap-seconds () "Couldn't determine leap seconds for ~A" (timestring (round time)))
     (+ (* (floor (- time *gps-epoch*) week-length)
           week-length)
        *gps-epoch*
@@ -324,7 +325,8 @@
          (estimated-time
           (loop
              for i across images
-             unless (fake-trigger-time-p i)
+             unless (or (fake-trigger-time-p i)
+                        (< (trigger-time i) *gps-epoch*))
              do (return (trigger-time i))))
          (gps-points
           (collect-gps-data dir-path estimated-time))
@@ -332,6 +334,7 @@
                                 for i in gps-points
                                 collect (cons (car i) 0)))
          (dir-below-root-dir (enough-namestring (string-right-trim "/\\ " dir-path) root-dir)))
+    (cl-log:log-message :db-dat "I assume this measure was taken approximately ~A." (timestring (round estimated-time)))
     (assert-gps-points-sanity gps-points)
     (loop
        for i across images
@@ -412,7 +415,7 @@
             serial-number-slot serial-number
             description-slot description))
     (let ((new-row-p (save-dao record)))
-      (cl-log:log-message :db "sys-camera-hardware: ~:[Updated~;Stored new~] camera-hardware-id ~A"
+      (cl-log:log-message :db-sys "sys-camera-hardware: ~:[Updated~;Stored new~] camera-hardware-id ~A"
                           new-row-p (camera-hardware-id record)))
     (camera-hardware-id record)))
 
@@ -436,7 +439,7 @@
             serial-number-slot serial-number
             description-slot description))
     (let ((new-row-p (save-dao record)))
-      (cl-log:log-message :db "sys-lens: ~:[Updated~;Stored new~] lens-id ~A"
+      (cl-log:log-message :db-sys "sys-lens: ~:[Updated~;Stored new~] lens-id ~A"
                           new-row-p (lens-id record)))
     (lens-id record)))
 
@@ -451,7 +454,7 @@
                                :scanner-id scanner-id
                                :fetch-defaults t)))
     (let ((new-row-p (save-dao record)))
-      (cl-log:log-message :db "sys-generic-device: ~:[Updated~;Stored new~] generic-device-id ~A"
+      (cl-log:log-message :db-sys "sys-generic-device: ~:[Updated~;Stored new~] generic-device-id ~A"
                           new-row-p (generic-device-id record)))
     (generic-device-id record)))
 

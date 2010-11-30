@@ -8,7 +8,6 @@
     ("verbose" :type integer :initial-value 0 :documentation "Emit increasing amounts of debugging output.")
     ("log-dir" :type string :initial-value "" :documentation "Where to put the log files.")
     ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
-    ("get-image" :action #'get-image-action :documentation "Get a single image from a .pictures file and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
     ("create-sys-tables" :action #'create-sys-tables-action :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")
     ("create-acquisition-project" :type string :action #'create-acquisition-project-action :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")))
@@ -22,7 +21,8 @@
     ("use-ssl" :type string :initial-value "no" :documentation "Use SSL in database connection. [yes|no|try]")))
 
 (defparameter *cli-get-image-options*
-  '(("count" :type integer :initial-value 0 :documentation "Image number in .pictures file.")
+  '(("get-image" :action #'get-image-action :documentation "Get a single image from a .pictures file, print its trigger-time to stdout, and exit.")
+    ("count" :type integer :initial-value 0 :documentation "Image number in .pictures file.")
     ("byte-position" :type integer :documentation "Byte position of image in .pictures file.")
     ("in" :type string :documentation "Path to .pictures file.")
     ("out" :type string :initial-value "phoros-get-image.png" :documentation "Path to to output .png file.")
@@ -210,7 +210,7 @@
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
         (create-sys-tables))
-      (cl-log:log-message :db "Created a fresh set of system tables in database ~A at ~A:~D." database host port))))
+      (cl-log:log-message :db-sys "Created a fresh set of system tables in database ~A at ~A:~D." database host port))))
 
 (defun create-acquisition-project-action (common-table-name)
   "Make a set of data tables."
@@ -221,7 +221,7 @@
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (create-acquisition-project common-table-name))
-    (cl-log:log-message :db "Created a fresh acquisition project by the name of ~A in database ~A at ~A:~D." common-table-name database host port)))
+    (cl-log:log-message :db-dat "Created a fresh acquisition project by the name of ~A in database ~A at ~A:~D." common-table-name database host port)))
 
 (defun store-images-and-points-action (common-table-name)
   "Put data into the data tables."
@@ -232,11 +232,11 @@
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
-      (cl-log:log-message :db "Start: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)
+      (cl-log:log-message :db-dat "Start: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)
       (store-images-and-points common-table-name directory
                                :epsilon (read-from-string epsilon nil)
                                :root-dir common-root))
-    (cl-log:log-message :db "Finish: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)))
+    (cl-log:log-message :db-dat "Finish: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)))
 
 ;;; We don't seem to have two-dimensional arrays in postmodern
 ;;(defun canonicalize-bayer-pattern (raw &optional sql-string-p)
@@ -337,12 +337,14 @@
   (store-stuff #'store-camera-calibration))
 
 (defun get-image-action (&rest rest)
-  "Output a PNG file extracted from a .pictures file."
+  "Output a PNG file extracted from a .pictures file; print its trigger-time to stdout."
   (declare (ignore rest))
   (destructuring-bind (&key count byte-position in out raw-bayer-pattern raw-color-raiser &allow-other-keys)
       (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
     (with-open-file (out-stream out :direction :output :element-type 'unsigned-byte
                                 :if-exists :supersede)
-      (if byte-position
-          (send-png out-stream in byte-position :bayer-pattern (canonicalize-bayer-pattern raw-bayer-pattern) :color-raiser (canonicalize-color-raiser raw-color-raiser))
-          (send-nth-png count out-stream in :bayer-pattern (canonicalize-bayer-pattern raw-bayer-pattern) :color-raiser (canonicalize-color-raiser raw-color-raiser))))))
+      (let ((trigger-time
+             (if byte-position
+                 (send-png out-stream in byte-position :bayer-pattern (canonicalize-bayer-pattern raw-bayer-pattern) :color-raiser (canonicalize-color-raiser raw-color-raiser))
+                 (send-nth-png count out-stream in :bayer-pattern (canonicalize-bayer-pattern raw-bayer-pattern) :color-raiser (canonicalize-color-raiser raw-color-raiser)))))
+        (format *standard-output* "~&~A~%" (timestring (utc-from-unix trigger-time)))))))

@@ -1,6 +1,8 @@
 (in-package :phoros)
 
-(cl-log:defcategory :db)
+(cl-log:defcategory :db-sys)
+(cl-log:defcategory :db-dat)
+(cl-log:defcategory :db (or :db-sys :db-dat))
 (cl-log:defcategory :orphan)
 (cl-log:defcategory :warning)
 (cl-log:defcategory :debug (or :debug :db :warning :orphan))
@@ -35,8 +37,14 @@
           (cl-log:message-arguments self)))
 
 (defun timestring (time)
-  (multiple-value-bind (second minute hour date month year day daylight-p zone)
-      (decode-universal-time time)
-    (declare (ignore day daylight-p))
-    (format nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D~:[+~;-~]~2,'0:D" ; flipping sign of timezone
-            year month date hour minute second (plusp zone) (abs zone))))
+  "ISO 8601 representation of time."
+  (multiple-value-bind (whole-seconds remainder) (floor time)
+    (when (zerop remainder) (setf remainder nil))
+    (multiple-value-bind (second minute hour date month year day daylight-p zone)
+        (decode-universal-time whole-seconds)
+      (declare (ignore day daylight-p))
+      (multiple-value-bind (zone-hours zone-minutes)
+          (truncate (* 60 zone) 60)
+        (format
+         nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D~@[~0F~]~:[+~;-~]~2,'0:D:~2,'0:D" ; flipping sign of timezone
+         year month date hour minute second remainder (plusp zone-hours) (abs zone-hours) (abs zone-minutes))))))
