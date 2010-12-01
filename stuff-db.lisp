@@ -5,7 +5,7 @@
   (let ((estimated-header-length
          (- (find-keyword path "PICTUREHEADER_END")
             (find-keyword path "PICTUREHEADER_BEGIN") *picture-header-length-tolerance*))) ; allow for variation in dataSize and a few other parameters
-    (with-open-file (stream (print path) :element-type 'unsigned-byte)
+    (with-open-file (stream path :element-type 'unsigned-byte)
       (cl-log:log-message :db-dat "Digesting ~A." path)
       (loop
          with pictures-data = (make-array '(600) :fill-pointer 0)
@@ -183,7 +183,7 @@
                                 :if-exists :supersede
                                 :if-does-not-exist :create)
           (write-string body stream)
-          (cl-log:log-message :debug "Downloaded leap second information from ~A" uri)))
+          (cl-log:log-message :debug "Downloaded leap second information from ~A." uri)))
     (error (e)
       (cl-log:log-message :warning "Couldn't get the latest leap seconds information from ~A. (~A)  Falling back to cached data in ~A."
                             *time-steps-history-url* e *time-steps-history-file*)))
@@ -245,7 +245,7 @@
          (format nil "cs2cs +proj=latlong +datum=WGS84 +to +proj=utm +ellps=WGS84 +zone=~D +units=m +no_defs -f %.9f" utm-zone)))
     (multiple-value-bind (standard-output error-output exit-status) 
         (trivial-shell:shell-command command
-                                     :input (format nil "~F ~F ~F" longitude latitude height))
+                                     :input (format nil "~S ~S ~S" longitude latitude height))
       (unless (zerop exit-status) (error "Attempt to call `~A´ returned ~D: ~A"
                                          command exit-status error-output))
       (with-input-from-string (stream standard-output)
@@ -315,7 +315,7 @@
                                            :fetch-defaults t)))))
       (measurement-id measurement))))
 
-(defun store-images-and-points (common-table-name dir-path &key (epsilon 1d-4) (root-dir (user-homedir-pathname)))
+(defun store-images-and-points (common-table-name dir-path &key (epsilon 1d-3) (root-dir (user-homedir-pathname)))
   "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  dir-path is a (probably absolute) path to a directory that contains one set of measuring data.  root-dir must be equal for all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
   (create-data-table-definitions common-table-name)
@@ -364,7 +364,7 @@
             (save-dao matching-point)
             (execute (:update (dao-table-name (class-of matching-point))
                               :set 'coordinates
-                              (:st_geomfromewkt (format nil "SRID=4326; POINT(~E ~E ~E)"
+                              (:st_geomfromewkt (format nil "SRID=4326; POINT(~S ~S ~S)"
                                                         (longitude matching-point)
                                                         (latitude matching-point)
                                                         (ellipsoid-height matching-point)))

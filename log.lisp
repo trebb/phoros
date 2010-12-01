@@ -4,8 +4,9 @@
 (cl-log:defcategory :db-dat)
 (cl-log:defcategory :orphan)
 (cl-log:defcategory :warning)
-(cl-log:defcategory :db (or :db-sys :db-dat :warning))
-(cl-log:defcategory :debug (or :debug :orphan))
+(cl-log:defcategory :error)
+(cl-log:defcategory :db (or :db-sys :db-dat :warning :error))
+(cl-log:defcategory :debug (or :debug :db-sys :db-dat :orphan :warning :error))
 
 (defun launch-logger (log-dir)
   (let ((log-dir (pathname-directory log-dir)))
@@ -26,7 +27,7 @@
     (cl-log:start-messenger 'cl-log:text-stream-messenger
                             :name :stream
                             :stream *error-output*
-                            :category :warning)))
+                            :category :debug)))
 
 (defmethod cl-log:format-message ((self cl-log:formatted-message))
   (format nil "~A ~A ~?~&"

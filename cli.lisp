@@ -123,7 +123,7 @@
   '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
     (("directory" #\d) :type string :documentation "Directory containing one set of measuring data.")
     (("common-root" #\r) :type string :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
-    ("epsilon" :type string :initial-value ".0001" :documentation "Difference in seconds below which two timestamps are considered equal.")))
+    ("epsilon" :type string :initial-value ".001" :documentation "Difference in seconds below which two timestamps are considered equal.")))
 
 (defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-device-stage-of-life-end-options* *cli-camera-calibration-options* *cli-store-images-and-points-options*))
 
