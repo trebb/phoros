@@ -3,33 +3,41 @@
 (defparameter *picture-header-length-tolerance* 20
   "Amount of leeway for the length of a picture header in a .pictures file.")
 
-(defun find-keyword-in-stream (stream keyword &optional (start-position 0))
+(defun find-keyword-in-stream (stream keyword &optional start-position search-range)
   "Return file-position in binary stream after first occurence of keyword."
-  (handler-case
-      (progn
-        (file-position stream start-position)
-        (let ((chunk-size (length keyword)))
-          (cl:loop
-           for next-chunk = (let ((result (make-array (list chunk-size) :fill-pointer 0)))
-                              (dotimes (i chunk-size (coerce result 'string))
-                                (vector-push-extend (code-char (read-byte stream)) result))) ; TODO: try read-sequence
-           if (string/= next-chunk keyword) 
-           do (file-position stream (- (file-position stream) chunk-size -1))
-           else return (file-position stream))))
-    (end-of-file () nil)))
+  (unless start-position (setf start-position 0))
+  (let ((end-position (if search-range
+                          (+ start-position search-range)
+                          most-positive-fixnum)))
+    (handler-case
+        (progn
+          (file-position stream start-position)
+          (let ((chunk-size (length keyword)))
+            (cl:loop
+             for next-chunk = (let ((result (make-array (list chunk-size) :fill-pointer 0)))
+                                (dotimes (i chunk-size (coerce result 'string))
+                                  (vector-push-extend (code-char (read-byte stream)) result))) ; TODO: try read-sequence
+             if (string/= next-chunk keyword) do
+             (let ((next-position (- (file-position stream) chunk-size -1)))
+               (if (< next-position end-position)
+                   (file-position stream next-position)
+                   (return-from find-keyword-in-stream)))
+             else return (file-position stream))))
+      (end-of-file () nil))))
 
-(defun find-keyword-value (path keyword &optional (start-position 0))
+(defun find-keyword-value (path keyword &optional start-position search-range)
   "Return value associated with keyword."
   (let ((start-of-value
-         (find-keyword path keyword start-position)))
-    (with-open-file (stream path)
-      (file-position stream start-of-value)
-      (car (read-delimited-list #\; stream)))))
+         (find-keyword path keyword start-position search-range)))
+    (when start-of-value
+      (with-open-file (stream path)
+        (file-position stream start-of-value)
+        (car (read-delimited-list #\; stream))))))
 
-(defun find-keyword (path keyword &optional (start-position 0))
+(defun find-keyword (path keyword &optional start-position search-range)
   "Return file-position after keyword."
   (with-open-file (stream path :element-type 'unsigned-byte)
-    (find-keyword-in-stream stream keyword start-position)))
+    (find-keyword-in-stream stream keyword start-position search-range)))
 
 (defun read-huffman-table (stream &optional start-position)
   "Return in a hash table a huffman table read from stream.  Start either at stream's file position or at start-position."

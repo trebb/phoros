@@ -12,14 +12,20 @@
          for picture-start =
            (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
            (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
-         for picture-length = (find-keyword-value path "dataSize=" picture-start)
-         and time-trigger = (utc-from-unix (find-keyword-value path "timeTrigger=" picture-start))
-         and timestamp = (find-keyword-value path "cameraTimestamp=" picture-start)
-         and recorded-device-id = (find-keyword-value path "cam=" picture-start)
-         and gain = (find-keyword-value path "gain=" picture-start)
-         and shutter = (find-keyword-value path "shutter=" picture-start)
+         for picture-length = (find-keyword-value path "dataSize="
+                                                  picture-start estimated-header-length)
+         and time-trigger = (utc-from-unix
+                             (find-keyword-value path "timeTrigger="
+                                                 picture-start estimated-header-length))
+         and timestamp = (find-keyword-value path "cameraTimestamp="
+                                             picture-start estimated-header-length)
+         and recorded-device-id = (format nil "~S" (find-keyword-value path "cam="
+                                                                       picture-start estimated-header-length))
+         and gain = (find-keyword-value path "gain="
+                                        picture-start estimated-header-length)
+         and shutter = (find-keyword-value path "shutter="
+                                           picture-start estimated-header-length)
          while picture-start
-         
          do (vector-push-extend
              (make-instance
               'image-data
@@ -59,14 +65,15 @@
                  if (> (+ trigger-time 1d-4) previous-trigger-time)
                  do (setf previous-trigger-time trigger-time)
                  else collect i))
-      (let ((good-index-offset -3))
-        (handler-bind ((error #'(lambda (x) (invoke-restart 'next-try))))
-          (setf (trigger-time (aref images offending-index))
-                (restart-case (fake-trigger-time offending-index good-index-offset)
-                  (next-try ()
-                    (incf good-index-offset 6)
-                    (fake-trigger-time offending-index good-index-offset)))
-                (fake-trigger-time-p (aref images offending-index)) t))))))
+      (ignore-errors
+        (let ((good-index-offset -3))
+          (handler-bind ((error #'(lambda (x) (declare (ignore x)) (invoke-restart 'next-try))))
+            (setf (trigger-time (aref images offending-index))
+                  (restart-case (fake-trigger-time offending-index good-index-offset)
+                    (next-try ()
+                      (incf good-index-offset 6)
+                      (fake-trigger-time offending-index good-index-offset)))
+                  (fake-trigger-time-p (aref images offending-index)) t)))))))
 
 (defun collect-pictures-directory-data (dir-path)
   "Return vector of instances of class image-data with data from the .pictures files in dir-path."
@@ -228,13 +235,37 @@
 
 (defun utc-from-unix (unix-time)
   "Convert UNIX UTC to Lisp time."
-  (+ unix-time *unix-epoch*))
+  (when unix-time (+ unix-time *unix-epoch*)))
 
-(defun event-number (recorded-device-id)
-  "Return the GPS event number corresponding to recorded-device-id of camera (etc.)"
-  (let ((event-table (pairlis '(21 22 11 12)
-                              '("1" "1" "2" "2"))))
-    (cdr (assoc recorded-device-id event-table)))) ; TODO: make a saner version
+;;(defun event-number (recorded-device-id)
+;;  "Return the GPS event number corresponding to recorded-device-id of camera (etc.)"
+;;  (let ((event-table (pairlis '(21 22 11 12 1 2)
+;;                              '("1" "1" "2" "2" "1" "1"))))
+;;    (cdr (assoc recorded-device-id event-table)))) ; TODO: make a saner version
+
+
+(let (event-number-storage)
+
+  (defun device-event-number (recorded-device-id utc)
+    "Return the GPS event number corresponding to recorded-device-id of camera (etc.)"
+    (let ((device-event-number (cdr (assoc recorded-device-id event-number-storage :test #'string-equal))))
+      (if device-event-number
+          device-event-number
+          (let* ((date (simple-date:universal-time-to-timestamp (round utc)))
+                 (device-stage-of-life
+                  (car
+                   (select-dao 'sys-device-stage-of-life
+                               (:and (:overlaps (:set 'mounting-date (:least :current-date 'unmounting-date))
+                                                (:set (:date date) (:date date)))
+                                     (:= 'recorded-device-id recorded-device-id))))))
+            (assert device-stage-of-life
+                    ()
+                    "Can't figure out what event-number belongs to recorded-device-id ~S of (approx.) ~A.  There should be some entry in table sys-device-stage-of-life to this end."
+                    recorded-device-id (timestring (round utc)))
+            (push (cons recorded-device-id (event-number device-stage-of-life))
+                  event-number-storage)
+            (event-number device-stage-of-life))))))
+
 
 (defun almost= (x y epsilon)
   (< (abs (- x y)) epsilon))
@@ -329,7 +360,7 @@
                         (< (trigger-time i) *gps-epoch*))
              do (return (trigger-time i))))
          (gps-points
-          (collect-gps-data dir-path estimated-time))
+          (collect-gps-data dir-path estimated-time ))
          (gps-start-pointers (loop
                                 for i in gps-points
                                 collect (cons (car i) 0)))
@@ -338,19 +369,24 @@
     (assert-gps-points-sanity gps-points)
     (loop
        for i across images
-       for image-event-number = (event-number (recorded-device-id i))
+       for image-event-number = (device-event-number (recorded-device-id i)
+                                                     estimated-time)
        for image-time = (trigger-time i)
        for matching-point =
-       (let ((gps-start-pointer
-              (cdr (assoc image-event-number gps-start-pointers :test #'equal))))
-         (loop
-            for gps-pointer from gps-start-pointer
-            for gps-point across (subseq (cdr (assoc image-event-number gps-points :test #'equal))
-                                         gps-start-pointer)
-            when (almost= (gps-time gps-point) image-time epsilon)
-            do (setf (cdr (assoc image-event-number gps-start-pointers :test #'equal))
-                     gps-pointer) ; remember index of last matching point
-            and return gps-point))
+         (when image-event-number       ; otherwise this image is junk
+           
+           (let ((gps-start-pointer
+                  (cdr (assoc image-event-number gps-start-pointers :test #'equal))))
+             (loop
+                for gps-pointer from gps-start-pointer
+                for gps-point across (subseq (cdr (assoc image-event-number gps-points :test #'equal))
+                                             gps-start-pointer)
+                when (almost= (gps-time gps-point) image-time epsilon)
+                do (setf (cdr (assoc image-event-number gps-start-pointers :test #'equal))
+                         gps-pointer) ; remember index of last matching point
+                and return gps-point))
+
+           )
        if matching-point
        do (let ((point-id               ; TODO: consider using transaction
                  (or (point-id matching-point) ; We've hit a point twice.

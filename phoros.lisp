@@ -27,7 +27,7 @@
 (defparameter *t* nil) (defparameter *tt* nil)              ; debug output
 (defun start-server () (hunchentoot:start *phoros-server*))
 
-(register-sql-operators :2+-ary :&&) ; PostGIS "intersects" operator
+(register-sql-operators :2+-ary :&& :overlaps)
 
 (define-easy-handler (lon-lat-test :uri "/lon-lat-test" :default-request-type :post) ()
   "Receive coordinates, respond with the count nearest json objects containing picture url, calibration parameters, and car position, wrapped in an array."

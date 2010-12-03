@@ -251,6 +251,7 @@ TODO: /images/ part not currently enforced."))
     :col-type text
     :documentation "Must be stored next to each data record.  Example: in a .pictures file, this is the value of `cam=´.")
    (event-number
+    :reader event-number
     :col-type text
     :documentation "Identifier for the GPS event that triggers this device.  Must correspond to the N the GPS file name: ...eventN.txt.")
    (generic-device-id
