@@ -123,7 +123,8 @@
   '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
     (("directory" #\d) :type string :documentation "Directory containing one set of measuring data.")
     (("common-root" #\r) :type string :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
-    ("epsilon" :type string :initial-value ".001" :documentation "Difference in seconds below which two timestamps are considered equal.")))
+    ("epsilon" :type string :initial-value ".001" :documentation "Difference in seconds below which two timestamps are considered equal.")
+    ("aggregate-events" :type nil :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")))
 
 (defparameter *cli-options* (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options* *cli-camera-hardware-options* *cli-lens-options* *cli-generic-device-options* *cli-device-stage-of-life-options* *cli-device-stage-of-life-end-options* *cli-camera-calibration-options* *cli-store-images-and-points-options*))
 
@@ -232,7 +233,8 @@
   "Put data into the data tables."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir
-                            directory epsilon common-root &allow-other-keys)
+                            directory epsilon common-root aggregate-events
+                            &allow-other-keys)
       (command-line-arguments:process-command-line-options *cli-options* command-line-arguments:*command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
@@ -240,7 +242,8 @@
       (cl-log:log-message :db-dat "Start: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)
       (store-images-and-points common-table-name directory
                                :epsilon (read-from-string epsilon nil)
-                               :root-dir common-root))
+                               :root-dir common-root
+                               :aggregate-events aggregate-events))
     (cl-log:log-message :db-dat "Finish: storing data from ~A into acquisition project ~A in database ~A at ~A:~D." directory common-table-name database host port)))
 
 ;;; We don't seem to have two-dimensional arrays in postmodern

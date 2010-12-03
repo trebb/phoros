@@ -163,6 +163,13 @@
                  gps-points)
              finally (return gps-points)))))))
 
+(defun aggregate-gps-events (gps-points)
+  "Turn an alist of ((event1 . points1) (event2 . points2)...) into ((t . all-points))."
+  (cl-log:log-message :db-sys "I was asked to aggregate-events which means I won't distinguish any event numbers.")
+  (list
+   (cons t (apply #'merge 'vector (append (mapcar #'cdr gps-points)
+                                          (list #'< :key #'gps-time))))))
+
 (defparameter *leap-seconds* nil
   "An alist of (time . leap-seconds) elements.  leap-seconds are to be added to GPS time to get UTC.")
 
@@ -176,7 +183,7 @@
   (merge-pathnames (make-pathname :name "TimeSteps" :type "history"))
   "Month names as used in http://hpiers.obspm.fr/eoppc/bul/bulc/TimeSteps.history.")
 
-(defparameter *leap-second-months* (pairlis '("jan." "feb." "march" "apr." "may" "jun." "jul." "aug." "sept." "oct." "nov." "dec.")
+(defparameter *leap-second-months* (pairlis '("Jan." "Feb." "March" "Apr." "May" "Jun." "Jul." "Aug." "Sept." "Oct." "Nov." "Dec.")
                                             '(1 2 3 4 5 6 7 8 9 10 11 12)))
 
 (defun initialize-leap-seconds ()       ; TODO: Security hole: read-from-string
@@ -245,7 +252,6 @@
 
 
 (let (event-number-storage)
-
   (defun device-event-number (recorded-device-id utc)
     "Return the GPS event number corresponding to recorded-device-id of camera (etc.)"
     (let ((device-event-number (cdr (assoc recorded-device-id event-number-storage :test #'string-equal))))
@@ -265,7 +271,6 @@
             (push (cons recorded-device-id (event-number device-stage-of-life))
                   event-number-storage)
             (event-number device-stage-of-life))))))
-
 
 (defun almost= (x y epsilon)
   (< (abs (- x y)) epsilon))
@@ -346,7 +351,7 @@
                                            :fetch-defaults t)))))
       (measurement-id measurement))))
 
-(defun store-images-and-points (common-table-name dir-path &key (epsilon 1d-3) (root-dir (user-homedir-pathname)))
+(defun store-images-and-points (common-table-name dir-path &key (epsilon 1d-3) (root-dir (user-homedir-pathname)) aggregate-events)
   "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  dir-path is a (probably absolute) path to a directory that contains one set of measuring data.  root-dir must be equal for all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
   (create-data-table-definitions common-table-name)
@@ -360,7 +365,9 @@
                         (< (trigger-time i) *gps-epoch*))
              do (return (trigger-time i))))
          (gps-points
-          (collect-gps-data dir-path estimated-time ))
+          (if aggregate-events
+              (aggregate-gps-events (collect-gps-data dir-path estimated-time))
+              (collect-gps-data dir-path estimated-time)))
          (gps-start-pointers (loop
                                 for i in gps-points
                                 collect (cons (car i) 0)))
@@ -369,11 +376,12 @@
     (assert-gps-points-sanity gps-points)
     (loop
        for i across images
-       for image-event-number = (device-event-number (recorded-device-id i)
-                                                     estimated-time)
+       for image-event-number = (or aggregate-events
+                                    (device-event-number (recorded-device-id i)
+                                                         estimated-time))
        for image-time = (trigger-time i)
        for matching-point =
-         (when image-event-number       ; otherwise this image is junk
+         (when image-time               ; otherwise this image is junk
            
            (let ((gps-start-pointer
                   (cdr (assoc image-event-number gps-start-pointers :test #'equal))))

@@ -533,14 +533,16 @@ TODO: /images/ part not currently enforced."))
    ;; :documentation "Polygon on the ground describing the approximate area covered by this image.")
    (gain
     :initarg :gain
-    :col-type double-precision)
+    :col-type double-precision
+    :documentation "Camera parameter. TODO: needs a decent definition")
    (shutter
     :initarg :shutter
-    :col-type double-precision)
+    :col-type double-precision
+    :documentation "Camera parameter. TODO: needs a decent definition")
    (trigger-time
     :initarg :trigger-time
     :accessor trigger-time
-    :documentation "UNIX time, i.e. seconds from 1970.")
+    :documentation "UNIX time, i.e. seconds from 1970-01-01.")
    (fake-trigger-time-p
     :accessor fake-trigger-time-p
     :initform nil
