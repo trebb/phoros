@@ -24,7 +24,6 @@
 (defvar *postgresql-credentials* "A list: (database user password host &key (port 5432))")
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
 (setf *read-default-float-format* 'double-float)
-(defparameter *t* nil) (defparameter *tt* nil)              ; debug output
 (defun start-server () (hunchentoot:start *phoros-server*))
 
 (register-sql-operators :2+-ary :&& :overlaps)
@@ -333,13 +332,11 @@
 (define-easy-handler (epipolar-line :uri "/epipolar-line") ()
   "Receive vector of two sets of pictures parameters, respond with stuff."
   (let* ((data (json:decode-json-from-string (raw-post-data))))
-    (setf *t* data)
     (json:encode-json-to-string (photogrammetry :epipolar-line (first data) (second data)))))
 
 (define-easy-handler (multi-position-intersection :uri "/forward-intersection") ()
   "Receive vector of two sets of picture parameters, respond with stuff."
   (let* ((data (json:decode-json-from-string (raw-post-data))))
-    (setf *tt* data)
     (json:encode-json-to-string (photogrammetry :multi-position-intersection data))))
 
 (defgeneric photogrammetry (mode photo-1 &optional photo-2)
@@ -355,7 +352,6 @@
 
 (defmethod photogrammetry ((mode (eql :epipolar-line)) clicked-photo &optional other-photo)
   "Return in an alist an epipolar line in coordinates of other-photo from m and n in clicked-photo."
-  (setf *tt* (list clicked-photo other-photo))
   (add-cam* clicked-photo)
   (add-bpoint* clicked-photo)
   (add-global-car-reference-point* clicked-photo t)
