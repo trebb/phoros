@@ -382,9 +382,9 @@
        for image-time = (trigger-time i)
        for matching-point =
          (when image-time               ; otherwise this image is junk
-           
            (let ((gps-start-pointer
                   (cdr (assoc image-event-number gps-start-pointers :test #'equal))))
+             (assert gps-start-pointer () "Can't find an event number of ~S (as suggested by the sys tables relevant to the current image) among ~{~S~#^, ~} (as derived from the names of the GPS event files).  Consider using --aggregate-events if you can't recitfy your data." image-event-number (mapcar #'car gps-start-pointers))
              (loop
                 for gps-pointer from gps-start-pointer
                 for gps-point across (subseq (cdr (assoc image-event-number gps-points :test #'equal))
