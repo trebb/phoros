@@ -90,7 +90,7 @@
            (make-pathname
             :directory (append (pathname-directory dir-path) '(:wild-inferiors) '("applanix" "points"))
             :name :wild
-            :type "txt")))
+            :type :wild)))
          (gps-event-files
           (loop
              for gps-file in gps-files
@@ -167,8 +167,8 @@
   "Turn an alist of ((event1 . points1) (event2 . points2)...) into ((t . all-points))."
   (cl-log:log-message :db-sys "I was asked to aggregate-events which means I won't distinguish any event numbers.")
   (list
-   (cons t (apply #'merge 'vector (append (mapcar #'cdr gps-points)
-                                          (list #'< :key #'gps-time))))))
+   (cons t (reduce #'(lambda (x y) (merge 'vector x y #'< :key #'gps-time))
+                   (mapcar #'cdr gps-points)))))
 
 (defparameter *leap-seconds* nil
   "An alist of (time . leap-seconds) elements.  leap-seconds are to be added to GPS time to get UTC.")
