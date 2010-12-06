@@ -15,8 +15,10 @@
          for picture-length = (find-keyword-value path "dataSize="
                                                   picture-start estimated-header-length)
          and time-trigger = (utc-from-unix
-                             (find-keyword-value path "timeTrigger="
-                                                 picture-start estimated-header-length))
+                             (or
+                              (find-keyword-value path "timeTrigger="
+                                                 picture-start estimated-header-length)
+                              -1))
          and timestamp = (find-keyword-value path "cameraTimestamp="
                                              picture-start estimated-header-length)
          and recorded-device-id = (format nil "~S" (find-keyword-value path "cam="
@@ -180,48 +182,48 @@
  ...")
 
 (defparameter *time-steps-history-file*
-  (merge-pathnames (make-pathname :name "TimeSteps" :type "history"))
-  "Month names as used in http://hpiers.obspm.fr/eoppc/bul/bulc/TimeSteps.history.")
+  (merge-pathnames (make-pathname :name "TimeSteps" :type "history")))
 
-(defparameter *leap-second-months* (pairlis '("Jan." "Feb." "March" "Apr." "May" "Jun." "Jul." "Aug." "Sept." "Oct." "Nov." "Dec.")
-                                            '(1 2 3 4 5 6 7 8 9 10 11 12)))
-
-(defun initialize-leap-seconds ()       ; TODO: Security hole: read-from-string
-  (handler-case
-      (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
-          (drakma:http-request *time-steps-history-url*)
-        (declare (ignore headers stream must-close reason-phrase))
-        (assert (= status-code 200))
-        (with-open-file (stream *time-steps-history-file*
-                                :direction :output
-                                :if-exists :supersede
-                                :if-does-not-exist :create)
-          (write-string body stream)
-          (cl-log:log-message :debug "Downloaded leap second information from ~A." uri)))
-    (error (e)
-      (cl-log:log-message :warning "Couldn't get the latest leap seconds information from ~A. (~A)  Falling back to cached data in ~A."
+(let ((leap-second-months
+       (pairlis '("Jan." "Feb." "March" "Apr." "May" "Jun." "Jul." "Aug." "Sept." "Oct." "Nov." "Dec.")
+                '(1 2 3 4 5 6 7 8 9 10 11 12))))
+  ;;Month names as used in http://hpiers.obspm.fr/eoppc/bul/bulc/TimeSteps.history."
+  (defun initialize-leap-seconds () ; TODO: Security hole: read-from-string
+    (handler-case
+        (multiple-value-bind (body status-code headers uri stream must-close reason-phrase)
+            (drakma:http-request *time-steps-history-url*)
+          (declare (ignore headers stream must-close reason-phrase))
+          (assert (= status-code 200))
+          (with-open-file (stream *time-steps-history-file*
+                                  :direction :output
+                                  :if-exists :supersede
+                                  :if-does-not-exist :create)
+            (write-string body stream)
+            (cl-log:log-message :debug "Downloaded leap second information from ~A." uri)))
+      (error (e)
+        (cl-log:log-message :warning "Couldn't get the latest leap seconds information from ~A. (~A)  Falling back to cached data in ~A."
                             *time-steps-history-url* e *time-steps-history-file*)))
-  (with-open-file (stream *time-steps-history-file*
-                          :direction :input :if-does-not-exist :error)
-    (loop for time-record = (string-trim " 	" (read-line stream))
-       until (equal 1980 (read-from-string time-record nil)))
-    (setf
-     *leap-seconds*
-     (loop for time-record = (string-trim " s	" (read-line stream))
-        with leap = nil and leap-date = nil
-        until (string-equal (subseq time-record 1 20) (make-string 19 :initial-element #\-))
-        do (with-input-from-string (line time-record)
-             (let ((year (read line))
-                   (month (cdr (assoc(read line) *leap-second-months* :test #'string-equal)))
-                   (date (read line))
-                   (sign (read line))
-                   (seconds (read line)))
-               (setf leap-date (encode-universal-time 0 0 0 date month year 0)
-                     leap (if (eq sign '-) (- seconds) seconds))))
-        sum leap into leap-sum
-        collect leap-date into leap-dates
-        collect leap-sum into leap-sums
-        finally (return (sort (pairlis leap-dates leap-sums) #'< :key #'car))))))
+    (with-open-file (stream *time-steps-history-file*
+                            :direction :input :if-does-not-exist :error)
+      (loop for time-record = (string-trim " 	" (read-line stream))
+         until (equal 1980 (read-from-string time-record nil)))
+      (setf
+       *leap-seconds*
+       (loop for time-record = (string-trim " s	" (read-line stream))
+          with leap = nil and leap-date = nil
+          until (string-equal (subseq time-record 1 20) (make-string 19 :initial-element #\-))
+          do (with-input-from-string (line time-record)
+               (let ((year (read line))
+                     (month (cdr (assoc(read line) leap-second-months :test #'string-equal)))
+                     (date (read line))
+                     (sign (read line))
+                     (seconds (read line)))
+                 (setf leap-date (encode-universal-time 0 0 0 date month year 0)
+                       leap (if (eq sign '-) (- seconds) seconds))))
+          sum leap into leap-sum
+          collect leap-date into leap-dates
+          collect leap-sum into leap-sums
+          finally (return (sort (pairlis leap-dates leap-sums) #'< :key #'car)))))))
 
 (defparameter *gps-epoch* (encode-universal-time 0 0 0 6 1 1980 0))
 (defparameter *unix-epoch* (encode-universal-time 0 0 0 1 1 1970 0))
@@ -253,7 +255,7 @@
 
 (let (event-number-storage)
   (defun device-event-number (recorded-device-id utc)
-    "Return the GPS event number corresponding to recorded-device-id of camera (etc.)"
+    "Return the GPS event number (a string) corresponding to recorded-device-id (a string) of camera (etc.)"
     (let ((device-event-number (cdr (assoc recorded-device-id event-number-storage :test #'string-equal))))
       (if device-event-number
           device-event-number
@@ -392,9 +394,7 @@
                 when (almost= (gps-time gps-point) image-time epsilon)
                 do (setf (cdr (assoc image-event-number gps-start-pointers :test #'equal))
                          gps-pointer) ; remember index of last matching point
-                and return gps-point))
-
-           )
+                and return gps-point)))
        if matching-point
        do (let ((point-id               ; TODO: consider using transaction
                  (or (point-id matching-point) ; We've hit a point twice.
