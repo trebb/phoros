@@ -16,12 +16,22 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 LISP = ../sbcl/bin/sbcl
-RM = /bin/rm
+TAR = tar
+GZIP = gzip
+LIBPHOTOGRAMMETRIE_DIR = ../photogrammetrie/lib
+LIBPHOTOGRAMMETRIE = libphotogrammetrie.so
 
 SOURCE = *.lisp *.asd
 
 phoros: $(SOURCE)
 	$(LISP) --load make.lisp
 
+phoros-bin.tar: phoros TimeSteps.history
+	$(TAR) -cf $@ $^ -C $(LIBPHOTOGRAMMETRIE_DIR) $(LIBPHOTOGRAMMETRIE)
+
+phoros-bin.tar.gz: phoros-bin.tar $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
+	rm -f $@
+	$(GZIP) $<
+
 clean:
-	$(RM) *.fasl *.log phoros
+	rm -f *.fasl *.log phoros phoros.tar.gz
