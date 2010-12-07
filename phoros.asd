@@ -1,8 +1,10 @@
 (defsystem :phoros
-  :description "PHOROS (Photogrammetric Road Survey)"
+  :description                          ;goes with --version output
+  "PHOROS (Photogrammetric Road Survey)"
   :author "Bert Burgemeister"
   :maintainer "Bert Burgemeister"
-  :long-description "TODO: write blurb"
+  :long-description                     ;goes with --help output
+  "TODO: write blurb"
   :version "0.0"
   :licence "GPL"
   :serial t

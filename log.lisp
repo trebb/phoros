@@ -27,7 +27,8 @@
 (cl-log:defcategory :debug (or :debug :db-sys :db-dat :orphan :warning :error))
 
 (defun launch-logger (&optional (log-dir ""))
-  (let ((log-dir (pathname-directory log-dir)))
+  "Start logging facility.  Create log-dir if necessary."
+  (let ((log-dir (pathname-directory (ensure-directories-exist (pathname log-dir)))))
     (setf (cl-log:log-manager)
           (make-instance 'cl-log:log-manager :message-class 'cl-log:formatted-message))
     (cl-log:start-messenger 'cl-log:text-file-messenger 

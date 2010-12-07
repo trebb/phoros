@@ -24,7 +24,7 @@
   '((("help" #\h) :action #'cli-help-action  :documentation "Print this help and exit.")
     ("version" :action #'cli-version-action :documentation "Output version information and exit.")
     ("verbose" :type integer :initial-value 0 :documentation "Emit increasing amounts of debugging output.")
-    ("log-dir" :type string :initial-value "" :documentation "Where to put the log files.")
+    ("log-dir" :type string :initial-value "" :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
     ("check-dependencies" :action #'check-dependencies-action :documentation "Check presence of dependencies on local system and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
@@ -212,7 +212,7 @@
         (format *error-output* "~&OK~%")))))
 
 (defun check-dependencies-action (&rest rest)
-  "Say `OK´ ."
+  "Say `OK´ if the necessary external dependencies are available."
   (declare (ignore rest))
   (handler-case
       (progn
