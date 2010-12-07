@@ -26,7 +26,7 @@
 (cl-log:defcategory :db (or :db-sys :db-dat :warning :error))
 (cl-log:defcategory :debug (or :debug :db-sys :db-dat :orphan :warning :error))
 
-(defun launch-logger (log-dir)
+(defun launch-logger (&optional (log-dir ""))
   (let ((log-dir (pathname-directory log-dir)))
     (setf (cl-log:log-manager)
           (make-instance 'cl-log:log-manager :message-class 'cl-log:formatted-message))

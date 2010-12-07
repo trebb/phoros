@@ -200,7 +200,8 @@
  ...")
 
 (defparameter *time-steps-history-file*
-  (merge-pathnames (make-pathname :name "TimeSteps" :type "history")))
+  (make-pathname :directory '(:relative) :name "TimeSteps" :type "history")
+  "Fallback in case *time-steps-history-url* is unavailable.")
 
 (let ((leap-second-months
        (pairlis '("Jan." "Feb." "March" "Apr." "May" "Jun." "Jul." "Aug." "Sept." "Oct." "Nov." "Dec.")

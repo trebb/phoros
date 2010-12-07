@@ -19,7 +19,13 @@
 
 (setf *js-target-version* 1.8)
 
+
+(cffi:define-foreign-library photogrammetrie
+  (t (:or "../photogrammetrie/lib/libphotogrammetrie.so"
+          "libphotogrammetrie.so")))
+
 (defparameter *phoros-server* (make-instance 'hunchentoot:acceptor :port 8080))
+
 (defparameter *standard-coordinates* 4326 "EPSG code of the coordinate system that we use for communication.")
 (defvar *postgresql-credentials* "A list: (database user password host &key (port 5432))")
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))

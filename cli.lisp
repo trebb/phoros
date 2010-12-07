@@ -26,6 +26,7 @@
     ("verbose" :type integer :initial-value 0 :documentation "Emit increasing amounts of debugging output.")
     ("log-dir" :type string :initial-value "" :documentation "Where to put the log files.")
     ("check-db" :action #'check-db-action :documentation "Check database connection and exit.")
+    ("check-dependencies" :action #'check-dependencies-action :documentation "Check presence of dependencies on local system and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action :documentation "Ask for confirmation, then delete anything in database and exit.")
     ("create-sys-tables" :action #'create-sys-tables-action :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")
     ("create-acquisition-project" :type string :action #'create-acquisition-project-action :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")))
@@ -152,7 +153,9 @@
 ;;                                      (declare (ignore c))
 ;;                                      (sb-debug:backtrace))))
   (handler-case
-      (command-line-arguments:compute-and-process-command-line-options *cli-options*)
+      (progn
+        (cffi:use-foreign-library photogrammetrie)
+        (command-line-arguments:compute-and-process-command-line-options *cli-options*))
     (serious-condition (c)
       (cl-log:log-message :warning "Cancelled: ~A" c)
       (format *error-output* "~A~&" c))))
@@ -207,6 +210,17 @@
       (when connection
         (disconnect connection)
         (format *error-output* "~&OK~%")))))
+
+(defun check-dependencies-action (&rest rest)
+  "Say `OK´ ."
+  (declare (ignore rest))
+  (handler-case
+      (progn
+        (geographic-to-utm 33 13 52) ;check cs2cs
+        (del-all)                    ;check photogrammetry
+        (initialize-leap-seconds)    ;check source of leap second info
+        (format *error-output* "~&OK~%"))
+    (error (e) (format *error-output* "~A~&" e))))
 
 (defun nuke-all-tables-action (&rest rest)
   "Drop the bomb.  Ask for confirmation first."
