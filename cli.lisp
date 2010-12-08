@@ -152,6 +152,7 @@
 ;;  (handler-bind ((serious-condition (lambda (c)
 ;;                                      (declare (ignore c))
 ;;                                      (sb-debug:backtrace))))
+  #+sbcl (sb-ext:disable-debugger)
   (handler-case
       (progn
         (cffi:use-foreign-library photogrammetrie)
