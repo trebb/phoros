@@ -97,11 +97,14 @@
 
 (defun collect-pictures-directory-data (dir-path)
   "Return vector of instances of class image-data with data from the .pictures files in dir-path."
-  (reduce #'(lambda (x1 x2) (merge 'vector x1 x2 #'< :key #'trigger-time))
-          (mapcar #'collect-pictures-file-data
-                  (directory (make-pathname
-                              :directory (append (pathname-directory dir-path) '(:wild-inferiors))
-                              :name :wild :type "pictures")))))
+  (let ((pictures-files
+         (directory (make-pathname
+                     :directory (append (pathname-directory dir-path) '(:wild-inferiors))
+                     :name :wild :type "pictures"))))
+    (assert pictures-files () "Sorry, but I couldn't find a single .pictures file below ~A." dir-path)
+    (reduce #'(lambda (x1 x2) (merge 'vector x1 x2 #'< :key #'trigger-time))
+            (mapcar #'collect-pictures-file-data
+                    pictures-files))))
 
 (defun collect-gps-data (dir-path estimated-utc)
   "Put content of files in dir-path/**/applanix/*eventN.txt into vectors.  Return a list of elements (N vector) where N is the event number."
@@ -185,7 +188,7 @@
 
 (defun aggregate-gps-events (gps-points)
   "Turn an alist of ((event1 . points1) (event2 . points2)...) into ((t . all-points))."
-  (cl-log:log-message :db-sys "I was asked to aggregate-events which means I won't distinguish any event numbers.")
+  (cl-log:log-message :db-sys "I was asked to aggregate-events so I won't distinguish any event numbers.")
   (list
    (cons t (reduce #'(lambda (x y) (merge 'vector x y #'< :key #'gps-time))
                    (mapcar #'cdr gps-points)))))
