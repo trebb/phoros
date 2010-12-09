@@ -350,6 +350,7 @@
 
 (defmethod photogrammetry :around (mode clicked-photo &optional other-photo)
   "Prepare and clean up a run of photogrammetry."
+  (declare (ignore other-photo))
   (bt:with-lock-held (*photogrammetry-mutex*)
     (del-all)
     (unwind-protect
@@ -382,6 +383,7 @@
 
 (defmethod photogrammetry ((mode (eql :multi-position-intersection)) photos &optional other-photo)
   "Calculate intersection from photos."
+  (declare (ignore other-photo))
   (loop
      for photo in photos
      do
@@ -396,7 +398,16 @@
             (get-stdx-global) (get-stdy-global) (get-stdz-global))))
 
 (defmethod photogrammetry ((mode (eql :mono)) photo &optional floor)
-  "TODO: not yet implemented.")
+  "Return in an alist the intersection point of the ray through m and n in photo, and floor."
+  (add-cam* photo)
+  (add-bpoint* photo)
+  (add-ref-ground-surface* floor)
+  (add-global-car-reference-point* photo)
+  (set-global-reference-frame)
+  (calculate)
+  (pairlis '(:x-global :y-global :z-global)
+          (list
+           (get-x-global) (get-y-global) (get-z-global))))
 
 (defun flip-m-maybe (m photo)
   "Flip coordinate m when :angle180 in photo suggests it necessary."
@@ -434,6 +445,14 @@
   "Call add-bpoint with arguments taken from photo-alist."
     (add-bpoint (print (coerce (flip-m-maybe (cdr (assoc :m photo-alist)) photo-alist) 'double-float))
                 (print (coerce (flip-n-maybe (cdr (assoc :n photo-alist)) photo-alist) 'double-float))))
+
+(defun add-ref-ground-surface* (floor-alist)
+  "Call add-ref-ground-surface with arguments taken from floor-alist."
+  (let ((double-float-args
+         (mapcar #'(lambda (x) (coerce x 'double-float))
+                 (photogrammetry-arglist floor-alist
+                                         :nx :ny :nz :d))))
+    (apply #'add-ref-ground-surface (print double-float-args))))
 
 (defun add-global-car-reference-point* (photo-alist &optional cam-set-global-p)
   "Call add-global-car-reference-point with arguments taken from photo-alist.  When cam-set-global-p is t, call add-global-car-reference-point-cam-set-global instead."
