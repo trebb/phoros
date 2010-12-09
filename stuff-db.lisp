@@ -21,45 +21,48 @@
 (defun collect-pictures-file-data (path)
   "Return vector of image-data structures containing data from the picture-headers of the .pictures file in path."
   (let ((estimated-header-length
-         (- (find-keyword path "PICTUREHEADER_END")
-            (find-keyword path "PICTUREHEADER_BEGIN") *picture-header-length-tolerance*))) ; allow for variation in dataSize and a few other parameters
-    (with-open-file (stream path :element-type 'unsigned-byte)
-      (cl-log:log-message :db-dat "Digesting ~A." path)
-      (loop
-         with pictures-data = (make-array '(600) :fill-pointer 0)
-         for picture-start =
-           (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
-           (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
-         for picture-length = (find-keyword-value path "dataSize="
-                                                  picture-start estimated-header-length)
-         and time-trigger = (utc-from-unix
-                             (or
-                              (find-keyword-value path "timeTrigger="
+         (ignore-errors
+           (- (find-keyword path "PICTUREHEADER_END")
+              (find-keyword path "PICTUREHEADER_BEGIN") *picture-header-length-tolerance*)))) ; allow for variation in dataSize and a few other parameters
+    (if estimated-header-length ;otherwise we don't have a decent header
+        (with-open-file (stream path :element-type 'unsigned-byte)
+          (cl-log:log-message :db-dat "Digesting ~A." path)
+          (loop
+             with pictures-data = (make-array '(600) :fill-pointer 0)
+             for picture-start =
+             (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
+             (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
+             for picture-length = (find-keyword-value path "dataSize="
+                                                      picture-start estimated-header-length)
+             and time-trigger = (utc-from-unix
+                                 (or
+                                  (find-keyword-value path "timeTrigger="
+                                                      picture-start estimated-header-length)
+                                  -1))
+             and timestamp = (find-keyword-value path "cameraTimestamp="
                                                  picture-start estimated-header-length)
-                              -1))
-         and timestamp = (find-keyword-value path "cameraTimestamp="
-                                             picture-start estimated-header-length)
-         and recorded-device-id = (format nil "~S" (find-keyword-value path "cam="
-                                                                       picture-start estimated-header-length))
-         and gain = (find-keyword-value path "gain="
-                                        picture-start estimated-header-length)
-         and shutter = (find-keyword-value path "shutter="
-                                           picture-start estimated-header-length)
-         while picture-start
-         do (vector-push-extend
-             (make-instance
-              'image-data
-              :trigger-time time-trigger
-              :camera-timestamp timestamp
-              :recorded-device-id recorded-device-id
-              :filename (file-namestring path)
-              :gain gain
-              :shutter shutter
-              :byte-position picture-start)
-             pictures-data)
-         finally
-           (repair-missing-trigger-times pictures-data)
-           (return  pictures-data)))))
+             and recorded-device-id = (format nil "~S" (find-keyword-value path "cam="
+                                                                           picture-start estimated-header-length))
+             and gain = (find-keyword-value path "gain="
+                                            picture-start estimated-header-length)
+             and shutter = (find-keyword-value path "shutter="
+                                               picture-start estimated-header-length)
+             while picture-start
+             do (vector-push-extend
+                 (make-instance
+                  'image-data
+                  :trigger-time time-trigger
+                  :camera-timestamp timestamp
+                  :recorded-device-id recorded-device-id
+                  :filename (file-namestring path)
+                  :gain gain
+                  :shutter shutter
+                  :byte-position picture-start)
+                 pictures-data)
+             finally
+             (repair-missing-trigger-times pictures-data)
+             (return  pictures-data)))
+        (cl-log:log-message :db-dat "Skipping ~A because it looks disgusting." path))))
 
 (defun repair-missing-trigger-times (images)
   "Use slot camera-timestamp to fake missing trigger-times."
@@ -108,12 +111,12 @@
 
 (defun collect-gps-data (dir-path estimated-utc)
   "Put content of files in dir-path/**/applanix/*eventN.txt into vectors.  Return a list of elements (N vector) where N is the event number."
-  (let* ((gps-files
-          (directory
-           (make-pathname
-            :directory (append (pathname-directory dir-path) '(:wild-inferiors) '("applanix" "points"))
-            :name :wild
-            :type :wild)))
+  (let* ((event-dir
+          (make-pathname
+           :directory (append (pathname-directory dir-path) '(:wild-inferiors) '("applanix" "points"))
+           :name :wild
+           :type :wild))
+         (gps-files (directory event-dir))
          (gps-event-files
           (loop
              for gps-file in gps-files
@@ -126,6 +129,8 @@
                                            (search "event" gps-basename
                                                    :from-end t))))
              when event-number collect (list event-number gps-file))))
+    (assert gps-event-files () "Sorry, but I couldn't find a single GPS event file in ~A."
+            (directory-namestring event-dir))
     (cl-log:log-message :db-dat "Digesting GPS data from ~{~A~#^, ~}." (mapcar #'cadr gps-event-files))
     (loop
        for gps-event-file-entry in gps-event-files
