@@ -242,7 +242,7 @@
         (command-line-arguments:compute-and-process-command-line-options
          *cli-options*))
     (serious-condition (c)
-      (cl-log:log-message :warning "Cancelled: ~A" c)
+      (cl-log:log-message :warning "Fatal: ~A" c)
       (format *error-output* "~A~&" c))))
 
 (defun cli-help-action (&rest rest)

@@ -21,8 +21,8 @@
 (cl-log:defcategory :db-sys)
 (cl-log:defcategory :db-dat)
 (cl-log:defcategory :orphan)
-(cl-log:defcategory :warning)
 (cl-log:defcategory :error)
+(cl-log:defcategory :warning (or :warning :error))
 (cl-log:defcategory :db (or :db-sys :db-dat :warning :error))
 (cl-log:defcategory :debug (or :debug :db-sys :db-dat :orphan :warning :error))
 
@@ -30,29 +30,41 @@
   "Start logging facility.  Create log-dir if necessary."
   (let ((log-dir (pathname-directory (ensure-directories-exist
                                       (pathname log-dir)))))
+
     (setf (cl-log:log-manager)
           (make-instance 'cl-log:log-manager
                          :message-class 'cl-log:formatted-message))
+
     (cl-log:start-messenger
      'cl-log:text-file-messenger 
      :name :orphan
      :filename (make-pathname :directory log-dir :name "orphans" :type "log")
      :category :orphan)
+
     (cl-log:start-messenger
      'cl-log:text-file-messenger 
      :name :debug
      :filename (make-pathname :directory log-dir :name "debug" :type "log")
      :category :debug)
+
+    (cl-log:start-messenger
+     'cl-log:text-file-messenger 
+     :name :warning
+     :filename (make-pathname :directory log-dir :name "warnings" :type "log")
+     :category :warning)
+
     (cl-log:start-messenger
      'cl-log:text-file-messenger
      :name :db
      :filename (make-pathname :directory log-dir :name "phoros" :type "log")
      :category :db)
+
     (cl-log:start-messenger
      'cl-log:text-stream-messenger
      :name :stream
      :stream *error-output*
      :category :debug)))
+
 
 (defmethod cl-log:format-message ((self cl-log:formatted-message))
   (format nil "~A ~A ~?~&"
