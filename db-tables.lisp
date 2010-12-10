@@ -87,7 +87,9 @@
 (deftable sys-acquisition-project
   (:create-sequence 'sys-acquisition-project-id-seq)
   (!dao-def)
-  (sql-compile `(:alter-table ,*table-name* :add :constraint "common-table-name-unique" :unique 'common-table-name)))
+  (sql-compile
+   `(:alter-table ,*table-name* :add :constraint "common-table-name-unique"
+                  :unique 'common-table-name)))
 
 (defclass sys-presentation-project ()
   ((presentation-project-id
@@ -117,7 +119,8 @@
 (deftable sys-user-role
   (!dao-def)
   (!foreign 'sys-user 'user-id :on-delete :cascade :on-update :cascade)
-  (!foreign 'sys-presentation-project 'presentation-project-id :on-delete :cascade :on-update :cascade))
+  (!foreign 'sys-presentation-project 'presentation-project-id
+            :on-delete :cascade :on-update :cascade))
 
 (defclass sys-measurement ()
   ((measurement-id
@@ -130,7 +133,9 @@
    (directory
     :initarg :directory
     :col-type text
-    :documentation "Below some universal root common to all measurements; excluding `applanix/´ `images/´ etc.
+    :documentation
+    "Below some universal root common to all measurements; excluding
+`applanix/´ `images/´ etc.
 
 The entire directory structure looks like this:
 
@@ -163,7 +168,8 @@ TODO: /images/ part not currently enforced."))
 (deftable sys-measurement
   (:create-sequence 'sys-measurement-id-seq)
   (!dao-def)
-  (!foreign 'sys-acquisition-project 'acquisition-project-id :on-delete :cascade :on-update :cascade))
+  (!foreign 'sys-acquisition-project 'acquisition-project-id
+            :on-delete :cascade :on-update :cascade))
 
 (defclass sys-presentation ()
   ((presentation-project-id
@@ -176,8 +182,10 @@ TODO: /images/ part not currently enforced."))
 
 (deftable sys-presentation
   (!dao-def)
-  (!foreign 'sys-presentation-project 'presentation-project-id :on-delete :cascade :on-update :cascade)
-  (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade))
+  (!foreign 'sys-presentation-project 'presentation-project-id
+            :on-delete :cascade :on-update :cascade)
+  (!foreign 'sys-measurement 'measurement-id
+            :on-delete :cascade :on-update :cascade))
 
 (defclass sys-camera-hardware ()
   ((camera-hardware-id
@@ -254,7 +262,8 @@ TODO: /images/ part not currently enforced."))
 (deftable sys-generic-device
   (:create-sequence 'sys-generic-device-id-seq)
   (!dao-def)
-  (!foreign 'sys-camera-hardware 'camera-hardware-id :on-delete :restrict :on-update :restrict)
+  (!foreign 'sys-camera-hardware 'camera-hardware-id
+            :on-delete :restrict :on-update :restrict)
   (!foreign 'sys-lens 'lens-id :on-delete :restrict :on-update :restrict)
   ;;;; Once we have a sys-scanner table:
   ;;(!foreign 'sys-scanner 'scanner-id :on-delete :restrict :on-update :restrict)
@@ -300,7 +309,8 @@ TODO: /images/ part not currently enforced."))
   (!index 'recorded-device-id)
   (!index 'mounting-date)
   (!index 'unmounting-date)
-  (!foreign 'sys-generic-device 'generic-device-id :on-delete :restrict :on-update :restrict))
+  (!foreign 'sys-generic-device 'generic-device-id
+            :on-delete :restrict :on-update :restrict))
 
 (defclass sys-camera-calibration ()
   ((device-stage-of-life-id
@@ -438,7 +448,8 @@ TODO: /images/ part not currently enforced."))
 
 (deftable sys-camera-calibration
   (!dao-def)
-  (!foreign 'sys-device-stage-of-life 'device-stage-of-life-id :on-delete :restrict :on-update :restrict))
+  (!foreign 'sys-device-stage-of-life 'device-stage-of-life-id
+            :on-delete :restrict :on-update :restrict))
 
 (defun create-sys-tables ()
   "Create in current database a set of sys-* tables, i.e. tables that are used by all projects.  The database should probably be empty."
@@ -589,11 +600,17 @@ TODO: /images/ part not currently enforced."))
   (:table-name nil))                    ; to be redefined
 
 (defun create-data-table-definitions (common-table-name)
-  "Define or redefine a bunch of dao-classes which can hold measuring data and which are connected to database tables named common-table-name plus type-specific prefix and/or suffix."
+  "Define or redefine a bunch of dao-classes which can hold measuring
+data and which are connected to database tables named
+common-table-name plus type-specific prefix and/or suffix."
   (let* ((table-prefix "dat-")
-         (image-data-table-name (format nil "~A~A-image" table-prefix common-table-name))
-         (point-data-table-name (format nil "~A~A-point" table-prefix common-table-name))
-         (point-id-sequence-name (make-symbol (format nil "~A~A-point-id-seq" table-prefix common-table-name))))
+         (image-data-table-name
+          (format nil "~A~A-image" table-prefix common-table-name))
+         (point-data-table-name
+          (format nil "~A~A-point" table-prefix common-table-name))
+         (point-id-sequence-name
+          (make-symbol (format nil "~A~A-point-id-seq"
+                               table-prefix common-table-name))))
     (eval
      `(defclass point-data (point-template)
         ((point-id
@@ -616,7 +633,8 @@ TODO: /images/ part not currently enforced."))
       ;; The following let shouldn't be necessary. (Wart In !foreign.)
       (let ((*table-symbol* point-data-table-name)
             (*table-name*  (s-sql:to-sql-name point-data-table-name)))
-        (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade)))
+        (!foreign 'sys-measurement 'measurement-id
+                  :on-delete :cascade :on-update :cascade)))
     (eval
      `(defclass image-data (image-template)
         ()
@@ -632,19 +650,25 @@ TODO: /images/ part not currently enforced."))
       ;; The following let shouldn't be necessary. (Wart in !foreign.)
       (let ((*table-symbol* image-data-table-name)
             (*table-name*  (s-sql:to-sql-name image-data-table-name)))
-        (!foreign point-data-table-name 'point-id :on-delete :cascade :on-update :cascade)
-        (!foreign 'sys-measurement 'measurement-id :on-delete :cascade :on-update :cascade))
+        (!foreign point-data-table-name 'point-id
+                  :on-delete :cascade :on-update :cascade)
+        (!foreign 'sys-measurement 'measurement-id
+                  :on-delete :cascade :on-update :cascade))
       )))
 
 (defun create-acquisition-project (common-table-name)
-  "Create in current database a fresh set of canonically named tables.  common-table-name should in most cases resemble the project name and will be stored in table sys-acquisition-project, field common-table-name."
+  "Create in current database a fresh set of canonically named tables.
+common-table-name should in most cases resemble the project name and
+will be stored in table sys-acquisition-project, field
+common-table-name."
   (create-data-table-definitions common-table-name)
   (handler-case (create-sys-tables) ; Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (when (select-dao 'sys-acquisition-project (:= 'common-table-name
                                      (s-sql:to-sql-name common-table-name)))
     (error "There is already a row with a common-table-name of ~A in table ~A."
-           common-table-name (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
+           common-table-name
+           (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
   (create-table 'point-data)
   (create-table 'image-data)
   (insert-dao

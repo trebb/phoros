@@ -22,5 +22,4 @@
         :hunchentoot
         :cl-who
         :parenscript
-        :postmodern)
-  (:export #:test))
+        :postmodern))

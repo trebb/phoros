@@ -19,10 +19,12 @@
 (in-package :phoros)
 
 (defparameter *picture-header-length-tolerance* 20
-  "Amount of leeway for the length of a picture header in a .pictures file.")
+  "Amount of leeway for the length of a picture header in a .pictures
+  file.")
 
 (defun find-keyword-in-stream (stream keyword &optional start-position search-range)
-  "Return file-position in binary stream after first occurence of keyword."
+  "Return file-position in binary stream after first occurence of
+keyword."
   (unless start-position (setf start-position 0))
   (let ((end-position (if search-range
                           (+ start-position search-range)
@@ -32,9 +34,13 @@
           (file-position stream start-position)
           (let ((chunk-size (length keyword)))
             (cl:loop
-             for next-chunk = (let ((result (make-array (list chunk-size) :fill-pointer 0)))
-                                (dotimes (i chunk-size (coerce result 'string))
-                                  (vector-push-extend (code-char (read-byte stream)) result))) ; TODO: try read-sequence
+             for next-chunk = (let ((result
+                                     (make-array (list chunk-size)
+                                                 :fill-pointer 0)))
+                                (dotimes
+                                    (i chunk-size (coerce result 'string))
+                                  (vector-push-extend
+                                   (code-char (read-byte stream)) result))) ; TODO: try read-sequence
              if (string/= next-chunk keyword) do
              (let ((next-position (- (file-position stream) chunk-size -1)))
                (if (< next-position end-position)
@@ -58,7 +64,8 @@
     (find-keyword-in-stream stream keyword start-position search-range)))
 
 (defun read-huffman-table (stream &optional start-position)
-  "Return in a hash table a huffman table read from stream.  Start either at stream's file position or at start-position."
+  "Return in a hash table a huffman table read from stream.  Start
+either at stream's file position or at start-position."
   (let* ((huffman-codes-start
           (if start-position
               start-position
@@ -75,10 +82,14 @@
          for length in lengths
          for key = (make-array (list length) :element-type 'bit)
          for code = (let ((code-part 0))
-                      (setf code-part (dpb (read-byte stream) (byte 8 24) code-part))
-                      (setf code-part (dpb (read-byte stream) (byte 8 16) code-part))
-                      (setf code-part (dpb (read-byte stream) (byte 8 8) code-part))
-                      (dpb (read-byte stream) (byte 8 0) code-part)) ; TODO: try read-sequence
+                      (setf code-part (dpb (read-byte stream)
+                                           (byte 8 24) code-part))
+                      (setf code-part (dpb (read-byte stream)
+                                           (byte 8 16) code-part))
+                      (setf code-part (dpb (read-byte stream)
+                                           (byte 8 8) code-part))
+                      (dpb (read-byte stream)
+                           (byte 8 0) code-part)) ; TODO: try read-sequence
          unless (zerop length)
          do (loop
                for key-index from 0 below length
@@ -90,16 +101,19 @@
       huffman-table)))
 
 (defun read-compressed-picture (stream start-position length)
-  "Return a compressed picture in a bit array.  Start either at start-position or, if that is nil, at stream's file position."
+  "Return a compressed picture in a bit array.  Start either at
+start-position or, if that is nil, at stream's file position."
   (when start-position (file-position stream start-position))
-  (let ((compressed-picture (make-array (list (* 8 length)) :element-type 'bit)))
+  (let ((compressed-picture
+         (make-array (list (* 8 length)) :element-type 'bit)))
     (loop
        for byte-position from 0 below length
        for byte = (read-byte stream) ; TODO: try read-sequence
        do (loop
              for source-bit from 7 downto 0
              for destination-bit from 0 to 7
-             do (setf (sbit compressed-picture (+ destination-bit (* 8 byte-position)))
+             do (setf (sbit compressed-picture
+                            (+ destination-bit (* 8 byte-position)))
                       (ldb (byte 1 source-bit) byte))))
     compressed-picture))
 
@@ -108,12 +122,15 @@
   (loop
      for bit-array-index from start
      for result-index from 7 downto 0
-     for result = (dpb (sbit bit-array bit-array-index) (byte 1 result-index) 0)
+     for result = (dpb (sbit bit-array bit-array-index)
+                       (byte 1 result-index) 0)
      then (dpb (sbit bit-array bit-array-index) (byte 1 result-index) result)
      finally (return result)))
 
-(defun uncompress-picture (huffman-table compressed-picture height width color-type)
-  "Return the Bayer pattern extracted from compressed-picture in a zpng:png image, everything in color channel 0."
+(defun uncompress-picture (huffman-table compressed-picture
+                           height width color-type)
+  "Return the Bayer pattern extracted from compressed-picture in a
+zpng:png image, everything in color channel 0."
   (let* ((png (make-instance 'zpng:png
                              :color-type color-type
                              :width width :height height))
@@ -129,16 +146,21 @@
        for row from 0 below height
        do
          (setf (aref uncompressed-picture row 0 0)
-               (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))
+               (get-leading-byte compressed-picture
+                                 (prog1 compressed-picture-index
+                                   (incf compressed-picture-index 8))))
          (setf (aref uncompressed-picture row 1 0)
-               (get-leading-byte compressed-picture (prog1 compressed-picture-index (incf compressed-picture-index 8))))
+               (get-leading-byte compressed-picture
+                                 (prog1 compressed-picture-index
+                                   (incf compressed-picture-index 8))))
          (loop
             for column from 2 below width
             for try-start from compressed-picture-index
             do
             (loop
                for key-length from min-key-length to max-key-length
-               for huffman-code = (subseq compressed-picture try-start (+ try-start key-length))
+               for huffman-code = (subseq compressed-picture
+                                          try-start (+ try-start key-length))
                for pixel-delta-maybe = (gethash huffman-code huffman-table)
                when pixel-delta-maybe
                do
@@ -147,7 +169,9 @@
                           pixel-delta-maybe))
                and do (incf try-start (1- key-length))
                and return nil
-               finally (error "Decoder out of step at row ~S, column ~S.  Giving up." row column))
+               finally (error
+                        "Decoder out of step at row ~S, column ~S.  Giving up."
+                        row column))
             finally
             (setf compressed-picture-index (1+ try-start))
             ;;(print compressed-picture-index)
@@ -155,13 +179,16 @@
       png))
 
 (defun fetch-picture (stream start-position length height width color-type)
-  "Return the Bayer pattern taken from stream in a zpng:png image, everything in color channel 0.  Start at start-position or, if that is nil, at stream's file position."
+  "Return the Bayer pattern taken from stream in a zpng:png image,
+everything in color channel 0.  Start at start-position or, if that is
+nil, at stream's file position."
   (when start-position (file-position stream start-position))
   (let* ((png (make-instance 'zpng:png
                              :color-type color-type
                              :width width :height height))
          (png-image-data (zpng:image-data png))
-         (raw-image (make-array (list length) :element-type 'unsigned-byte)))
+         (raw-image
+          (make-array (list length) :element-type 'unsigned-byte)))
     (ecase color-type
       (:grayscale
        (read-sequence png-image-data stream))
@@ -209,9 +236,13 @@
                  4))))
 
 (defun demosaic-png (png bayer-pattern color-raiser)
-  "Demosaic color png in-place whose color channel 0 is supposed to be filled with a Bayer color pattern.  Return demosaiced png.
-bayer-pattern is an array of 24-bit RGB values (red occupying the least significant byte), describing the upper left corner of the image.  Currently, only pixels 0, 1 on row 0 are taken into account.  And, it's currently not even an array but a vector due to limitations in postmodern.
-For a grayscale image do nothing."
+  "Demosaic color png in-place whose color channel 0 is supposed to be
+filled with a Bayer color pattern.  Return demosaiced png.
+bayer-pattern is an array of 24-bit RGB values (red occupying the
+least significant byte), describing the upper left corner of the
+image.  Currently, only pixels 0, 1 on row 0 are taken into account.
+And, it's currently not even an array but a vector due to limitations
+in postmodern.  For a grayscale image do nothing."
   (when (eq (zpng:color-type png) :truecolor)
     (let ((lowest-row (- (zpng:height png) 2))
           (rightmost-column (- (zpng:width png) 2))
@@ -247,17 +278,20 @@ For a grayscale image do nothing."
                (setf (aref (zpng:data-array png) row column red)
                      (min pix-depth
                           (round (* color-raiser-red
-                                    (aref (zpng:data-array png) row column red))))))
+                                    (aref (zpng:data-array png)
+                                          row column red))))))
              (colorize-green (row column)
                (setf (aref (zpng:data-array png) row column green)
                      (min pix-depth
                           (round (* color-raiser-green
-                                    (aref (zpng:data-array png) row column red))))))
+                                    (aref (zpng:data-array png)
+                                          row column red))))))
              (colorize-blue (row column)
                (setf (aref (zpng:data-array png) row column blue)
                      (min pix-depth
                           (round (* color-raiser-blue
-                                    (aref (zpng:data-array png) row column red)))))))
+                                    (aref (zpng:data-array png)
+                                          row column red)))))))
         (cond
           ((= (aref bayer-pattern 0) bayer-pattern-red)
            (setf colorize-even-row-even-column #'colorize-red)
@@ -297,8 +331,10 @@ For a grayscale image do nothing."
               (setf complete-even-row-odd-column #'complete-blue)
               (setf complete-odd-row-even-column #'complete-red)
               (setf complete-odd-row-odd-column #'complete-green-on-red-row))
-             (t (error "Don't know how to deal with a bayer-pattern of ~A" bayer-pattern))))
-          (t (error "Don't know how to deal with a bayer-pattern of ~A" bayer-pattern)))
+             (t (error "Don't know how to deal with a bayer-pattern of ~A"
+                       bayer-pattern))))
+          (t (error "Don't know how to deal with a bayer-pattern of ~A"
+                    bayer-pattern)))
         ;; Recover colors (so far everything is in channel 0)
         (loop for row from 0 below (zpng:height png) by 2
            do (loop for column from 0 below (zpng:width png) by 2
@@ -329,8 +365,11 @@ For a grayscale image do nothing."
               (funcall complete-odd-row-odd-column row column))))))
   png)
                             
-(defun send-png (output-stream path start &key (bayer-pattern (error "bayer-pattern needed.")) (color-raiser #(1 1 1)))
-  "Read an image at position start in .pictures file at path and send it to the binary output-stream.  Return UNIX trigger-time of image."
+(defun send-png (output-stream path start
+                 &key (bayer-pattern (error "bayer-pattern needed."))
+                 (color-raiser #(1 1 1)))
+  "Read an image at position start in .pictures file at path and send
+it to the binary output-stream.  Return UNIX trigger-time of image."
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
         (blob-size (find-keyword-value path "dataSize=" start))
         (huffman-table-size (* 511 (+ 1 4)))
@@ -347,19 +386,22 @@ For a grayscale image do nothing."
         (ecase compression-mode
           ((2 1)   ;compressed with individual/pre-built huffman table
            (uncompress-picture (read-huffman-table input-stream blob-start)
-                               (read-compressed-picture input-stream
-                                                        (+ blob-start huffman-table-size)
-                                                        (- blob-size huffman-table-size))
+                               (read-compressed-picture
+                                input-stream
+                                (+ blob-start huffman-table-size)
+                                (- blob-size huffman-table-size))
                                image-height image-width color-type))
           (0                            ;uncompressed
-           (fetch-picture input-stream blob-start blob-size image-height image-width color-type)))
+           (fetch-picture input-stream blob-start blob-size
+                          image-height image-width color-type)))
         bayer-pattern
         color-raiser)
        output-stream))
     trigger-time))
 
 (defun find-nth-picture (n path)
-  "Find file-position of zero-indexed nth picture in in .pictures file at path."
+  "Find file-position of zero-indexed nth picture in in .pictures file
+at path."
   (let ((estimated-header-length
          (- (find-keyword path "PICTUREHEADER_END")
             (find-keyword path "PICTUREHEADER_BEGIN")
@@ -368,13 +410,20 @@ For a grayscale image do nothing."
        for i from 0 to n
        for picture-start =
        (find-keyword path "PICTUREHEADER_BEGIN" 0) then
-       (find-keyword path "PICTUREHEADER_BEGIN" (+ picture-start picture-length estimated-header-length))
-       for picture-length = (find-keyword-value path "dataSize=" picture-start)
+       (find-keyword path "PICTUREHEADER_BEGIN"
+                     (+ picture-start picture-length estimated-header-length))
+       for picture-length = (find-keyword-value path
+                                                "dataSize=" picture-start)
        finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
 
-(defun send-nth-png (n output-stream path &key (bayer-pattern (error "bayer-pattern needed.")) color-raiser)
-  "Read image number n (zero-indexed) in .pictures file at path and send it to the binary output-stream.  Return UNIX trigger-time of image."
-  (send-png output-stream path (find-nth-picture n path) :bayer-pattern bayer-pattern :color-raiser color-raiser))
+(defun send-nth-png (n output-stream path
+                     &key (bayer-pattern (error "bayer-pattern needed."))
+                     color-raiser)
+  "Read image number n (zero-indexed) in .pictures file at path and
+send it to the binary output-stream.  Return UNIX trigger-time of
+image."
+  (send-png output-stream path (find-nth-picture n path)
+            :bayer-pattern bayer-pattern :color-raiser color-raiser))
 
 ;;(defstruct picture-header               ; TODO: perhaps not needed
 ;;  "Information for one image from a .pictures file."
