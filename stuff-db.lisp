@@ -400,7 +400,8 @@
          (gps-start-pointers (loop
                                 for i in gps-points
                                 collect (cons (car i) 0)))
-         (dir-below-root-dir (enough-namestring (string-right-trim "/\\ " dir-path) root-dir)))
+         (dir-below-root-dir (enough-namestring (string-right-trim "/\\ " dir-path) root-dir))
+         (mapped-image-counter (length images)))
     (cl-log:log-message :db-dat "I assume this measure was taken approximately ~A." (timestring (round estimated-time)))
     (assert-gps-points-sanity gps-points)
     (loop
@@ -441,8 +442,12 @@
                                                         (ellipsoid-height matching-point)))
                               :where (:= 'point-id (point-id matching-point))))
             (save-dao i))
-       else do (cl-log:log-message :orphan "Couldn't map to any point: ~A, byte ~A. ~:[~; It didn't have a decent trigger time anyway.~]"
-                                   (filename i) (image-byte-position i) (fake-trigger-time-p i)))))
+       else do
+         (decf mapped-image-counter)
+         (cl-log:log-message :orphan "Couldn't map to any point: ~A, byte ~A. ~:[~; It didn't have a decent trigger time anyway.~]"
+                             (filename i) (image-byte-position i) (fake-trigger-time-p i)))
+    (cl-log:log-message :db-dat "Tried to map ~D images to GPS points.  The attempt has been successful in ~:[~D~;all~] cases.~1@*~:[  See file orphans.log for details on the failures.~;~]"
+                        (length images) (= (length images) mapped-image-counter) mapped-image-counter)))
 
 (defun store-camera-hardware
     (&key (sensor-width-pix (error "sensor-width-pix needed."))
