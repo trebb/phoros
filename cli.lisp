@@ -223,12 +223,19 @@
     ("aggregate-events" :type nil
      :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")))
 
+(defparameter *cli-start-server-options*
+  '(("server" :action #'server-action :documentation "Start presentation server.")
+    ("server-port" :type integer :initial-value 8080 :documentation "Port the presentation server listens on.")
+    (("common-root" #\r) :type string
+     :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")))
+
 (defparameter *cli-options*
   (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options*
           *cli-camera-hardware-options* *cli-lens-options*
           *cli-generic-device-options* *cli-device-stage-of-life-options*
           *cli-device-stage-of-life-end-options*
-          *cli-camera-calibration-options* *cli-store-images-and-points-options*))
+          *cli-camera-calibration-options* *cli-store-images-and-points-options*
+          *cli-start-server-options*))
 
 (defun main ()
   "The UNIX command line entry point."
@@ -271,7 +278,9 @@
     (format *standard-output* format-headline "Camera Calibration Parameters")
     (command-line-arguments:show-option-help *cli-camera-calibration-options*)
     (format *standard-output* format-headline "Store Measure Data")
-    (command-line-arguments:show-option-help *cli-store-images-and-points-options*)))
+    (command-line-arguments:show-option-help *cli-store-images-and-points-options*)
+    (format *standard-output* format-headline "Become A Presentation Server")
+    (command-line-arguments:show-option-help *cli-start-server-options*)))
 
 (defun cli-version-action (&rest rest)
   "Print --version message."
@@ -518,3 +527,23 @@ trigger-time to stdout."
                                (canonicalize-color-raiser raw-color-raiser)))))
         (format *standard-output*
                 "~&~A~%" (timestring (utc-from-unix trigger-time)))))))
+
+(defun server-action (&rest rest)
+  "Start the server"
+  (declare (ignore rest))
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            server-port common-root
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (setf *postgresql-credentials*
+          (list database user password host :port port
+                :use-ssl (s-sql:from-sql-name use-ssl)))
+    (start-server :server-port server-port :common-root common-root)
+    (cl-log:log-message
+     :server
+     "Server listens on port ~D.  Database is ~A on ~A:~D.  Files are sought for in ~A."
+     server-port database host port common-root)
+    (loop (sleep 10))))

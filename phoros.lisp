@@ -24,13 +24,20 @@
   (t (:or "../photogrammetrie/lib/libphotogrammetrie.so"
           "libphotogrammetrie.so")))
 
-(defparameter *phoros-server* (make-instance 'hunchentoot:acceptor :port 8080))
-
 (defparameter *standard-coordinates* 4326 "EPSG code of the coordinate system that we use for communication.")
-(defvar *postgresql-credentials* "A list: (database user password host &key (port 5432))")
+(defvar *postgresql-credentials* "A list: (database user password host &key (port 5432) use-ssl)")
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
 (setf *read-default-float-format* 'double-float)
-(defun start-server () (hunchentoot:start *phoros-server*))
+
+(defparameter *phoros-server* nil "Hunchentoot acceptor.")
+(defparameter *common-root* nil "Root directory; contains directories of measuring data.")
+
+(defun start-server (&key (server-port 8080) common-root)
+  (setf *phoros-server* (make-instance 'hunchentoot:acceptor :port server-port))
+  (setf *common-root* common-root)
+  (hunchentoot:start *phoros-server*))
+
+(defun stop-server () (hunchentoot:stop *phoros-server*))
 
 (register-sql-operators :2+-ary :&& :overlaps)
 
@@ -69,7 +76,7 @@
                     :roll :pitch :heading
                     :d-roll :d-pitch :d-heading)
                   x))
-             (with-connection *postgresql-credentials* ; TODO: needs predefined credentials which is bad.
+             (with-connection *postgresql-credentials*
                (query
                 (:limit
                  (:order-by
@@ -146,6 +153,11 @@
                               :where (:&& (:st_transform 'the-geom *standard-coordinates*)
                                           (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*)))))
              nil))))))
+
+(define-easy-handler (ttt :uri "/ttt") ()
+  (with-connection *postgresql-credentials*
+          (create-acquisition-project "z6"))
+  "ABCDE")
 
 (define-easy-handler (click :uri "/click" :default-request-type :post) ()
   (with-html-output-to-string (s nil :indent t)

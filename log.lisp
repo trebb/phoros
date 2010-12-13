@@ -20,11 +20,12 @@
 
 (cl-log:defcategory :db-sys)
 (cl-log:defcategory :db-dat)
+(cl-log:defcategory :server)
 (cl-log:defcategory :orphan)
 (cl-log:defcategory :error)
 (cl-log:defcategory :warning (or :warning :error))
 (cl-log:defcategory :db (or :db-sys :db-dat :warning :error))
-(cl-log:defcategory :debug (or :debug :db-sys :db-dat :orphan :warning :error))
+(cl-log:defcategory :debug (or :debug :db-sys :db-dat :server :orphan :warning :error))
 
 (defun launch-logger (&optional (log-dir ""))
   "Start logging facility.  Create log-dir if necessary."
