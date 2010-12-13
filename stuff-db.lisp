@@ -536,8 +536,8 @@ all pojects."
          (decf mapped-image-counter)
          (cl-log:log-message
           :orphan
-          "Couldn't map to any point: ~A, byte ~A. ~:[~; It didn't have a decent trigger time anyway.~]"
-          (filename i) (image-byte-position i) (fake-trigger-time-p i)))
+          "Couldn't map to any point: ~A~A, byte ~S. ~:[~; It didn't have a decent trigger time anyway.~]"
+          dir-path (filename i) (image-byte-position i) (fake-trigger-time-p i)))
     (cl-log:log-message
      :db-dat
      "Tried to map ~D images to GPS points.  The attempt has been successful in ~:[~D~;all~] cases.~1@*~:[  See file orphans.log for details on the failures.~;~]"
