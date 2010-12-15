@@ -224,9 +224,9 @@
      :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")))
 
 (defparameter *cli-start-server-options*
-  '(("server" :action #'server-action :documentation "Start presentation server.")
+  '(("server" :action #'server-action :documentation "Start HTTP presentation server.")
     ("server-port" :type integer :initial-value 8080 :documentation "Port the presentation server listens on.")
-    (("common-root" #\r) :type string
+    (("common-root" #\r) :type string :initial-value "/"
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")))
 
 (defparameter *cli-options*
@@ -529,7 +529,7 @@ trigger-time to stdout."
                 "~&~A~%" (timestring (utc-from-unix trigger-time)))))))
 
 (defun server-action (&rest rest)
-  "Start the server"
+  "Start the HTTP server."
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir
@@ -544,6 +544,6 @@ trigger-time to stdout."
     (start-server :server-port server-port :common-root common-root)
     (cl-log:log-message
      :server
-     "Server listens on port ~D.  Database is ~A on ~A:~D.  Files are sought for in ~A."
+     "HTTP server listens on port ~D.  Database is ~A on ~A:~D.  Files are searched for in ~A."
      server-port database host port common-root)
     (loop (sleep 10))))

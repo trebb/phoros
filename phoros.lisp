@@ -172,8 +172,6 @@
            :name (first file-name-and-type)
            :type (second file-name-and-type)))
          stream)
-    (print bayer-pattern)
-    (terpri)
     (setf (content-type*) "image/png")
     (setf stream (send-headers))
     (send-png stream path-to-file byte-position
