@@ -32,7 +32,7 @@
 (defparameter *phoros-server* nil "Hunchentoot acceptor.")
 (defparameter *common-root* nil "Root directory; contains directories of measuring data.")
 
-(defun start-server (&key (server-port 8080) common-root)
+(defun start-server (&key (server-port 8080) (common-root "/"))
   (setf *phoros-server* (make-instance 'hunchentoot:acceptor :port server-port))
   (setf *common-root* common-root)
   (hunchentoot:start *phoros-server*))
@@ -154,10 +154,36 @@
                                           (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*)))))
              nil))))))
 
-(define-easy-handler (ttt :uri "/ttt") ()
-  (with-connection *postgresql-credentials*
-          (create-acquisition-project "z6"))
-  "ABCDE")
+(define-easy-handler photo-handler
+    ((bayer-pattern :parameter-type #'canonicalize-bayer-pattern
+                    :init-form #(#x00ff00 #x0000ff))
+     (color-raiser :parameter-type #'canonicalize-color-raiser
+                   :init-form #(1 1 1)))
+  "Serve an image from a .pictures file."
+  (let* ((s (cdr (cl-utilities:split-sequence #\/ (script-name*)
+                                              :remove-empty-subseqs t)))
+         (directory (butlast s 2))
+         (file-name-and-type (cl-utilities:split-sequence
+                              #\. (first (last s 2))))
+         (byte-position (parse-integer (car (last s)) :junk-allowed t))
+         (path-to-file
+          (make-pathname
+           :directory (append (pathname-directory *common-root*) directory)
+           :name (first file-name-and-type)
+           :type (second file-name-and-type)))
+         stream)
+    (print bayer-pattern)
+    (terpri)
+    (setf (content-type*) "image/png")
+    (setf stream (send-headers))
+    (send-png stream path-to-file byte-position
+              :bayer-pattern bayer-pattern :color-raiser color-raiser)))
+
+(pushnew (create-prefix-dispatcher "/photo" 'photo-handler)
+         *dispatch-table*)
+
+(pushnew (create-folder-dispatcher-and-handler "/lib/" "/home/bertb/lisphack/phoros/")
+         *dispatch-table*)
 
 (define-easy-handler (click :uri "/click" :default-request-type :post) ()
   (with-html-output-to-string (s nil :indent t)
@@ -487,6 +513,3 @@
                                          :x-global :y-global :z-global))))
     (apply #'add-global-measurement-point (print double-float-args))))
   
-
-(pushnew (create-folder-dispatcher-and-handler "/lib/" "/home/bertb/clbuild/source/phoros/") *dispatch-table*)
-(pushnew (create-folder-dispatcher-and-handler "/photo-test/" "/home/bertb/phoros-testdata/") *dispatch-table*)
