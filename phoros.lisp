@@ -25,7 +25,7 @@
           "libphotogrammetrie.so")))
 
 (defparameter *standard-coordinates* 4326 "EPSG code of the coordinate system that we use for communication.")
-(defvar *postgresql-credentials* "A list: (database user password host &key (port 5432) use-ssl)")
+(defparameter *postgresql-credentials* nil "A list: (database user password host &key (port 5432) use-ssl)")
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
 (setf *read-default-float-format* 'double-float)
 
@@ -39,7 +39,8 @@
 
 (defun stop-server () (hunchentoot:stop *phoros-server*))
 
-(register-sql-operators :2+-ary :&& :overlaps)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (register-sql-operators :2+-ary :&& :overlaps))
 
 (define-easy-handler (lon-lat-test :uri "/lon-lat-test" :default-request-type :post) ()
   "Receive coordinates, respond with the count nearest json objects containing picture url, calibration parameters, and car position, wrapped in an array."
@@ -131,51 +132,55 @@
                  count)))))))
     (json:encode-json-to-string result)))
 
-(define-easy-handler (json-test :uri "/json-test") (bbox)
-  (let ((box3d-form
-         (concatenate 'string "BOX3D("
-                      (substitute #\Space #\,
-                                  (substitute #\Space #\, bbox :count 1)
-                                  :from-end t :count 1)
-                      ")")))
-    (with-connection *postgresql-credentials*
-    (json:encode-json-alist-to-string
-     (acons
-      'type '*geometry-collection
-      (acons 'geometries
-             (mapcar
-              #'(lambda (x)
-                  (acons 'type '*point
-                         (acons 'coordinates x nil)))
-              (query (:select (:st_x (:st_transform 'the-geom *standard-coordinates*))
-                              (:st_y (:st_transform 'the-geom *standard-coordinates*))
-                              :from 'motorrad-ccd 
-                              :where (:&& (:st_transform 'the-geom *standard-coordinates*)
-                                          (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*)))))
-             nil))))))
+(define-easy-handler (points :uri "/points") (bbox)
+  "Send a bunch of GeoJSON-encoded points from inside bbox to client."
+  (handler-case 
+      (let ((box3d-form
+             (concatenate 'string "BOX3D("
+                          (substitute #\Space #\,
+                                      (substitute #\Space #\, bbox :count 1)
+                                      :from-end t :count 1)
+                          ")")))
+        (with-connection *postgresql-credentials*
+          (json:encode-json-alist-to-string
+           (acons
+            'type '*geometry-collection
+            (acons 'geometries
+                   (mapcar
+                    #'(lambda (x)
+                        (acons 'type '*point
+                               (acons 'coordinates x nil)))
+                    (query (:select (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                                    (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                                    :from 'dat-cottbus-point
+                                    :where (:&& (:st_transform 'coordinates *standard-coordinates*)
+                                                (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*)))))
+                   nil)))))
+    (condition (c) (cl-log:log-message :server "While fetching points inside bbox ~S: ~A" bbox c))))
 
 (define-easy-handler photo-handler
-    ((bayer-pattern :parameter-type #'canonicalize-bayer-pattern
-                    :init-form #(#x00ff00 #x0000ff))
-     (color-raiser :parameter-type #'canonicalize-color-raiser
-                   :init-form #(1 1 1)))
+    ((bayer-pattern :init-form "#00ff00,#ff0000")
+     (color-raiser :init-form "1,1,1"))
   "Serve an image from a .pictures file."
-  (let* ((s (cdr (cl-utilities:split-sequence #\/ (script-name*)
-                                              :remove-empty-subseqs t)))
-         (directory (butlast s 2))
-         (file-name-and-type (cl-utilities:split-sequence
-                              #\. (first (last s 2))))
-         (byte-position (parse-integer (car (last s)) :junk-allowed t))
-         (path-to-file
-          (make-pathname
-           :directory (append (pathname-directory *common-root*) directory)
-           :name (first file-name-and-type)
-           :type (second file-name-and-type)))
-         stream)
-    (setf (content-type*) "image/png")
-    (setf stream (send-headers))
-    (send-png stream path-to-file byte-position
-              :bayer-pattern bayer-pattern :color-raiser color-raiser)))
+  (handler-case
+      (let* ((s (cdr (cl-utilities:split-sequence #\/ (script-name*)
+                                                  :remove-empty-subseqs t)))
+             (directory (butlast s 2))
+             (file-name-and-type (cl-utilities:split-sequence
+                                  #\. (first (last s 2))))
+             (byte-position (parse-integer (car (last s)) :junk-allowed t))
+             (path-to-file
+              (make-pathname
+               :directory (append (pathname-directory *common-root*) directory)
+               :name (first file-name-and-type)
+               :type (second file-name-and-type)))
+             stream)
+        (setf (content-type*) "image/png")
+        (setf stream (send-headers))
+        (send-png stream path-to-file byte-position
+                  :bayer-pattern (canonicalize-bayer-pattern bayer-pattern)
+                  :color-raiser (canonicalize-color-raiser color-raiser)))
+    (condition (c) (cl-log:log-message :server "While serving image ~S: ~A" (request-uri*) c))))
 
 (pushnew (create-prefix-dispatcher "/photo" 'photo-handler)
          *dispatch-table*)
@@ -343,7 +348,7 @@
                                  (create :strategies (array (new ((@ *open-layers *strategy *bbox*)
                                                                   (create :ratio 1.1))))
                                          :protocol (new ((@ *open-layers *protocol *http*)
-                                                         (create :url "json-test"
+                                                         (create :url "points"
                                                                  :format (new ((@ *open-layers *format *geo-j-s-o-n)
                                                                                (create external-projection geographic
                                                                                        internal-projection geographic))))))))))
