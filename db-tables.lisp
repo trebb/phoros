@@ -54,15 +54,22 @@
 
 (defclass sys-user ()
   ((user-id
+    :reader user-id
+
     :col-type integer
     :col-default (:nextval 'sys-user-id-seq))
    (user-name
     :col-type text
+    :initarg :user-name
     :documentation "This one is used for authentication.")
    (user-password
-    :col-type text)
+    :writer (setf user-password)
+    :col-type text
+    :initarg :user-password)
    (user-full-name
-    :col-type text))
+    :writer (setf user-full-name)
+    :col-type text
+    :initarg :user-full-name))
   (:metaclass dao-class)
   (:keys user-id)
   (:documentation "List of users of the presentation front end.  This is certainly not a full-fledged authentication system."))
@@ -77,7 +84,7 @@
     :col-type integer
     :col-default (:nextval 'sys-acquisition-project-id-seq))
    (common-table-name
-    :col-type text
+    :col-type textn
     :initarg :common-table-name
     :documentation "Name of this project's data tables sans their canonical prefixes and suffixes.  Serves as a human-readable acquisition procect identifier.  Should be one table for all projects but this seems to come with a speed penalty."))
   (:metaclass dao-class)
@@ -93,24 +100,31 @@
 
 (defclass sys-presentation-project ()
   ((presentation-project-id
+    :reader presentation-project-id
     :col-type integer
     :col-default (:nextval 'sys-presentation-project-id-seq))
    (presentation-project-name
     :col-type text
-    :initarg :project-name))
+    :initarg :presentation-project-name))
   (:metaclass dao-class)
-  (:keys presentation-project-id))
+  (:keys presentation-project-name))
 
 (deftable sys-presentation-project
   (:create-sequence 'sys-presentation-project-id-seq)
-  (!dao-def))
+  (!dao-def)
+  (:alter-table sys-presentation-project
+                :add :constraint "presentation-project-id-unique"
+                :unique 'presentation-project-id))
 
 (defclass sys-user-role ()
   ((user-id
+    :initarg :user-id
     :col-type integer)
    (presentation-project-id
+    :initarg :presentation-project-id
     :col-type integer)
    (user-role
+    :initarg :user-role
     :col-type text
     :documentation "Some well-defined string, e.g. read-only, r/w, etc.  TODO: define some."))
   (:metaclass dao-class)
@@ -173,8 +187,10 @@ TODO: /images/ part not currently enforced."))
 
 (defclass sys-presentation ()
   ((presentation-project-id
+    :initarg :presentation-project-id
     :col-type integer)
    (measurement-id
+    :initarg :measurement-id
     :col-type integer))
   (:metaclass dao-class)
   (:keys presentation-project-id measurement-id)
@@ -674,3 +690,127 @@ common-table-name."
   (insert-dao
    (make-instance 'sys-acquisition-project
                   :common-table-name common-table-name)))
+
+(defun create-presentation-project (project-name)
+  "Create a fresh presentation project in current database.  Return
+dao if one was created, or nil if it did exist already."
+  (unless (get-dao 'sys-presentation-project project-name)
+    (insert-dao (make-instance 'sys-presentation-project
+                               :presentation-project-name project-name))))
+
+(defun delete-presentation-project (project-name)
+  "Delete the presentation project project-name.  Return nil if there
+wasn't any."
+  (let ((project (get-dao 'sys-presentation-project project-name)))
+    (when project (delete-dao project))))
+
+(defun create-user (name &key
+                    (password (error "password needed."))
+                    (full-name (error "full-name needed."))
+                    presentation-projects)
+  "Create a fresh user entry or update an existing one with matching
+name.  Assign it presentation-projects, deleting any previously
+existing assignments."
+  (let ((user (or (car (select-dao 'sys-user (:= 'user-name name)))                  
+                  (make-instance 'sys-user :user-name name))))
+    (setf (user-password user) password
+          (user-full-name user) full-name)
+    (save-dao user)
+    (mapcar #'delete-dao (select-dao 'sys-user-role
+                                     (:= 'user-id (user-id user))))
+    (dolist (presentation-project-name presentation-projects)
+      (let ((presentation-project
+             (get-dao 'sys-presentation-project presentation-project-name)))
+        (if presentation-project
+            (insert-dao
+             (make-instance
+              'sys-user-role
+              :user-id (user-id user)
+              :presentation-project-id
+              (presentation-project-id presentation-project)
+              :user-role "read")) ;TODO: currently unused
+            (warn
+             "There is no presentation project ~A" presentation-project-name))))))
+
+(defun delete-user (user-name)
+  "Delete user user-name if any; return nil if not."
+  (let ((user (car (select-dao 'sys-user (:= 'user-name user-name)))))
+    (when user (delete-dao user))))
+
+(defun add-to-presentation-project (presentation-project-name
+                                    &key measurement-id common-table-name)
+  "Add to presentation project presentation-project-name either one
+measurement (with measurement-id) or all measurements currently in the
+acquisition-project with common-table-name."
+  (let* ((presentation-project
+          (car (select-dao 'sys-presentation-project
+                           (:= 'presentation-project-name
+                               presentation-project-name))))
+         (presentation-project-id
+          (presentation-project-id presentation-project)))
+    (flet ((add-measurement (measurement-id)
+             "Add one measurement to the given presentation-project."
+             (unless (get-dao 'sys-presentation
+                              presentation-project-id
+                              measurement-id)
+               (insert-dao
+                (make-instance 'sys-presentation
+                               :presentation-project-id presentation-project-id
+                               :measurement-id measurement-id)))))
+      (cond (measurement-id (add-measurement measurement-id))
+            (common-table-name
+             (dolist
+                 (measurement-id
+                   (query
+                    (:select
+                     'measurement-id
+                     :from 'sys-measurement 'sys-acquisition-project
+                     :where (:and
+                             (:= 'sys-acquisition-project.common-table-name
+                                 common-table-name)
+                             (:= 'sys-measurement.acquisition-project-id
+                                 'sys-acquisition-project.acquisition-project-id)))
+                    :column))
+               (add-measurement measurement-id)))
+            (t (error
+                "Don't know what to add.  Need either measurement-id or common-table-name."))))))
+
+(defun remove-from-presentation-project (presentation-project-name
+                                         &key measurement-id common-table-name)
+  "Remove from presentation project presentation-project-name either
+one measurement (with measurement-id) or all measurements currently in
+the acquisition-project with common-table-name.  Return nil if there
+weren't anything to remove."
+  (let* ((presentation-project
+          (car (select-dao 'sys-presentation-project
+                           (:= 'presentation-project-name
+                               presentation-project-name))))
+         (presentation-project-id
+          (Presentation-project-id presentation-project)))
+    (flet ((remove-measurement (measurement-id)
+             (let ((measurement
+                    (car (select-dao
+                          'sys-presentation
+                          (:and (:= 'measurement-id measurement-id)
+                                (:= 'presentation-project-id
+                                    presentation-project-id))))))
+               (when measurement (delete-dao measurement)))))
+    (cond (measurement-id (remove-measurement measurement-id))
+          (common-table-name
+           (dolist
+               (measurement-id
+                 (query
+                  (:select
+                   'measurement-id
+                   :from 'sys-measurement 'sys-acquisition-project
+                   :where (:and
+                           (:= 'sys-acquisition-project.common-table-name
+                               common-table-name)
+                           (:= 'sys-measurement.acquisition-project-id
+                               'sys-acquisition-project.acquisition-project-id)))
+                  :column))
+             (remove-measurement measurement-id)))
+          (t (error
+              "Don't know what to remove.  Need either measurement-id or common-table-name."))))))
+           
+           
