@@ -738,10 +738,10 @@ existing assignments."
     (when user (delete-dao user))))
 
 (defun add-to-presentation-project (presentation-project-name
-                                    &key measurement-id common-table-name)
-  "Add to presentation project presentation-project-name either one
-measurement (with measurement-id) or all measurements currently in the
-acquisition-project with common-table-name."
+                                    &key measurement-ids acquisition-project)
+  "Add to presentation project presentation-project-name either a list
+of measurements (with measurement-id) or all measurements currently in
+acquisition-project (denoted by its common-table-name)."
   (let* ((presentation-project
           (car (select-dao 'sys-presentation-project
                            (:= 'presentation-project-name
@@ -757,8 +757,8 @@ acquisition-project with common-table-name."
                 (make-instance 'sys-presentation
                                :presentation-project-id presentation-project-id
                                :measurement-id measurement-id)))))
-      (cond (measurement-id (add-measurement measurement-id))
-            (common-table-name
+      (cond (measurement-ids (mapc #'add-measurement measurement-ids))
+            (acquisition-project
              (dolist
                  (measurement-id
                    (query
@@ -767,20 +767,20 @@ acquisition-project with common-table-name."
                      :from 'sys-measurement 'sys-acquisition-project
                      :where (:and
                              (:= 'sys-acquisition-project.common-table-name
-                                 common-table-name)
+                                 acquisition-project)
                              (:= 'sys-measurement.acquisition-project-id
                                  'sys-acquisition-project.acquisition-project-id)))
                     :column))
                (add-measurement measurement-id)))
             (t (error
-                "Don't know what to add.  Need either measurement-id or common-table-name."))))))
+                "Don't know what to add.  Need either measurement-id or acquisition-project."))))))
 
 (defun remove-from-presentation-project (presentation-project-name
-                                         &key measurement-id common-table-name)
-  "Remove from presentation project presentation-project-name either
-one measurement (with measurement-id) or all measurements currently in
-the acquisition-project with common-table-name.  Return nil if there
-weren't anything to remove."
+                                         &key measurement-ids acquisition-project)
+  "Remove from presentation project presentation-project-name either a
+list of measurements (with measurement-id) or all measurements
+currently in acquisition-project with (denoted by its common-table-name).  Return
+nil if there weren't anything to remove."
   (let* ((presentation-project
           (car (select-dao 'sys-presentation-project
                            (:= 'presentation-project-name
@@ -795,8 +795,8 @@ weren't anything to remove."
                                 (:= 'presentation-project-id
                                     presentation-project-id))))))
                (when measurement (delete-dao measurement)))))
-    (cond (measurement-id (remove-measurement measurement-id))
-          (common-table-name
+    (cond (measurement-ids (mapc #'remove-measurement measurement-ids))
+          (acquisition-project
            (dolist
                (measurement-id
                  (query
@@ -805,12 +805,12 @@ weren't anything to remove."
                    :from 'sys-measurement 'sys-acquisition-project
                    :where (:and
                            (:= 'sys-acquisition-project.common-table-name
-                               common-table-name)
+                               acquisition-project)
                            (:= 'sys-measurement.acquisition-project-id
                                'sys-acquisition-project.acquisition-project-id)))
                   :column))
              (remove-measurement measurement-id)))
           (t (error
-              "Don't know what to remove.  Need either measurement-id or common-table-name."))))))
+              "Don't know what to remove.  Need either measurement-id or acquisition-project."))))))
            
            

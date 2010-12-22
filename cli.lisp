@@ -229,13 +229,49 @@
     (("common-root" #\r) :type string :initial-value "/"
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")))
 
+(defparameter *cli-presentation-project-options*
+  '(("create-presentation-project"
+     :type string :action #'create-presentation-project-action
+     :documentation "Create a fresh presentation project which is to expose a set of meassurements to certain users.")
+    ("delete-presentation-project"
+     :type string :action #'delete-presentation-project-action
+     :documentation "Delete a presentation project.")
+    ("list-presentation-project"
+     :type string :optional t :action #'list-presentation-project-action
+     :documentation "List one presentation project if specified, or all presentation projects if not.")
+    ("add-to-presentation-project"
+     :type string :action #'add-to-presentation-project-action
+     :documentation "Add to the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
+    ("remove-from-presentation-project"
+     :type string :action #'remove-from-presentation-project-action
+     :documentation "Remove from the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
+    ("measurement-id" :type integer :list t :optional t
+     :documentation "One measurement-id to add or remove.  Repeat if necessary.")
+    ("acquisition-project" :type string
+     :documentation "The acquisition project whose measurements are to add or remove.")))
+
+(defparameter *cli-user-options*
+  '(("create-user"
+     :type string :action #'create-user-action
+     :documentation "Create or update a user of certain presentation projects.")
+    ("user-password" :type string :documentation "User's password.")
+    ("user-full-name" :type string :documentation "User's real name.")
+    ("presentation-project" :type string :list t :optional t
+     :documentation "Presentation project the user is allowed to see.  Repeat if necessary.")
+    ("delete-user"
+     :type string :action #'delete-user-action :documentation "Delete user.")
+    ("list-user"
+     :type string :optional t :action #'list-user-action
+     :documentation "List the specified user with their presentation projects, or all users if no user is given.")))
+
 (defparameter *cli-options*
   (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options*
           *cli-camera-hardware-options* *cli-lens-options*
           *cli-generic-device-options* *cli-device-stage-of-life-options*
           *cli-device-stage-of-life-end-options*
           *cli-camera-calibration-options* *cli-store-images-and-points-options*
-          *cli-start-server-options*))
+          *cli-start-server-options*
+          *cli-presentation-project-options* *cli-user-options*))
 
 (defun main ()
   "The UNIX command line entry point."
@@ -279,8 +315,12 @@
     (command-line-arguments:show-option-help *cli-camera-calibration-options*)
     (format *standard-output* format-headline "Store Measure Data")
     (command-line-arguments:show-option-help *cli-store-images-and-points-options*)
-    (format *standard-output* format-headline "Become A Presentation Server")
-    (command-line-arguments:show-option-help *cli-start-server-options*)))
+    (format *standard-output* format-headline "Become A HTTP Presentation Server")
+    (command-line-arguments:show-option-help *cli-start-server-options*)
+    (format *standard-output* format-headline "Manage Presentation Projects")
+    (command-line-arguments:show-option-help *cli-presentation-project-options*)
+    (format *standard-output* format-headline "Manage Presentation Project Users")
+    (command-line-arguments:show-option-help *cli-user-options*)))
 
 (defun cli-version-action (&rest rest)
   "Print --version message."
@@ -527,6 +567,215 @@ trigger-time to stdout."
                                (canonicalize-color-raiser raw-color-raiser)))))
         (format *standard-output*
                 "~&~A~%" (timestring (utc-from-unix trigger-time)))))))
+
+(defun create-presentation-project-action (presentation-project-name)
+  "Make a presentation project."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((fresh-project-p
+             (create-presentation-project presentation-project-name)))
+        (cl-log:log-message
+         :db-dat
+         "~:[Tried to recreate an existing~;Created a fresh~] presentation project by the name of ~A in database ~A at ~A:~D."
+         fresh-project-p presentation-project-name database host port)))))
+
+(defun delete-presentation-project-action (presentation-project-name)
+  "Delete a presentation project."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((project-did-exist-p
+             (delete-presentation-project presentation-project-name)))
+        (cl-log:log-message
+         :db-dat
+         "~:[Tried to delete nonexistent~;Deleted~] presentation project ~A from database ~A at ~A:~D."
+         project-did-exist-p presentation-project-name database host port)))))
+
+(defun add-to-presentation-project-action (presentation-project-name)
+  "Add measurements to a presentation project."
+    (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                              log-dir
+                              measurement-id acquisition-project
+                              &allow-other-keys)
+        (command-line-arguments:process-command-line-options
+         *cli-options* command-line-arguments:*command-line-arguments*)
+      (launch-logger log-dir)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl))
+        (add-to-presentation-project presentation-project-name
+                                     :measurement-ids measurement-id
+                                     :acquisition-project acquisition-project))
+      (cl-log:log-message
+       :db-dat
+       "Added ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements from acquisition project ~A~] to presentation project ~A in database ~A at ~A:~D."
+       measurement-id acquisition-project
+       presentation-project-name database host port)))
+
+(defun remove-from-presentation-project-action (presentation-project-name)
+  "Add measurements to a presentation project."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            measurement-id acquisition-project
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (remove-from-presentation-project presentation-project-name
+                                   :measurement-ids measurement-id
+                                   :acquisition-project acquisition-project))
+    (cl-log:log-message
+     :db-dat
+     "Removed ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements that belong to acquisition project ~A~] from presentation project ~A in database ~A at ~A:~D."
+     measurement-id acquisition-project
+     presentation-project-name database host port)))
+
+(defun create-user-action (presentation-project-user)
+  "Define a new user."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            user-password user-full-name presentation-project
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (create-user presentation-project-user :password user-password :full-name user-full-name :presentation-projects presentation-project))
+    (cl-log:log-message
+     :db-dat                            ;TODO: We're listing nonexistent p-projects here as well.
+     "Created or updated user ~A (~A) who has access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
+     presentation-project-user user-full-name presentation-project database host port)))
+
+(defun delete-user-action (presentation-project-user)
+  "Delete a presentation project user."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((user-did-exist-p
+             (delete-user presentation-project-user)))
+        (cl-log:log-message
+         :db-dat
+         "~:[Tried to delete nonexistent~;Deleted~] presentation project user ~A from database ~A at ~A:~D."
+         user-did-exist-p presentation-project-user database host port)))))
+
+(defun list-user-action (&optional presentation-project-user)
+  "List presentation project users together with their presentation
+projects."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((content
+             (if (stringp presentation-project-user)
+                 (query
+                  (:order-by
+                   (:select
+                    'user-name 'sys-user.user-id
+                    'user-full-name 'presentation-project-name
+                    :from 'sys-user 'sys-user-role 'sys-presentation-project
+                    :where (:and (:= 'sys-user-role.presentation-project-id
+                                     'sys-presentation-project.presentation-project-id)
+                                 (:= 'user-name presentation-project-user)))
+                   'user-name))
+                 (query
+                  (:order-by
+                   (:select
+                    'user-name 'sys-user.user-id
+                    'user-full-name 'presentation-project-name
+                    :from 'sys-user 'sys-user-role 'sys-presentation-project
+                    :where (:and (:= 'sys-user-role.presentation-project-id
+                                     'sys-presentation-project.presentation-project-id)))
+                   'user-name)))))
+        (format-table *standard-output* " | " content
+                      "User" "ID" "Full Name" "Presentation Project")))))
+
+(defun list-presentation-project-action (&optional presentation-project)
+  "List content of presentation projects."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            &allow-other-keys)
+      (command-line-arguments:process-command-line-options
+       *cli-options* command-line-arguments:*command-line-arguments*)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((content
+             (if (stringp presentation-project)
+                 (query
+                  (:order-by
+                   (:select
+                    'presentation-project-name
+                    'sys-presentation-project.presentation-project-id
+                    'sys-presentation.measurement-id
+                    'common-table-name
+                    'sys-measurement.acquisition-project-id
+                    :from
+                    'sys-presentation-project 'sys-presentation
+                    'sys-measurement 'sys-acquisition-project
+                    :where (:and (:= 'sys-presentation-project.presentation-project-id
+                                     'sys-presentation.presentation-project-id)
+                                 (:= 'sys-presentation.measurement-id
+                                     'sys-measurement.measurement-id)
+                                 (:= 'sys-measurement.acquisition-project-id
+                                     'sys-acquisition-project.acquisition-project-id)
+                                 (:= 'presentation-project-name presentation-project)))
+                   'presentation-project-name 'sys-presentation.measurement-id))
+                 (query
+                  (:order-by
+                   (:select
+                    'presentation-project-name
+                    'sys-presentation-project.presentation-project-id
+                    'sys-presentation.measurement-id
+                    'common-table-name
+                    'sys-measurement.acquisition-project-id
+                    :from
+                    'sys-presentation-project 'sys-presentation
+                    'sys-measurement 'sys-acquisition-project
+                    :where (:and (:= 'sys-presentation-project.presentation-project-id
+                                     'sys-presentation.presentation-project-id)
+                                 (:= 'sys-presentation.measurement-id
+                                     'sys-measurement.measurement-id)
+                                 (:= 'sys-measurement.acquisition-project-id
+                                     'sys-acquisition-project.acquisition-project-id)))
+                   'presentation-project-name 'sys-presentation.measurement-id)))))
+        (format-table *standard-output* " | " content
+                      "Presentation Project" "ID" "Meas. ID" "Acquisition Project" "ID")))))
+         
+(defun format-table (destination column-separator content &rest column-headers)
+  "Print content (a list of lists) to destination."
+  (let* ((rows
+          (append (list column-headers) content))
+         (number-of-rows (length column-headers))
+         (widths
+          (loop
+             for column from 0 below number-of-rows collect
+               (loop
+                  for row in rows
+                  maximize (length (format nil "~A" (nth column row)))))))
+    (loop 
+       for row in rows do
+         (format destination "~&~{~VA~1,#^~A~}~%"
+                 (loop
+                    for width in widths and field in row
+                    collect width collect field collect column-separator)))))
 
 (defun server-action (&rest rest)
   "Start the HTTP server."
