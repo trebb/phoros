@@ -692,9 +692,11 @@ projects."
                    (:select
                     'user-name 'sys-user.user-id
                     'user-full-name 'presentation-project-name
+                    'sys-user-role.presentation-project-id
                     :from 'sys-user 'sys-user-role 'sys-presentation-project
                     :where (:and (:= 'sys-user-role.presentation-project-id
                                      'sys-presentation-project.presentation-project-id)
+                                 (:= 'sys-user.user-id 'sys-user-role.user-id)
                                  (:= 'user-name presentation-project-user)))
                    'user-name))
                  (query
@@ -702,12 +704,14 @@ projects."
                    (:select
                     'user-name 'sys-user.user-id
                     'user-full-name 'presentation-project-name
+                    'sys-user-role.presentation-project-id
                     :from 'sys-user 'sys-user-role 'sys-presentation-project
                     :where (:and (:= 'sys-user-role.presentation-project-id
-                                     'sys-presentation-project.presentation-project-id)))
+                                     'sys-presentation-project.presentation-project-id)
+                                 (:= 'sys-user.user-id 'sys-user-role.user-id)))
                    'user-name)))))
         (format-table *standard-output* " | " content
-                      "User" "ID" "Full Name" "Presentation Project")))))
+                      "User" "ID" "Full Name" "Presentation Project" "ID")))))
 
 (defun list-presentation-project-action (&optional presentation-project)
   "List content of presentation projects."
