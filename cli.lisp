@@ -690,7 +690,7 @@ projects."
                  (query
                   (:order-by
                    (:select
-                    'user-name 'sys-user.user-id
+                    'user-name 'sys-user.user-id 'user-password
                     'user-full-name 'presentation-project-name
                     'sys-user-role.presentation-project-id
                     :from 'sys-user 'sys-user-role 'sys-presentation-project
@@ -702,7 +702,7 @@ projects."
                  (query
                   (:order-by
                    (:select
-                    'user-name 'sys-user.user-id
+                    'user-name 'sys-user.user-id 'user-password
                     'user-full-name 'presentation-project-name
                     'sys-user-role.presentation-project-id
                     :from 'sys-user 'sys-user-role 'sys-presentation-project
@@ -711,7 +711,7 @@ projects."
                                  (:= 'sys-user.user-id 'sys-user-role.user-id)))
                    'user-name)))))
         (format-table *standard-output* " | " content
-                      "User" "ID" "Full Name" "Presentation Project" "ID")))))
+                      "User" "ID" "Password" "Full Name" "Presentation Project" "ID")))))
 
 (defun list-presentation-project-action (&optional presentation-project)
   "List content of presentation projects."
