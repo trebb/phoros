@@ -224,7 +224,7 @@
      :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")))
 
 (defparameter *cli-start-server-options*
-  '(("server" :action #'server-action :documentation "Start HTTP presentation server.")
+  '(("server" :action #'server-action :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<project>")
     ("server-port" :type integer :initial-value 8080 :documentation "Port the presentation server listens on.")
     (("common-root" #\r) :type string :initial-value "/"
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")))

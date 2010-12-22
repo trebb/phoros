@@ -42,6 +42,67 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (register-sql-operators :2+-ary :&& :overlaps))
 
+(define-easy-handler phoros-handler ()
+  "First HTTP contact: if necessary, check credentials, establish new session."
+  (with-connection *postgresql-credentials*
+    (let* ((presentation-project-name
+            (second (cl-utilities:split-sequence #\/ (script-name*) :remove-empty-subseqs t)))
+           (presentation-project-id
+            (ignore-errors
+              (query
+               (:select 'presentation-project-id
+                        :from 'sys-presentation-project
+                        :where (:= 'presentation-project-name presentation-project-name))
+               :single))))
+      (cond
+        ((null presentation-project-id) "No such project.")
+        ((and (equal (session-value 'presentation-project-name) presentation-project-name)
+              (session-value 'authenticated-p))
+         (redirect "/test" :add-session-id t))
+        (t
+         (progn
+           (setf (session-value 'presentation-project-name) presentation-project-name
+                 (session-value 'presentation-project-id) presentation-project-id)
+           (with-html-output-to-string (s nil :prologue t :indent t)
+             (:form :method "post" :enctype "multipart/form-data"
+                    :action "/authenticate"
+                    "User:" :br
+                    (:input :type "text" :name "user-name") :br
+                    "Password:" :br
+                    (:input :type "password" :name "user-password") :br
+                    (:input :type "submit" :value "Submit")))))))))
+      
+(pushnew (create-prefix-dispatcher "/phoros" 'phoros-handler)
+         *dispatch-table*)
+
+(define-easy-handler (authenticate-handler :uri "/authenticate" :default-request-type :post) ()
+  (with-connection *postgresql-credentials*
+    (let* ((user-name (post-parameter "user-name"))
+           (user-password (post-parameter "user-password"))
+           (presentation-project-id (session-value 'presentation-project-id))
+           (user-full-name
+            (when presentation-project-id
+              (query
+               (:select 'user-full-name
+                        :from 'sys-user-role 'sys-user
+                        :where (:and
+                                (:= 'presentation-project-id presentation-project-id)
+                                (:= 'sys-user-role.user-id 'sys-user.user-id)
+                                (:= 'user-name user-name)
+                                (:= 'user-password user-password)))
+               :single))))
+      (setf *t* user-full-name)
+      (if user-full-name
+          (progn
+            (setf (session-value 'authenticated-p) t
+                  (session-value 'user-name) user-name
+                  (session-value 'user-full-name) user-full-name)
+            (redirect "/test" :add-session-id t))
+          "Rejected."))))
+
+(define-easy-handler (test :uri "/test") ()
+  "Authenticated.")
+
 (define-easy-handler (lon-lat-test :uri "/lon-lat-test" :default-request-type :post) ()
   "Receive coordinates, respond with the count nearest json objects containing picture url, calibration parameters, and car position, wrapped in an array."
   (let* ((data (json:decode-json-from-string (raw-post-data)))
