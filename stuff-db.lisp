@@ -364,25 +364,10 @@ recorded-device-id (a string) of camera (etc.)"
 
 (defun geographic-to-utm (utm-zone longitude latitude &optional (height 0))
   "Return UTM utm-zone representation of geographic coordinates."
-  (let ((command                        ; TODO:  perhaps reduce dependencies by asking PostGIS; we need a PostgreSQL connection anyway (or do we?)
-         (format
-          nil
-          "cs2cs +proj=latlong +datum=WGS84 +to +proj=utm +ellps=WGS84 +zone=~D +units=m +no_defs -f %.9f"
-          utm-zone)))
-    (multiple-value-bind (standard-output error-output exit-status) 
-        (trivial-shell:shell-command
-         command
-         :input (format nil "~S ~S ~S" longitude latitude height))
-      (unless (zerop exit-status)
-        (error "Attempt to call `~A´ returned ~D: ~A"
-               command exit-status error-output))
-      (with-input-from-string (stream standard-output)
-        (loop
-           for number = (read stream nil)
-           repeat 3
-           while number
-           do (assert (numberp number))
-           collect number)))))
+  (let ((utm-coordinate-system
+         (format nil "+proj=utm +ellps=WGS84 +zone=~D" utm-zone)))
+    (proj:cs2cs (list (proj:degrees-to-radians longitude) (proj:degrees-to-radians latitude) height)
+                :destination-cs utm-coordinate-system)))
 
 (defun utm-zone (longitude)
   "Return UTM zone number belonging to longitude."

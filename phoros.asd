@@ -9,6 +9,7 @@
   :licence "GPL"
   :serial t
   :components ((:file "package")
+               (:file "proj4")
                (:file "log")
                (:file "phoros")
                (:file "pictures-file")
@@ -23,7 +24,6 @@
                :postmodern
                :zpng
                :drakma
-               :trivial-shell
                :command-line-arguments
                :cl-utilities
                :cl-log))
