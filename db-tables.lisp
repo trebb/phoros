@@ -84,7 +84,7 @@
     :col-type integer
     :col-default (:nextval 'sys-acquisition-project-id-seq))
    (common-table-name
-    :col-type textn
+    :col-type text
     :initarg :common-table-name
     :documentation "Name of this project's data tables sans their canonical prefixes and suffixes.  Serves as a human-readable acquisition procect identifier.  Should be one table for all projects but this seems to come with a speed penalty."))
   (:metaclass dao-class)
@@ -174,7 +174,12 @@ Images
 ++++ means constant
 ---- means unimportant
 
-TODO: /images/ part not currently enforced."))
+TODO: /images/ part not currently enforced.")
+   (cartesian-system
+    :initarg :cartesian-system
+    :col-type text
+    :documentation
+    "Definition (as a Proj.4 string) of the coordinate system the recorded standard deviations are in."))
   (:metaclass dao-class)
   (:keys measurement-id)
   (:documentation "A measurement comprises .pictures files and one set of GPS event log files in a dedicated directory."))
@@ -335,7 +340,7 @@ TODO: /images/ part not currently enforced."))
     :documentation "This tells us what hardware this calibration is for.")
    (date
     :reader date
-    :col-type timestamp)
+    :col-type :timestamp-with-time-zone)
    (person
     :col-type text)
    (main-description
@@ -600,33 +605,145 @@ TODO: /images/ part not currently enforced."))
   (:keys measurement-id filename byte-position)
   (:documentation "One row per image, originating from a .pictures file."))
 
+;;(defclass aggregate-template ()
+;;  ((date                                ;TODO: debug only
+;;    :col-type :timestamp-with-time-zone)
+;;   (measurement-id                      ;TODO: debug only
+;;    :col-type integer)
+;;   (recorded-device-id                  ;TODO: debug only
+;;    :col-type integer)
+;;   (device-stage-of-life-id             ;TODO: debug only
+;;    :col-type integer)
+;;   (filename
+;;    :col-type string)
+;;   (byte-position
+;;    :col-type integer)
+;;   (point-id
+;;    :col-type integer)
+;;   (trigger-time
+;;    :col-type double-precision)
+;;   (longitude
+;;    :col-type double-precision)
+;;   (latitude
+;;    :col-type double-precision)
+;;   (ellipsoid-height
+;;    :col-type double-precision)
+;;   (east-sd
+;;    :col-type double-precision)
+;;   (north-sd
+;;    :col-type double-precision)
+;;   (height-sd
+;;    :col-type double-precision)
+;;   (roll
+;;    :col-type double-precision)
+;;   (pitch
+;;    :col-type double-precision)
+;;   (heading
+;;    :col-type double-precision)
+;;   (roll-sd
+;;    :col-type double-precision)
+;;   (pitch-sd
+;;    :col-type double-precision)
+;;   (heading-sd
+;;    :col-type double-precision)
+;;   (sensor-width-pix
+;;    :col-type double-precision)
+;;   (sensor-height-pix
+;;    :col-type double-precision)
+;;   (pix-size
+;;    :col-type double-precision)
+;;   (mounting-angle
+;;    :col-type integer)
+;;   (dx
+;;    :col-type double-precision)
+;;   (dy
+;;    :col-type double-precision)
+;;   (dz
+;;    :col-type double-precision)
+;;   (omega
+;;    :col-type double-precision)
+;;   (phi
+;;    :col-type double-precision)
+;;   (kappa
+;;    :col-type double-precision)
+;;   (c
+;;    :col-type double-precision)
+;;   (xh
+;;    :col-type double-precision)
+;;   (yh
+;;    :col-type double-precision)
+;;   (a1
+;;    :col-type double-precision)
+;;   (a2
+;;    :col-type double-precision)
+;;   (a3
+;;    :col-type double-precision)
+;;   (b1
+;;    :col-type double-precision)
+;;   (b2
+;;    :col-type double-precision)
+;;   (c1
+;;    :col-type double-precision)
+;;   (c2
+;;    :col-type double-precision)
+;;   (r0
+;;    :col-type double-precision)
+;;   (b-dx
+;;    :col-type double-precision)
+;;   (b-dy
+;;    :col-type double-precision)
+;;   (b-dz
+;;    :col-type double-precision)
+;;   (b-rotx
+;;    :col-type double-precision)
+;;   (b-roty
+;;    :col-type double-precision)
+;;   (b-rotz
+;;    :col-type double-precision))
+;;  (:metaclass dao-class)
+;;  (:documentation
+;;   "Representation of a view into all relevant data for one image.  TODO: use mixins to avoid repetition."))
+
 (defclass point-data (point-template)
   ((point-id
     :accessor point-id
     :initform nil
     :col-type integer
-    :col-default nil)                   ; to be redefined
-   point-id-sequence-name)              ; to be redefined
+    :col-default nil)                   ;to be redefined
+   point-id-sequence-name)              ;to be redefined
   (:metaclass dao-class)
-  (:table-name nil))                    ; to be redefined
+  (:table-name nil))                    ;to be redefined
 
 (defclass image-data (image-template)
   ()
   (:metaclass dao-class)
-  (:table-name nil))                    ; to be redefined
+  (:table-name nil))                    ;to be redefined
+
+;;(defclass aggregate-data (aggregate-template)
+;;  ()
+;;  (:metaclass dao-class)
+;;  (:table-name nil))                    ;to be redefined
+
+(let ((table-prefix "dat-"))
+  (defun point-data-table-name (common-table-name)
+    (make-symbol (format nil "~A~A-point" table-prefix common-table-name)))
+
+  (defun image-data-table-name (common-table-name)
+    (make-symbol (format nil "~A~A-image" table-prefix common-table-name)))
+
+  (defun point-id-seq-name (common-table-name)
+    (make-symbol (format nil "~A~A-point-id-seq" table-prefix common-table-name)))
+
+  (defun aggregate-view-name (common-table-name)
+    (make-symbol (format nil "~A~A-aggregate" table-prefix common-table-name))))
 
 (defun create-data-table-definitions (common-table-name)
   "Define or redefine a bunch of dao-classes which can hold measuring
 data and which are connected to database tables named
-common-table-name plus type-specific prefix and/or suffix."
-  (let* ((table-prefix "dat-")
-         (image-data-table-name
-          (format nil "~A~A-image" table-prefix common-table-name))
-         (point-data-table-name
-          (format nil "~A~A-point" table-prefix common-table-name))
-         (point-id-sequence-name
-          (make-symbol (format nil "~A~A-point-id-seq"
-                               table-prefix common-table-name))))
+common-table-name plus type-specific prefix and suffix."
+  (let ((image-data-table-name (image-data-table-name common-table-name))
+        (point-data-table-name (point-data-table-name common-table-name))
+        (point-id-sequence-name (point-id-seq-name common-table-name)))
     (eval
      `(defclass point-data (point-template)
         ((point-id
@@ -669,8 +786,65 @@ common-table-name plus type-specific prefix and/or suffix."
         (!foreign point-data-table-name 'point-id
                   :on-delete :cascade :on-update :cascade)
         (!foreign 'sys-measurement 'measurement-id
-                  :on-delete :cascade :on-update :cascade))
-      )))
+                  :on-delete :cascade :on-update :cascade)))))
+
+(defun create-aggregate-view (common-table-name)
+  "Create a view of a set of measuring and calibration data
+belonging to images."
+  (let ((image-data-table-name (image-data-table-name common-table-name))
+        (point-data-table-name (point-data-table-name common-table-name))
+        (aggregate-view-name (aggregate-view-name common-table-name)))
+    (eval
+     `(execute
+       (:create-view
+        ,aggregate-view-name
+        (:select
+         'presentation-project-id
+         'date                          ;TODO: debug only
+         (:dot ',point-data-table-name 'measurement-id) (:dot ',image-data-table-name 'recorded-device-id) 'sys-camera-calibration.device-stage-of-life-id ;TODO: debug only
+         'directory
+         'filename 'byte-position (:dot ',point-data-table-name 'point-id)
+         'trigger-time
+         'coordinates                   ;the search target
+         (:as (:st_x (:st_transform 'coordinates *standard-coordinates*)) 'longitude)
+         (:as (:st_y (:st_transform 'coordinates *standard-coordinates*)) 'latitude)
+         (:as (:st_z (:st_transform 'coordinates *standard-coordinates*)) 'ellipsoid-height)
+         'cartesian-system
+         'east-sd 'north-sd 'height-sd
+         'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
+         'sensor-width-pix 'sensor-height-pix 'pix-size
+         'mounting-angle
+         'dx 'dy 'dz 'omega 'phi 'kappa
+         'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+         'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+         'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
+         :from
+         'sys-measurement
+         'sys-presentation
+         ',point-data-table-name ',image-data-table-name
+         'sys-device-stage-of-life 'sys-generic-device 'sys-camera-hardware
+         'sys-camera-calibration
+         :where (:and (:= (:dot ',image-data-table-name 'measurement-id) 'sys-presentation.measurement-id)
+                      (:= 'sys-presentation.measurement-id 'sys-measurement.measurement-id)
+                      (:= (:dot ',point-data-table-name 'point-id) (:dot ',image-data-table-name 'point-id))
+                      (:= (:dot ',image-data-table-name 'recorded-device-id) 'sys-device-stage-of-life.recorded-device-id)
+                      (:= 'sys-generic-device.generic-device-id 'sys-device-stage-of-life.generic-device-id)
+                      (:= 'sys-camera-hardware.camera-hardware-id 'sys-generic-device.camera-hardware-id)
+                      (:= 'sys-device-stage-of-life.device-stage-of-life-id 'sys-camera-calibration.device-stage-of-life-id)
+                      (:= 'sys-device-stage-of-life.device-stage-of-life-id 
+                          (:limit (:order-by (:select 'sys-camera-calibration.device-stage-of-life-id :from 'sys-camera-calibration
+                                                      :where (:= 'sys-device-stage-of-life.device-stage-of-life-id 'sys-camera-calibration.device-stage-of-life-id))
+                                             (:desc 'date))
+                                  1))
+                      (:<= (:extract :epoch 'sys-device-stage-of-life.mounting-date) (:dot ',point-data-table-name 'trigger-time))
+                      (:or (:is-null 'sys-device-stage-of-life.unmounting-date)
+                           (:>= (:extract :epoch 'sys-device-stage-of-life.mounting-date) (:dot ',point-data-table-name 'trigger-time))))))))
+    ;;(eval
+    ;; `(defclass ,aggregate-view-name (aggregate-data)
+    ;;    ()
+    ;;    (:metaclass dao-class)
+    ;;    (:table-name ,aggregate-view-name))) ;redefinition
+    ))
 
 (defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.
@@ -678,15 +852,16 @@ common-table-name should in most cases resemble the project name and
 will be stored in table sys-acquisition-project, field
 common-table-name."
   (create-data-table-definitions common-table-name)
-  (handler-case (create-sys-tables) ; Create system tables if necessary.
+  (handler-case (create-sys-tables) ;Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (when (select-dao 'sys-acquisition-project (:= 'common-table-name
-                                     (s-sql:to-sql-name common-table-name)))
+                                                 (s-sql:to-sql-name common-table-name)))
     (error "There is already a row with a common-table-name of ~A in table ~A."
            common-table-name
            (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
   (create-table 'point-data)
   (create-table 'image-data)
+  (create-aggregate-view common-table-name)
   (insert-dao
    (make-instance 'sys-acquisition-project
                   :common-table-name common-table-name)))
@@ -712,10 +887,11 @@ wasn't any."
 name.  Assign it presentation-projects, deleting any previously
 existing assignments."
   (let ((user (or (car (select-dao 'sys-user (:= 'user-name name)))                  
-                  (make-instance 'sys-user :user-name name))))
+                  (make-instance 'sys-user :user-name name)))
+        fresh-user-p)
     (setf (user-password user) password
           (user-full-name user) full-name)
-    (save-dao user)
+    (setf fresh-user-p (save-dao user))
     (mapcar #'delete-dao (select-dao 'sys-user-role
                                      (:= 'user-id (user-id user))))
     (dolist (presentation-project-name presentation-projects)
@@ -730,7 +906,8 @@ existing assignments."
               (presentation-project-id presentation-project)
               :user-role "read")) ;TODO: currently unused
             (warn
-             "There is no presentation project ~A" presentation-project-name))))))
+             "There is no presentation project ~A" presentation-project-name))))
+    fresh-user-p))
 
 (defun delete-user (user-name)
   "Delete user user-name if any; return nil if not."

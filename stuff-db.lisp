@@ -394,7 +394,9 @@ calculated in the UTM zone belonging to longitude-median."
              geographic-height easting northing cartesian-height))))
 
 (defun assert-gps-points-sanity (gps-points)
-  "Check if gps-points (as returned by collect-gps-data) are ok."
+  "Check if gps-points (as returned by collect-gps-data) are ok.
+Return the Proj.4 string describing the cartesian coordinate system
+used."
   (loop
      for gps-event in gps-points
      for gps-event-vector = (cdr gps-event)
@@ -414,9 +416,10 @@ calculated in the UTM zone belonging to longitude-median."
                          first-latitude first-longitude
                          first-geographic-height
                          first-easting first-northing
-                         first-cartesian-height)))
+                         first-cartesian-height)
+     finally (return (format nil "+proj=utm +ellps=WGS84 +zone=~D" (utm-zone longitude-median)))))
 
-(defun get-measurement-id (common-table-name dir-path)
+(defun get-measurement-id (common-table-name dir-path cartesian-system)
   "Get measurement-id associated with dir-path and
 acquisition-project-id.  Create a fresh matching record if necessary."
   (let ((acquisition-project
@@ -433,6 +436,7 @@ acquisition-project-id.  Create a fresh matching record if necessary."
                  (make-instance 'sys-measurement
                                 :acquisition-project-id acquisition-project-id
                                 :directory dir-path
+                                :cartesian-system cartesian-system
                                 :fetch-defaults t)))))
       (measurement-id measurement))))
 
@@ -466,11 +470,11 @@ all pojects."
                                 collect (cons (car i) 0)))
          (dir-below-root-dir
           (enough-namestring (string-right-trim "/\\ " dir-path) root-dir))
-         (mapped-image-counter (length images)))
+         (mapped-image-counter (length images))
+         (cartesian-system (assert-gps-points-sanity gps-points)))
     (cl-log:log-message
      :db-dat "I assume this measure was taken approximately ~A."
      (timestring (round estimated-time)))
-    (assert-gps-points-sanity gps-points)
     (loop
        for i across images
        for image-event-number = (or aggregate-events
@@ -501,7 +505,7 @@ all pojects."
                  (or (point-id matching-point) ; We've hit a point twice.
                      (sequence-next (point-id-sequence-name matching-point))))
                 (measurement-id (get-measurement-id common-table-name
-                                                    dir-below-root-dir)))
+                                                    dir-below-root-dir cartesian-system)))
             (setf (point-id i) point-id
                   (point-id matching-point) point-id
                   (measurement-id matching-point) measurement-id

@@ -19,6 +19,8 @@
 
 (setf *js-target-version* 1.8)
 
+(defparameter *t* nil)
+(defparameter *tt* nil)
 
 (cffi:define-foreign-library photogrammetrie
   (t (:or "../photogrammetrie/lib/libphotogrammetrie.so"
@@ -31,10 +33,34 @@
 
 (defparameter *phoros-server* nil "Hunchentoot acceptor.")
 (defparameter *common-root* nil "Root directory; contains directories of measuring data.")
+(defparameter *verbose* 0 "Integer denoting increasing amounts of debugging output.")
+
+(defun check-db (db-credentials)
+  "Check postgresql connection.  Return t if successful; show error on
+*error-output* otherwise.  db-credentials is a list like so: (database
+user password host &key (port 5432) use-ssl)."
+  (let (connection)
+    (handler-case
+        (setf connection (apply #'connect db-credentials))
+      (error (e) (format *error-output* "Database connection ~S failed: ~A~&"
+                         db-credentials e)))
+    (when connection
+      (disconnect connection)
+      t)))
+
+(defmethod hunchentoot:session-cookie-name (acceptor)
+  (declare (ignore acceptor))
+  "phoros-session")
 
 (defun start-server (&key (server-port 8080) (common-root "/"))
   (setf *phoros-server* (make-instance 'hunchentoot:acceptor :port server-port))
+  (setf *session-max-time* (* 3600 24))
   (setf *common-root* common-root)
+  (setf *show-lisp-errors-p* t)      ;TODO: tie this to --debug option
+  ;; Doesn't seem to exist(setf *show-lisp-backtraces-p* t)  ;TODO: tie this to --debug option
+  (setf *message-log-pathname* "hunchentoot-messages.log") ;TODO: try using cl-log
+  (setf *access-log-pathname* "hunchentoot-access.log") ;TODO: try using cl-log
+  (check-db *postgresql-credentials*)
   (hunchentoot:start *phoros-server*))
 
 (defun stop-server () (hunchentoot:stop *phoros-server*))
@@ -58,7 +84,7 @@
         ((null presentation-project-id) "No such project.")
         ((and (equal (session-value 'presentation-project-name) presentation-project-name)
               (session-value 'authenticated-p))
-         (redirect "/test" :add-session-id t))
+         (redirect "/view" :add-session-id t))
         (t
          (progn
            (setf (session-value 'presentation-project-name) presentation-project-name
@@ -91,133 +117,123 @@
                                 (:= 'user-name user-name)
                                 (:= 'user-password user-password)))
                :single))))
-      (setf *t* user-full-name)
       (if user-full-name
           (progn
             (setf (session-value 'authenticated-p) t
                   (session-value 'user-name) user-name
                   (session-value 'user-full-name) user-full-name)
-            (redirect "/test" :add-session-id t))
+            (redirect "/view" :add-session-id t))
           "Rejected."))))
+
+(define-easy-handler (logout :uri "/logout") ()
+  (if (session-verify *request*)
+      (progn (remove-session *session*)
+             "Bye.")
+      "Bye (again)."))
 
 (define-easy-handler (test :uri "/test") ()
   "Authenticated.")
 
-(define-easy-handler (lon-lat-test :uri "/lon-lat-test" :default-request-type :post) ()
+(define-easy-handler (local-data :uri "/local-data" :default-request-type :post) ()
   "Receive coordinates, respond with the count nearest json objects containing picture url, calibration parameters, and car position, wrapped in an array."
-  (let* ((data (json:decode-json-from-string (raw-post-data)))
-         (longitude-input (cdr (assoc :longitude data)))
-         (latitude-input (cdr (assoc :latitude data)))
-         (count (cdr (assoc :count data)))
-         (zoom-input (cdr (assoc :zoom data)))
-         (snap-distance (* 10d-5 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
-         (point-form
-          (format nil "POINT(~F ~F)" longitude-input latitude-input))
-         (result
-          (ignore-errors
-            (mapcar
-             #'(lambda (x)
-                 (pairlis
-                  '(:measurement-id :cam ; debug
-                    :directory :filename
-                    :pix-cols :pix-rows
-                    :pix-size :angle180
-                    :dx :dy :dz         ; outer orientation
-                    :omega :phi :kappa  ; outer orientation
-                    :c :xh :yh          ; inner orientation
-                    :a1 :a2 :a3 :b1 :b2 ; inner orientation: distortion: radial; asymmetric & tangential
-                    :c1 :c2 :r0         ; inner orientation: distortion: affinity & shear; 2nd zero-crossing of distortion curve
-                    :b-dx :b-dy :b-dz       ; boresight alignment
-                    :b-rotx :b-roty :b-rotz ; boresight alignment
-                    :b-ddx :b-ddy :b-ddz       ; boresight alignment
-                    :b-drotx :b-droty :b-drotz ; boresight alignment
-                    :time
-                    :longitude :latitude
-                    :easting :northing :ellipsoid-height
-                    :d-easting :d-northing :d-ellipsoid-height
-                    :roll :pitch :heading
-                    :d-roll :d-pitch :d-heading)
-                  x))
-             (with-connection *postgresql-credentials*
-               (query
-                (:limit
-                 (:order-by
-                  (:select
-                   'data.measurement-id 'data.cam
-                   'projects.pictures-path 'data.filename
-                   'camera.sensor-width-pix 'camera.sensor-height-pix
-                   'camera.pix-size 'angle180
-                   (:/ 'outer.dx 1000) ; TODO: store metres instead of millimetres, remove this division hack
-                   (:/ 'outer.dy 1000) ; TODO: store metres instead of millimetres, remove this division hack
-                   (:/ 'outer.dz 1000) ; TODO: store metres instead of millimetres, remove this division hack
-                   'outer.rotx 'outer.roty 'outer.rotz
-                   'inner.c 'inner.xh 'inner.yh
-                   'inner.a1 'inner.a2 'inner.a3 'inner.b1 'inner.b2
-                   'inner.c1 'inner.c2 'inner.r0
-                   'bore.bdx 'bore.bdy 'bore.bdz
-                   'bore.brotx 'bore.broty 'bore.brotz
-                   'bore.bddx 'bore.bddy 'bore.bddz
-                   'bore.bdrotx 'bore.bdroty 'bore.bdrotz
-                   'data.time-appl-utc  ; should be in the-geom
-                   (:st_x (:st_transform 'data.the-geom *standard-coordinates*))
-                   (:st_y (:st_transform 'data.the-geom *standard-coordinates*))
-                   (:st_x (:st_transform 'data.the-geom 32632)) ; TODO get projection from somewhere
-                   (:st_y (:st_transform 'data.the-geom 32632)) ; TODO get projection from somewhere
-                   'data.ellipsoid-height ; should be (:st_z (:st_transform 'the-geom *standard-coordinates*))
-                   'data.east-sd 'data.north-sd 'data.height-sd
-                   'data.roll 'data.pitch 'data.heading
-                   'data.roll-sd 'data.pitch-sd 'data.heading-sd
-                   :from
-                   (:as 'projects-measurements 'projects)
-                   (:as 'motorrad-ccd 'data)
-                   (:as 'calib-set 'cal)
-                   (:as 'calib-camera 'camera)
-                   (:as 'calib-boreside-alignement 'bore)
-                   (:as 'calib-inner-orientation 'inner)
-                   (:as 'calib-outer-orientation 'outer)
-                   :where
-                   (:and (:= 'projects.project-id 6)
-                         (:= 'projects.measurement-id 'data.measurement-id)
-                         (:st_dwithin (:st_transform 'data.the_geom *standard-coordinates*)
-                                      (:st_geomfromtext point-form *standard-coordinates*)
-                                      snap-distance)
-                         (:or (:= 'projects.calib-set-id-left 'cal.calib-set-id)   ; crazy distribution of 
-                              (:= 'projects.calib-set-id-right 'cal.calib-set-id)) ; calib-set-id over two columns
-                         (:= 'data.cam 'cal.camera-id)
-                         (:= 'cal.camera-id 'camera.camera-id)
-                         (:= 'cal.outer-id 'outer.outer-id)
-                         (:= 'cal.inner-id 'inner.inner-id)
-                         (:= 'cal.bore-id 'bore.bore-id)))
-                  (:st_distance (:st_transform 'the_geom *standard-coordinates*) (:st_geomfromtext point-form *standard-coordinates*))
-                  'cal.calib-set-id)
-                 count)))))))
-    (json:encode-json-to-string result)))
+  (when (session-value 'authenticated-p)
+    (let* ((presentation-project-id (session-value 'presentation-project-id))
+           (common-table-names (common-table-names presentation-project-id))
+           (data (json:decode-json-from-string (raw-post-data)))
+           (longitude-input (cdr (assoc :longitude data)))
+           (latitude-input (cdr (assoc :latitude data)))
+           (count (cdr (assoc :count data)))
+           (zoom-input (cdr (assoc :zoom data)))
+           ;;(snap-distance (* 10d-5 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
+           (snap-distance (* 10d-1 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
+           (point-form
+            (format nil "POINT(~F ~F)" longitude-input latitude-input))
+           (result
+            (ignore-errors
+              (with-connection *postgresql-credentials*
+                (loop
+                   for common-table-name in common-table-names
+                   nconc
+                     (query
+                      (:limit
+                       (:order-by
+                        (:select
+                         'date          ;TODO: debug only
+                         'measurement-id 'recorded-device-id 'device-stage-of-life-id ;TODO: debug only
+                         'directory
+                         'filename 'byte-position 'point-id
+                         'trigger-time
+                         ;'coordinates   ;the search target
+                         'longitude 'latitude 'ellipsoid-height
+                         'cartesian-system
+                         'east-sd 'north-sd 'height-sd
+                         'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
+                         'sensor-width-pix 'sensor-height-pix 'pix-size
+                         'mounting-angle
+                         'dx 'dy 'dz 'omega 'phi 'kappa
+                         'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                         'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                         'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
+                         :from
+                         (aggregate-view-name common-table-name)
+                         :where
+                         (:and (:= 'presentation-project-id presentation-project-id)
+                               (:st_dwithin 'coordinates
+                                            (:st_geomfromtext point-form *standard-coordinates*)
+                                            snap-distance)))
+                        (:st_distance 'coordinates
+                                      (:st_geomfromtext point-form *standard-coordinates*)))
+                       count)
+                      :alists))))))
+      (json:encode-json-to-string result))))
+
+(defun common-table-names (presentation-project-id)
+  "Return a list of common-table-names of table sets that contain data
+of presentation project with presentation-project-id."
+  (handler-case
+      (with-connection *postgresql-credentials*
+        (query
+         (:select 'common-table-name
+                  :distinct
+                  :from 'sys-presentation 'sys-measurement 'sys-acquisition-project
+                  :where (:and
+                          (:= 'sys-presentation.presentation-project-id presentation-project-id)
+                          (:= 'sys-presentation.measurement-id 'sys-measurement.measurement-id)
+                          (:= 'sys-measurement.acquisition-project-id 'sys-acquisition-project.acquisition-project-id)))
+               :column))
+    (condition (c) (cl-log:log-message :server "While fetching common-table-names of presentation-project-id ~D: ~A" presentation-project-id c))))
 
 (define-easy-handler (points :uri "/points") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
-  (handler-case 
-      (let ((box3d-form
-             (concatenate 'string "BOX3D("
-                          (substitute #\Space #\,
-                                      (substitute #\Space #\, bbox :count 1)
-                                      :from-end t :count 1)
-                          ")")))
-        (with-connection *postgresql-credentials*
-          (json:encode-json-alist-to-string
-           (acons
-            'type '*geometry-collection
-            (acons 'geometries
-                   (mapcar
-                    #'(lambda (x)
-                        (acons 'type '*point
-                               (acons 'coordinates x nil)))
-                    (query (:select (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                                    (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                                    :from 'dat-cottbus-point
-                                    :where (:&& (:st_transform 'coordinates *standard-coordinates*)
-                                                (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*)))))
-                   nil)))))
-    (condition (c) (cl-log:log-message :server "While fetching points inside bbox ~S: ~A" bbox c))))
+  (when (session-value 'authenticated-p)
+    (handler-case 
+        (let ((box3d-form
+               (concatenate 'string "BOX3D("
+                            (substitute #\Space #\,
+                                        (substitute #\Space #\, bbox :count 1)
+                                        :from-end t :count 1)
+                            ")"))
+              (common-table-names (common-table-names (session-value 'presentation-project-id))))
+          (with-connection *postgresql-credentials*
+            (json:encode-json-alist-to-string
+             (acons
+              'type '*geometry-collection
+              (acons 'geometries
+                     (mapcar
+                      #'(lambda (x)
+                          (acons 'type '*point
+                                 (acons 'coordinates x nil)))
+                      (loop
+                         for common-table-name in common-table-names
+                         for point-table-name = (make-symbol (concatenate 'string "dat-" common-table-name "-point"))
+                         append 
+                           (query (:select (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                                           (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                                           :from point-table-name
+                                           :where (:&& (:st_transform 'coordinates *standard-coordinates*)
+                                                       (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*))))))
+                     nil)))))
+      (condition (c) (cl-log:log-message :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
 
 (define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
@@ -231,10 +247,13 @@
                                   #\. (first (last s 2))))
              (byte-position (parse-integer (car (last s)) :junk-allowed t))
              (path-to-file
-              (make-pathname
-               :directory (append (pathname-directory *common-root*) directory)
-               :name (first file-name-and-type)
-               :type (second file-name-and-type)))
+              (car
+               (directory
+                (make-pathname
+                 :directory (append (pathname-directory *common-root*)
+                                    directory '(:wild-inferiors))
+                 :name (first file-name-and-type)
+                 :type (second file-name-and-type)))))
              stream)
         (setf (content-type*) "image/png")
         (setf stream (send-headers))
@@ -249,193 +268,201 @@
 (pushnew (create-folder-dispatcher-and-handler "/lib/" "/home/bertb/lisphack/phoros/")
          *dispatch-table*)
 
-(define-easy-handler (click :uri "/click" :default-request-type :post) ()
-  (with-html-output-to-string (s nil :indent t)
-    (:html
-     :xmlns
-     "http://www.w3.org/1999/xhtml"
-     (:head
-      (:title "OpenLayers Click Event Example")
-      (:link :rel "stylesheet" :href "lib/theme/default/style.css" :type "text/css")
-      (:link :rel "stylesheet" :href "lib/style.css" :type "text/css")
-      (:script :src "lib/openlayers/lib/OpenLayers.js")
-      (:script :src "lib/openlayers/lib/proj4js.js")
-      (:script :src "http://maps.google.com/maps/api/js?sensor=false")
-      (:script
-       :type "text/javascript"
-       (str
-        (ps
-          (setf (@ *open-layers *control *click)
-                ((@ *open-layers *class) 
-                 (@ *open-layers *control)
-                 (create :default-handler-options
-                         (create :single t
-                                 :double false
-                                 :pixel-tolerance 0
-                                 :stop-single false
-                                 :stop-double false)
-                         :initialize
-                         (lambda (options)
-                           (setf 
-                            (@ this handler-options) ((@ *open-layers *util extend)
-                                                      (create)
-                                                      (@ this default-handler-options)))
-                           ((@ *open-layers *control prototype initialize apply) this arguments)
-                           (setf (@ this handler)
-                                 (new ((@ *open-layers *handler *click) this
-                                       (create :click (@ this trigger))
-                                       (@ this handler-options))))))))
-          (defun photo-path (photo-parameters)
-            (+ "photo-test" (@ photo-parameters directory) "/" (@ photo-parameters filename)))
+(define-easy-handler (view :uri "/view" :default-request-type :post) ()
+  (if (session-value 'authenticated-p)
+      (with-html-output-to-string (s nil :indent t)
+        (:html
+         :xmlns
+         "http://www.w3.org/1999/xhtml"
+         (:head
+          (:title (str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
+          (:link :rel "stylesheet" :href "lib/theme/default/style.css" :type "text/css")
+          (:link :rel "stylesheet" :href "lib/style.css" :type "text/css")
+          (:script :src "lib/openlayers/lib/OpenLayers.js")
+          (:script :src "lib/openlayers/lib/proj4js.js")
+          ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
+          (:script
+           :type "text/javascript"
+           (str
+            (ps
+              (setf (@ *open-layers *control *click)
+                    ((@ *open-layers *class) 
+                     (@ *open-layers *control)
+                     (create :default-handler-options
+                             (create :single t
+                                     :double false
+                                     :pixel-tolerance 0
+                                     :stop-single false
+                                     :stop-double false)
+                             :initialize
+                             (lambda (options)
+                               (setf 
+                                (@ this handler-options) ((@ *open-layers *util extend)
+                                                          (create)
+                                                          (@ this default-handler-options)))
+                               ((@ *open-layers *control prototype initialize apply) this arguments)
+                               (setf (@ this handler)
+                                     (new ((@ *open-layers *handler *click) this
+                                           (create :click (@ this trigger))
+                                           (@ this handler-options))))))))
+              (defun photo-path (photo-parameters)
+                (+ "/photo/" (@ photo-parameters directory) "/" (@ photo-parameters filename) "/" (@ photo-parameters byte-position) ".png"))
 
-          (defun map-click-handler ()
-            (let ((photo-parameters ((@ *json* parse) (@ photo-request response-text))))
-                (show-photo (aref photo-parameters 0) (aref image 0)) ; TODO: remove absolute paths from DB
-                ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
-                (show-photo (aref photo-parameters 1) (aref image 1)))) ; TODO: remove absolute paths from DB
+              (defun map-click-handler ()
+                (let ((photo-parameters ((@ *json* parse) (@ photo-request response-text))))
+                  (show-photo (aref photo-parameters 0) (aref image 0))
+                  ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
+                  (show-photo (aref photo-parameters 1) (aref image 1))))
 
-          (defun request-photo (e)
-            (let ((lonlat
-                   ((@ ((@ map get-lon-lat-from-pixel) (@ e xy))
-                       transform)
-                    (new ((@ *open-layers *projection) "EPSG:900913")) ; why?
-                    (new ((@ *open-layers *projection) "EPSG:4326")))))
+              (defun request-photo (e)
+                (let ((lonlat
+                       ((@ ((@ map get-lon-lat-from-pixel) (@ e xy))
+                           transform)
+                        (new ((@ *open-layers *projection) "EPSG:900913")) ; why?
+                        (new ((@ *open-layers *projection) "EPSG:4326")))))
               
-              (setf content ((@ *json* stringify) (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
-                                                          :latitude (@ lonlat lat)
-                                                          :zoom ((@ map get-zoom))
-                                                          :count 2)) ; that's left and right
-                    photo-request ((@ *open-layers *Request *POST*)
-                                   (create :url "lon-lat-test"
-                                           :data content
-                                           :headers (create "Content-type" "text/plain"
-                                                            "Content-length" (@ content length))
-                                           :success map-click-handler)))))
+                  (setf content ((@ *json* stringify) (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
+                                                              :latitude (@ lonlat lat)
+                                                              :zoom ((@ map get-zoom))
+                                                              :count 2)) ; that's left and right
+                        photo-request ((@ *open-layers *Request *POST*)
+                                       (create :url "local-data"
+                                               :data content
+                                               :headers (create "Content-type" "text/plain"
+                                                                "Content-length" (@ content length))
+                                               :success map-click-handler)))))
 
 
-          (defun epipolar-handler ()
-            (let ((epi ((@ *json* parse) (@ this epipolar-request response-text))))
-              ((@ console log) "EPI:")
-              ((@ console log) epi)
-              ((@ this epipolar-layer add-features)
-               (new ((@ *open-layers *feature *vector)
-                     (new ((@ *open-layers *geometry *line-string) ((@ epi map) (lambda (x) (new ((@ *open-layers *geometry *point) (@ x :m) (@ x :n))))))))))))
-          ;; either *line-string or *multi-point are usable
+              (defun epipolar-handler ()
+                (let ((epi ((@ *json* parse) (@ this epipolar-request response-text))))
+                  ((@ console log) "EPI:")
+                  ((@ console log) epi)
+                  ((@ this epipolar-layer add-features)
+                   (new ((@ *open-layers *feature *vector)
+                         (new ((@ *open-layers *geometry *line-string) ((@ epi map) (lambda (x) (new ((@ *open-layers *geometry *point) (@ x :m) (@ x :n))))))))))))
+              ;; either *line-string or *multi-point are usable
 
-          (defun request-epipolar-lines* (e)
-            (let* ((lonlat
-                    ((@ (@ this map) get-lon-lat-from-view-port-px) (@ e xy)))
-                   (photo-parameters (@ (@ this map) layers 0 photo-parameters))
-                   content
-                   request)
-              (setf (@ photo-parameters m) (@ lonlat lon)
-                    (@ photo-parameters n) (@ lonlat lat))
-              ((@ console log) "m, n:")
-              ((@ console log) (@ lonlat lon))
-              ((@ console log) (@ lonlat lat))
-              ((@ console log) "Photo-Parameters (naked/from this):")
-              ((@ console log) photo-parameters)
-              ((@ console log) (@ (@ this map) layers 0 photo-parameters))
-              (loop
-                 for i across image
-                 do
-                   ((@ console log) "unsorted image window: ") ((@ console log) i)
-                   (when (> (@ ((@ i get-layers-by-name) "Epipolar Line") length) 0)
-                     ((@ ((@ i get-layers-by-name) "Epipolar Line") 0 destroy)))
+              (defun request-epipolar-lines* (e)
+                (let* ((lonlat
+                        ((@ (@ this map) get-lon-lat-from-view-port-px) (@ e xy)))
+                       (photo-parameters (@ (@ this map) layers 0 photo-parameters))
+                       content
+                       request)
+                  ((@ console log) "Photo-Parameters (naked/from this):")
+                  ((@ console log) photo-parameters)
+                  (setf (@ photo-parameters m) (@ lonlat lon)
+                        (@ photo-parameters n) (@ lonlat lat))
+                  ((@ console log) "m, n:")
+                  ((@ console log) (@ lonlat lon))
+                  ((@ console log) (@ lonlat lat))
+                  ((@ console log) (@ (@ this map) layers 0 photo-parameters))
+                  (loop
+                     for i across image
+                     do
+                     ((@ console log) "unsorted image window: ") ((@ console log) i)
+                     (when (> (@ ((@ i get-layers-by-name) "Epipolar Line") length) 0)
+                       ((@ ((@ i get-layers-by-name) "Epipolar Line") 0 destroy)))
 
-                 when (!= (@ i layers 0 photo-parameters) photo-parameters)
-                 do
-                   (setf content ((@ *json* stringify)
-                                  (append (array photo-parameters)
-                                          (@ i layers 0 photo-parameters)))
-                         (@ i epipolar-request) ((@ *open-layers *Request *POST*)
-                                                 (create :url "epipolar-line"
-                                                         :data content
-                                                         :headers (create "Content-type" "text/plain"
-                                                                          "Content-length" (@ content length))
-                                                         :success epipolar-handler
-                                                         :scope i))
+                     when (!= (@ i layers 0 photo-parameters) photo-parameters)
+                     do
+                     (setf content ((@ *json* stringify)
+                                    (append (array photo-parameters)
+                                            (@ i layers 0 photo-parameters)))
+                           (@ i epipolar-request) ((@ *open-layers *Request *POST*)
+                                                   (create :url "epipolar-line"
+                                                           :data content
+                                                           :headers (create "Content-type" "text/plain"
+                                                                            "Content-length" (@ content length))
+                                                           :success epipolar-handler
+                                                           :scope i))
 
-                         (@ i epipolar-layer) (new ((@ *open-layers *layer *vector) "Epipolar Line")))
-                   ((@ console log) "Content:")
-                   ((@ console log) content)
-                   ((@ console log) "non-clicked image window: ") ((@ console log) i)
-                   ((@ i add-layer) (@ i epipolar-layer)))))
+                           (@ i epipolar-layer) (new ((@ *open-layers *layer *vector) "Epipolar Line")))
+                     ((@ console log) "Content:")
+                     ((@ console log) content)
+                     ((@ console log) "non-clicked image window: ") ((@ console log) i)
+                     ((@ i add-layer) (@ i epipolar-layer)))))
               
 
-          ;;(setf (@ *Proj4js defs "EPSG:4326") "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
-          (setf geographic (new ((@ *open-layers *projection) "EPSG:4326")))
-          (setf spherical-mercator (new ((@ *open-layers *projection) "EPSG:900913")))
+              ;;(setf (@ *Proj4js defs "EPSG:4326") "+proj=longlat +ellps=WGS84 +datum=WGS84 +no_defs")
+              (setf geographic (new ((@ *open-layers *projection) "EPSG:4326")))
+              (setf spherical-mercator (new ((@ *open-layers *projection) "EPSG:900913")))
           
-          (defun show-photo (photo-parameters image-map)
-            ((@ image-map add-layer)
-             (new ((@ *open-layers *layer *image) "Photo"
-                   (photo-path photo-parameters)
-                   (new ((@ *open-layers *bounds) -.5 -.5 (+ (@ photo-parameters pix-cols) .5) (+ (@ photo-parameters pix-rows) .5))) ; coordinates shown
-                   (new ((@ *open-layers *size) 512 256))
-                   (create photo-parameters photo-parameters))))
-            ((@ image-map add-control) (new ((@ *open-layers *control *layer-switcher))))
-            ((@ image-map zoom-to-extent)
-             (new ((@ *open-layers *bounds) -.5 -.5 (1+ (@ photo-parameters pix-cols)) (1+ (@ photo-parameters pix-rows))))) ; in coordinates shown
-            (when (> (@ ((@ image-map get-layers-by-name) "Photo") length) 1)
-              ((@ ((@ image-map get-layers-by-name) "Photo") 0 destroy)))
-            ;; TODO: etc. (other layers)
-            )
+              (defun show-photo (photo-parameters image-map)
+                ((@ console log) (photo-path photo-parameters))
+                ((@ image-map add-layer)
+                 (new ((@ *open-layers *layer *image)
+                       "Photo"
+                       (photo-path photo-parameters)
+                       (new ((@ *open-layers *bounds) -.5 -.5 (+ (@ photo-parameters sensor-width-pix) .5) (+ (@ photo-parameters sensor-height-pix) .5))) ; coordinates shown
+                       (new ((@ *open-layers *size) 512 256))
+                       (create photo-parameters photo-parameters))))
+                ((@ image-map add-control) (new ((@ *open-layers *control *layer-switcher))))
+                ((@ image-map zoom-to-extent)
+                 (new ((@ *open-layers *bounds) -.5 -.5 (1+ (@ photo-parameters sensor-width-pix)) (1+ (@ photo-parameters sensor-height-pix))))) ; in coordinates shown
+                (when (> (@ ((@ image-map get-layers-by-name) "Photo") length) 1)
+                  ((@ ((@ image-map get-layers-by-name) "Photo") 0 destroy)))
+                ;; TODO: etc. (other layers)
+                )
 
-          (defvar map)
-          (defvar image (array))
+              (defvar map)
+              (defvar image (array))
 
-          (defun init ()
-            (setf map (new ((@ *open-layers *map) "map"
-                            (create projection geographic
-                                    display-projection geographic))))
-            (loop
-               for i from 0 to 1
-               do
-                 (setf (aref image i) (new ((@ *open-layers *map)
-                                            (create projection spherical-mercator
-                                                    all-overlays t))))
-                 (setf (@ (aref image i) request-epipolar-lines) request-epipolar-lines*)
-                 (setf (@ (aref image i) click) (new ((@ *open-layers *control *click) (create :trigger (@ (aref image i) request-epipolar-lines)))))
-                 ((@ (aref image i) add-control) (@ (aref image i) click))
-                 ((@ (aref image i) click activate)))
+              (defun init ()
+                (setf map (new ((@ *open-layers *map) "map"
+                                (create projection geographic
+                                        display-projection geographic))))
+                (loop
+                   for i from 0 to 1
+                   do
+                   (setf (aref image i) (new ((@ *open-layers *map)
+                                              (create projection spherical-mercator
+                                                      all-overlays t))))
+                   (setf (@ (aref image i) request-epipolar-lines) request-epipolar-lines*)
+                   (setf (@ (aref image i) click) (new ((@ *open-layers *control *click) (create :trigger (@ (aref image i) request-epipolar-lines)))))
+                   ((@ (aref image i) add-control) (@ (aref image i) click))
+                   ((@ (aref image i) click activate)))
 
-            ((@ (aref image 0) render) "image-a")
-            ((@ (aref image 1) render) "image-b")
+                ((@ (aref image 0) render) "image-a")
+                ((@ (aref image 1) render) "image-b")
 
-            (let* ((osm (new ((@ *open-layers *layer *osm*))))
-                   (google (new ((@ *open-layers *Layer *google) "Google Streets")))
-                   (survey (new ((@ *open-layers *layer *vector) "Survey"
-                                 (create :strategies (array (new ((@ *open-layers *strategy *bbox*)
-                                                                  (create :ratio 1.1))))
-                                         :protocol (new ((@ *open-layers *protocol *http*)
-                                                         (create :url "points"
-                                                                 :format (new ((@ *open-layers *format *geo-j-s-o-n)
-                                                                               (create external-projection geographic
-                                                                                       internal-projection geographic))))))))))
-                   (click-map (new ((@ *open-layers *control *click) (create :trigger request-photo))))
-                   )
-              ((@ map add-control) click-map)
-              ((@ click-map activate))
-              ((@ map add-layers) (array osm google survey))
-              ((@ map add-control) (new ((@ *open-layers *control *layer-switcher))))
-              ((@ map add-control) (new ((@ *open-layers *control *mouse-position))))
-              ((@ map zoom-to-extent)
-               ((@ (new ((@ *open-layers *bounds) 12.13 48.53 12.1415 48.52))
-                   transform) geographic spherical-mercator))
-              ((@ console log) ((@ (new ((@ *open-layers *bounds) 12.13 48.53 12.1415 48.52))
-                                   transform) geographic spherical-mercator))
-              ((@ image 0 add-control) (new ((@ *open-layers *control *mouse-position))))
-              ((@ image 1 add-control) (new ((@ *open-layers *control *mouse-position))))
-              ))))))
-     (:body :onload (ps (init))
-            (:h1 :id "title" "Click Event Example")
-            (:p :id "shortdesc"
-                "This example shows the use of the click handler and 
+                (let* ((osm (new ((@ *open-layers *layer *osm*))))
+                       ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
+                       (survey (new ((@ *open-layers *layer *vector) "Survey"
+                                     (create :strategies (array (new ((@ *open-layers *strategy *bbox*)
+                                                                      (create :ratio 1.1))))
+                                             :protocol (new ((@ *open-layers *protocol *http*)
+                                                             (create :url "points"
+                                                                     :format (new ((@ *open-layers *format *geo-j-s-o-n)
+                                                                                   (create external-projection geographic
+                                                                                           internal-projection geographic))))))))))
+                       (click-map (new ((@ *open-layers *control *click) (create :trigger request-photo))))
+                       )
+                  ((@ map add-control) click-map)
+                  ((@ click-map activate))
+                  ;;((@ map add-layers) (array osm google survey))
+                  ((@ map add-layers) (array osm survey))
+                  ((@ map add-control) (new ((@ *open-layers *control *layer-switcher))))
+                  ((@ map add-control) (new ((@ *open-layers *control *mouse-position))))
+                  ((@ map zoom-to-extent)
+                   ((@ (new ((@ *open-layers *bounds) 14.3258 51.75615 14.33124 51.75778))
+                       transform) geographic spherical-mercator))
+                  ((@ console log) ((@ (new ((@ *open-layers *bounds) 14.26 51.78 14.37 51.75))
+                                       transform) geographic spherical-mercator))
+                  ((@ image 0 add-control) (new ((@ *open-layers *control *mouse-position))))
+                  ((@ image 1 add-control) (new ((@ *open-layers *control *mouse-position))))
+                  ))))))
+         (:body :onload (ps (init))
+                (:h1 :id "title" (str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
+                (:p :id "shortdesc"
+                    "This example shows the use of the click handler and 
                  getLonLatFromViewPortPx functions to trigger events on mouse click.")
-            (:div :id "map" :class "smallmap" :style "float:left")
-            (:div :id "image-a" :class "smallmap" :style "float:right")
-            (:div :id "image-b" :class "smallmap" :style "float:right")))))
+                (:div :id "map" :class "smallmap" :style "float:left")
+                (:div :id "image-a" :class "smallmap" :style "float:right")
+                (:div :id "image-b" :class "smallmap" :style "float:right"))))
+      (redirect
+       (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
+       :add-session-id t)
+      ))
 
 (define-easy-handler (epipolar-line :uri "/epipolar-line") ()
   "Receive vector of two sets of pictures parameters, respond with stuff."
@@ -461,13 +488,14 @@
 
 (defmethod photogrammetry ((mode (eql :epipolar-line)) clicked-photo &optional other-photo)
   "Return in an alist an epipolar line in coordinates of other-photo from m and n in clicked-photo."
+  (print (list clicked-photo other-photo)) (terpri)
   (add-cam* clicked-photo)
   (add-bpoint* clicked-photo)
   (add-global-car-reference-point* clicked-photo t)
   (add-cam* other-photo)
   (add-global-car-reference-point* other-photo t)
   (loop
-     for i from 4d0 upto 30 by .5d0
+     for i from 3d0 upto 30 by .5d0
      do
        (set-distance-for-epipolar-line i)
        (calculate)
@@ -512,14 +540,14 @@
            (get-x-global) (get-y-global) (get-z-global))))
 
 (defun flip-m-maybe (m photo)
-  "Flip coordinate m when :angle180 in photo suggests it necessary."
-  (if (plusp (cdr (assoc :angle-180 photo)))
-      (- (cdr (assoc :pix-cols photo)) m)
+  "Flip coordinate m when :mounting-angle in photo suggests it necessary."
+  (if (= 180 (cdr (assoc :mounting-angle photo)))
+      (- (cdr (assoc :sensor-width-pix photo)) m)
       m))
 (defun flip-n-maybe (n photo)
-  "Flip coordinate n when :angle180 in photo suggests it necessary."
-  (if (zerop (cdr (assoc :angle-180 photo)))
-      (- (cdr (assoc :pix-rows photo)) n)
+  "Flip coordinate n when :mounting-angle in photo suggests it necessary."
+  (if (zerop (cdr (assoc :mounting-angle photo)))
+      (- (cdr (assoc :sensor-height-pix photo)) n)
       n))
 
 (defun photogrammetry-arglist (alist &rest keys)
@@ -530,7 +558,7 @@
   "Call add-cam with arguments taken from photo-alist."
   (let ((integer-args
          (photogrammetry-arglist
-          photo-alist :pix-rows :pix-cols))
+          photo-alist :sensor-height-pix :sensor-width-pix))
         (double-float-args
          (mapcar #'(lambda (x) (coerce x 'double-float))
                  (photogrammetry-arglist photo-alist
@@ -541,12 +569,12 @@
                                          :b-dx :b-dy :b-dz :b-ddx :b-ddy :b-ddz
                                          :b-rotx :b-roty :b-rotz
                                          :b-drotx :b-droty :b-drotz))))
-    (apply #'add-cam (print (nconc integer-args double-float-args)))))
+    (apply #'add-cam (nconc integer-args double-float-args))))
 
 (defun add-bpoint* (photo-alist)
   "Call add-bpoint with arguments taken from photo-alist."
-    (add-bpoint (print (coerce (flip-m-maybe (cdr (assoc :m photo-alist)) photo-alist) 'double-float))
-                (print (coerce (flip-n-maybe (cdr (assoc :n photo-alist)) photo-alist) 'double-float))))
+    (add-bpoint (coerce (print (flip-m-maybe (cdr (assoc :m photo-alist)) photo-alist)) 'double-float)
+                (coerce (print (flip-n-maybe (cdr (assoc :n photo-alist)) photo-alist)) 'double-float)))
 
 (defun add-ref-ground-surface* (floor-alist)
   "Call add-ref-ground-surface with arguments taken from floor-alist."
@@ -554,20 +582,28 @@
          (mapcar #'(lambda (x) (coerce x 'double-float))
                  (photogrammetry-arglist floor-alist
                                          :nx :ny :nz :d))))
-    (apply #'add-ref-ground-surface (print double-float-args))))
+    (apply #'add-ref-ground-surface double-float-args)))
 
 (defun add-global-car-reference-point* (photo-alist &optional cam-set-global-p)
   "Call add-global-car-reference-point with arguments taken from photo-alist.  When cam-set-global-p is t, call add-global-car-reference-point-cam-set-global instead."
-  (let ((double-float-args
-         (mapcar #'(lambda (x) (coerce x 'double-float))
-                 (photogrammetry-arglist photo-alist
-                                         :easting :northing :ellipsoid-height
-                                         :roll :pitch :heading
-                                         :latitude :longitude))))
+  (let* ((longitude-radians (proj:degrees-to-radians (car (photogrammetry-arglist photo-alist :longitude))))
+         (latitude-radians (proj:degrees-to-radians (car (photogrammetry-arglist photo-alist :latitude))))
+         (ellipsoid-height (car (photogrammetry-arglist photo-alist :ellipsoid-height)))
+         (destination-cs (car (photogrammetry-arglist photo-alist :cartesian-system)))
+         (cartesian-coordinates
+          (proj:cs2cs (list longitude-radians latitude-radians ellipsoid-height)
+                      :destination-cs destination-cs))
+         (other-args
+          (mapcar #'(lambda (x) (coerce x 'double-float))
+                  (photogrammetry-arglist photo-alist
+                                          :roll :pitch :heading
+                                          :latitude :longitude)))
+         (double-float-args
+          (nconc cartesian-coordinates other-args)))
     (apply (if cam-set-global-p
                #'add-global-car-reference-point-cam-set-global
                #'add-global-car-reference-point)
-           (print double-float-args))))
+           double-float-args)))
 
 (defun add-global-measurement-point* (point)
   "Call add-global-measurement-point with arguments taken from point."
@@ -575,5 +611,5 @@
          (mapcar #'(lambda (x) (coerce x 'double-float))
                  (photogrammetry-arglist point
                                          :x-global :y-global :z-global))))
-    (apply #'add-global-measurement-point (print double-float-args))))
+    (apply #'add-global-measurement-point double-float-args)))
   

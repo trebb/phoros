@@ -24,8 +24,8 @@
   '((("help" #\h) :action #'cli-help-action
      :documentation "Print this help and exit.")
     ("version" :action #'cli-version-action
-     :documentation "Output version information and exit.")
-    ("verbose" :type integer :initial-value 0
+     :documentation "Output version information and exit.  Use --verbose=1 to see more.")
+    ("verbose" :type integer :initial-value 0 :action *verbose*
      :documentation "Emit increasing amounts of debugging output.")
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
@@ -66,7 +66,7 @@
      :documentation "Path to to output .png file.")
     ;; The way it should be had we two-dimensional arrays in postmodern:
     ;;("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :documentation "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
-    ("bayer-pattern" :type string :optional t :action :raw-bayer-pattern
+    ("bayer-pattern" :type string :initial-value "#ff0000,#00ff00" :action :raw-bayer-pattern
      :documentation "The first pixels of the first row.  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")))
 
 (defparameter *cli-camera-hardware-options*
@@ -212,7 +212,7 @@
     ("d" :type string :documentation "Distance of vehicle ground plane.")))
 
 (defparameter *cli-store-images-and-points-options*
-  '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action
+  '((("store-images-points" #\s) :type string :action #'store-images-and-points-action
      :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
     (("directory" #\d) :type string
      :documentation "Directory containing one set of measuring data.")
@@ -325,9 +325,16 @@
 (defun cli-version-action (&rest rest)
   "Print --version message."
   (declare (ignore rest))
-  (format *standard-output* "~&~A ~A~%"
-          (asdf:system-description (asdf:find-system :phoros))
-          (asdf:component-version (asdf:find-system :phoros))))
+  (command-line-arguments:process-command-line-options
+   *cli-options* command-line-arguments:*command-line-arguments*)
+  (case *verbose*
+    (0 (format *standard-output* "~&~A~&" (asdf:component-version (asdf:find-system :phoros))))
+    (otherwise (format *standard-output* "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  Photogrammetry version ~A~&"
+               (asdf:system-description (asdf:find-system :phoros))
+               (asdf:component-version (asdf:find-system :phoros))
+               (lisp-implementation-type) (lisp-implementation-version)
+               (proj:version)
+               (photogrammetrie:get-version-number)))))
 
 (defun check-db-action (&rest rest)
   "Say `OK´ if database is accessible."
@@ -336,16 +343,9 @@
                             &allow-other-keys)
       (command-line-arguments:process-command-line-options
        *cli-options* command-line-arguments:*command-line-arguments*)
-    (let (connection)
-      (handler-case
-          (setf
-           connection
-           (connect database user password host :port port
-                    :use-ssl (s-sql:from-sql-name use-ssl))) ; string to keyword
-        (error (e) (format *error-output* "~A~&" e)))
-      (when connection
-        (disconnect connection)
-        (format *error-output* "~&OK~%")))))
+    (when (check-db (list database user password host :port port
+                          :use-ssl (s-sql:from-sql-name use-ssl)))
+      (format *error-output* "~&OK~%"))))
 
 (defun check-dependencies-action (&rest rest)
   "Say `OK´ if the necessary external dependencies are available."
@@ -644,20 +644,21 @@ trigger-time to stdout."
 
 (defun create-user-action (presentation-project-user)
   "Define a new user."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            user-password user-full-name presentation-project
-                            &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
-    (launch-logger log-dir)
-    (with-connection (list database user password host :port port
-                           :use-ssl (s-sql:from-sql-name use-ssl))
-      (create-user presentation-project-user :password user-password :full-name user-full-name :presentation-projects presentation-project))
-    (cl-log:log-message
-     :db-dat                            ;TODO: We're listing nonexistent p-projects here as well.
-     "Created or updated user ~A (~A) who has access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
-     presentation-project-user user-full-name presentation-project database host port)))
+  (let (fresh-user-p)
+    (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                              log-dir
+                              user-password user-full-name presentation-project
+                              &allow-other-keys)
+        (command-line-arguments:process-command-line-options
+         *cli-options* command-line-arguments:*command-line-arguments*)
+      (launch-logger log-dir)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl))
+        (setf fresh-user-p (create-user presentation-project-user :password user-password :full-name user-full-name :presentation-projects presentation-project)))
+      (cl-log:log-message
+       :db-dat ;TODO: We're listing nonexistent p-projects here as well.
+       "~:[Updated~;Created~] user ~A (~A) who has access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
+       fresh-user-p presentation-project-user user-full-name presentation-project database host port))))
 
 (defun delete-user-action (presentation-project-user)
   "Delete a presentation project user."
