@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010 Bert Burgemeister
+;;; Copyright (C) 2010, 2011 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -538,7 +538,8 @@ of presentation project with presentation-project-id."
              :stdx-local :stdy-local :stdz-local)
            (list
             (get-x-local) (get-y-local) (get-z-local)
-            (get-stdx-local) (get-stdy-local) (get-stdz-local))))
+            (get-stdx-local) (get-stdy-local) (get-stdz-local)
+            (get-x-global) (get-y-global) (get-z-global))))
 
 (defmethod photogrammetry ((mode (eql :mono)) photo &optional floor)
   "Return in an alist the intersection point of the ray through m and n in photo, and floor."
