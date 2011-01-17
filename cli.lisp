@@ -325,7 +325,7 @@
 (defun cli-version-action (&rest rest)
   "Print --version message."
   (declare (ignore rest))
-  (process-command-line-options*)
+  (process-command-line-options *cli-options* *command-line-arguments*)
   (case *verbose*
     (0
      (format
