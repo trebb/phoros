@@ -33,7 +33,7 @@
 
 (defparameter *phoros-server* nil "Hunchentoot acceptor.")
 (defparameter *common-root* nil "Root directory; contains directories of measuring data.")
-(defparameter *verbose* 0 "Integer denoting increasing amounts of debugging output.")
+(defparameter *verbose* 0 "Integer (interpreted as a bit mask) denoting various kinds of debugging output.")
 
 (defun check-db (db-credentials)
   "Check postgresql connection.  Return t if successful; show error on
@@ -56,7 +56,7 @@ user password host &key (port 5432) use-ssl)."
   (setf *phoros-server* (make-instance 'hunchentoot:acceptor :port server-port))
   (setf *session-max-time* (* 3600 24))
   (setf *common-root* common-root)
-  (setf *show-lisp-errors-p* t)      ;TODO: tie this to --debug option
+  (setf *show-lisp-errors-p* (logbitp 16 *verbose*))
   ;; Doesn't seem to exist(setf *show-lisp-backtraces-p* t)  ;TODO: tie this to --debug option
   (setf *message-log-pathname* "hunchentoot-messages.log") ;TODO: try using cl-log
   (setf *access-log-pathname* "hunchentoot-access.log") ;TODO: try using cl-log

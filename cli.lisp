@@ -26,7 +26,7 @@
     ("version" :action #'cli-version-action
      :documentation "Output version information and exit.  Use --verbose=1 to see more.")
     ("verbose" :type integer :initial-value 0 :action *verbose*
-     :documentation "Emit increasing amounts of debugging output.")
+     :documentation "Dependent on bits set in this integer, emit various kinds of debugging output. ")
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'check-db-action
