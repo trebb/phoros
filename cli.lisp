@@ -282,8 +282,7 @@
   (handler-case
       (progn
         (cffi:use-foreign-library photogrammetrie)
-        (compute-and-process-command-line-options
-         *cli-options*))
+        (compute-and-process-command-line-options *cli-options*))
     (serious-condition (c)
       (cl-log:log-message :warning "Fatal: ~A" c)
       (format *error-output* "~A~&" c))))
@@ -291,58 +290,63 @@
 (defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
-  (let ((format-headline (formatter "~&~95,,,'#@<~A ~>")))
+  (flet ((show-help-headline (content)
+           (format *standard-output* "~&~95,,,'#@<~A ~>" content)))
     (format *standard-output*
             "~&Usage: phoros [options] ...~&~A"
             (asdf:system-long-description (asdf:find-system :phoros)))
-    (format *standard-output* format-headline "Main Options")
+    (show-help-headline "Main Options")
     (show-option-help *cli-main-options*)
-    (format *standard-output* format-headline "Database Connection")
+    (show-help-headline "Database Connection")
     (show-option-help *cli-db-connection-options*)
-    (format *standard-output* format-headline "Examine .pictures File")
+    (show-help-headline "Examine .pictures File")
     (show-option-help *cli-get-image-options*)
-    (format *standard-output* format-headline "Camera Hardware Parameters")
+    (show-help-headline "Camera Hardware Parameters")
     (show-option-help *cli-camera-hardware-options*)
-    (format *standard-output* format-headline "Lens Parameters")
+    (show-help-headline "Lens Parameters")
     (show-option-help *cli-lens-options*)
-    (format *standard-output* format-headline "Generic Device Definition")
+    (show-help-headline "Generic Device Definition")
     (show-option-help *cli-generic-device-options*)
-    (format *standard-output* format-headline "Device Stage-Of-Life Definition")
+    (show-help-headline "Device Stage-Of-Life Definition")
     (show-option-help *cli-device-stage-of-life-options*)
-    (format *standard-output* format-headline "Put An End To A Device's Stage-Of-Life")
+    (show-help-headline "Put An End To A Device's Stage-Of-Life")
     (show-option-help *cli-device-stage-of-life-end-options*)
-    (format *standard-output* format-headline "Camera Calibration Parameters")
+    (show-help-headline "Camera Calibration Parameters")
     (show-option-help *cli-camera-calibration-options*)
-    (format *standard-output* format-headline "Store Measure Data")
+    (show-help-headline "Store Measure Data")
     (show-option-help *cli-store-images-and-points-options*)
-    (format *standard-output* format-headline "Become A HTTP Presentation Server")
+    (show-help-headline "Become A HTTP Presentation Server")
     (show-option-help *cli-start-server-options*)
-    (format *standard-output* format-headline "Manage Presentation Projects")
+    (show-help-headline "Manage Presentation Projects")
     (show-option-help *cli-presentation-project-options*)
-    (format *standard-output* format-headline "Manage Presentation Project Users")
+    (show-help-headline "Manage Presentation Project Users")
     (show-option-help *cli-user-options*)))
 
 (defun cli-version-action (&rest rest)
   "Print --version message."
   (declare (ignore rest))
-  (process-command-line-options
-   *cli-options* *command-line-arguments*)
+  (process-command-line-options*)
   (case *verbose*
-    (0 (format *standard-output* "~&~A~&" (asdf:component-version (asdf:find-system :phoros))))
-    (otherwise (format *standard-output* "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  Photogrammetry version ~A~&"
-               (asdf:system-description (asdf:find-system :phoros))
-               (asdf:component-version (asdf:find-system :phoros))
-               (lisp-implementation-type) (lisp-implementation-version)
-               (proj:version)
-               (photogrammetrie:get-version-number)))))
+    (0
+     (format
+      *standard-output*
+      "~&~A~&" (asdf:component-version (asdf:find-system :phoros))))
+    (otherwise
+     (format
+      *standard-output*
+      "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  Photogrammetry version ~A~&"
+      (asdf:system-description (asdf:find-system :phoros))
+      (asdf:component-version (asdf:find-system :phoros))
+      (lisp-implementation-type) (lisp-implementation-version)
+      (proj:version)
+      (photogrammetrie:get-version-number)))))
 
 (defun check-db-action (&rest rest)
   "Say `OK´ if database is accessible."
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             &allow-other-keys)
-      (process-command-line-options
-       *cli-options* *command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (when (check-db (list database user password host :port port
                           :use-ssl (s-sql:from-sql-name use-ssl)))
       (format *error-output* "~&OK~%"))))
@@ -363,8 +367,7 @@
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir &allow-other-keys)
-      (process-command-line-options
-       *cli-options* *command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to delete anything in database ~A at ~A:~D.  Proceed?"
@@ -379,8 +382,7 @@
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir &allow-other-keys)
-      (process-command-line-options
-       *cli-options* *command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
@@ -396,8 +398,7 @@
   "Make a set of data tables."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir &allow-other-keys)
-      (process-command-line-options
-       *cli-options* *command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -413,8 +414,7 @@
                             log-dir
                             directory epsilon common-root aggregate-events
                             &allow-other-keys)
-      (process-command-line-options
-       *cli-options* *command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
