@@ -89,7 +89,7 @@ user password host &key (port 5432) use-ssl)."
          (progn
            (setf (session-value 'presentation-project-name) presentation-project-name
                  (session-value 'presentation-project-id) presentation-project-id)
-           (with-html-output-to-string (s nil :prologue t :indent t)
+           (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
                     :action "/authenticate"
                     "User:" :br
@@ -270,12 +270,12 @@ of presentation project with presentation-project-id."
 
 (define-easy-handler (view :uri "/view" :default-request-type :post) ()
   (if (session-value 'authenticated-p)
-      (with-html-output-to-string (s nil :indent t)
+      (who:with-html-output-to-string (s nil :indent t)
         (:html
          :xmlns
          "http://www.w3.org/1999/xhtml"
          (:head
-          (:title (str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
+          (:title (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
           (:link :rel "stylesheet" :href "lib/theme/default/style.css" :type "text/css")
           (:link :rel "stylesheet" :href "lib/style.css" :type "text/css")
           (:script :src "lib/openlayers/lib/OpenLayers.js")
@@ -283,7 +283,7 @@ of presentation project with presentation-project-id."
           ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
           (:script
            :type "text/javascript"
-           (str
+           (who:str
             (ps
               (setf (@ *open-layers *control *click)
                     ((@ *open-layers *class) 
@@ -452,7 +452,7 @@ of presentation project with presentation-project-id."
                   ((@ image 1 add-control) (new ((@ *open-layers *control *mouse-position))))
                   ))))))
          (:body :onload (ps (init))
-                (:h1 :id "title" (str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
+                (:h1 :id "title" (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
                 (:p :id "shortdesc"
                     "This example shows the use of the click handler and 
                  getLonLatFromViewPortPx functions to trigger events on mouse click.")

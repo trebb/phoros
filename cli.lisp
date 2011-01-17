@@ -282,7 +282,7 @@
   (handler-case
       (progn
         (cffi:use-foreign-library photogrammetrie)
-        (command-line-arguments:compute-and-process-command-line-options
+        (compute-and-process-command-line-options
          *cli-options*))
     (serious-condition (c)
       (cl-log:log-message :warning "Fatal: ~A" c)
@@ -296,37 +296,37 @@
             "~&Usage: phoros [options] ...~&~A"
             (asdf:system-long-description (asdf:find-system :phoros)))
     (format *standard-output* format-headline "Main Options")
-    (command-line-arguments:show-option-help *cli-main-options*)
+    (show-option-help *cli-main-options*)
     (format *standard-output* format-headline "Database Connection")
-    (command-line-arguments:show-option-help *cli-db-connection-options*)
+    (show-option-help *cli-db-connection-options*)
     (format *standard-output* format-headline "Examine .pictures File")
-    (command-line-arguments:show-option-help *cli-get-image-options*)
+    (show-option-help *cli-get-image-options*)
     (format *standard-output* format-headline "Camera Hardware Parameters")
-    (command-line-arguments:show-option-help *cli-camera-hardware-options*)
+    (show-option-help *cli-camera-hardware-options*)
     (format *standard-output* format-headline "Lens Parameters")
-    (command-line-arguments:show-option-help *cli-lens-options*)
+    (show-option-help *cli-lens-options*)
     (format *standard-output* format-headline "Generic Device Definition")
-    (command-line-arguments:show-option-help *cli-generic-device-options*)
+    (show-option-help *cli-generic-device-options*)
     (format *standard-output* format-headline "Device Stage-Of-Life Definition")
-    (command-line-arguments:show-option-help *cli-device-stage-of-life-options*)
+    (show-option-help *cli-device-stage-of-life-options*)
     (format *standard-output* format-headline "Put An End To A Device's Stage-Of-Life")
-    (command-line-arguments:show-option-help *cli-device-stage-of-life-end-options*)
+    (show-option-help *cli-device-stage-of-life-end-options*)
     (format *standard-output* format-headline "Camera Calibration Parameters")
-    (command-line-arguments:show-option-help *cli-camera-calibration-options*)
+    (show-option-help *cli-camera-calibration-options*)
     (format *standard-output* format-headline "Store Measure Data")
-    (command-line-arguments:show-option-help *cli-store-images-and-points-options*)
+    (show-option-help *cli-store-images-and-points-options*)
     (format *standard-output* format-headline "Become A HTTP Presentation Server")
-    (command-line-arguments:show-option-help *cli-start-server-options*)
+    (show-option-help *cli-start-server-options*)
     (format *standard-output* format-headline "Manage Presentation Projects")
-    (command-line-arguments:show-option-help *cli-presentation-project-options*)
+    (show-option-help *cli-presentation-project-options*)
     (format *standard-output* format-headline "Manage Presentation Project Users")
-    (command-line-arguments:show-option-help *cli-user-options*)))
+    (show-option-help *cli-user-options*)))
 
 (defun cli-version-action (&rest rest)
   "Print --version message."
   (declare (ignore rest))
-  (command-line-arguments:process-command-line-options
-   *cli-options* command-line-arguments:*command-line-arguments*)
+  (process-command-line-options
+   *cli-options* *command-line-arguments*)
   (case *verbose*
     (0 (format *standard-output* "~&~A~&" (asdf:component-version (asdf:find-system :phoros))))
     (otherwise (format *standard-output* "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  Photogrammetry version ~A~&"
@@ -341,8 +341,8 @@
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options
+       *cli-options* *command-line-arguments*)
     (when (check-db (list database user password host :port port
                           :use-ssl (s-sql:from-sql-name use-ssl)))
       (format *error-output* "~&OK~%"))))
@@ -363,8 +363,8 @@
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options
+       *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to delete anything in database ~A at ~A:~D.  Proceed?"
@@ -379,8 +379,8 @@
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options
+       *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
@@ -396,8 +396,8 @@
   "Make a set of data tables."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options
+       *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -413,8 +413,8 @@
                             log-dir
                             directory epsilon common-root aggregate-events
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options
+       *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -497,9 +497,7 @@ sql-string-p is t, convert it into a string in SQL syntax."
 options.  Print return values to *standard-output*.  store-function
 should only take keyargs."
   (let ((command-line-options
-         (command-line-arguments:process-command-line-options
-          *cli-options*
-          command-line-arguments:*command-line-arguments*)))
+         (process-command-line-options *cli-options* *command-line-arguments*)))
     (setf (getf command-line-options :bayer-pattern)
           (canonicalize-bayer-pattern
            (getf command-line-options :raw-bayer-pattern) t)
@@ -548,8 +546,7 @@ trigger-time to stdout."
   (destructuring-bind (&key count byte-position in out
                             raw-bayer-pattern raw-color-raiser
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (with-open-file (out-stream out :direction :output
                                 :element-type 'unsigned-byte
                                 :if-exists :supersede)
@@ -573,8 +570,7 @@ trigger-time to stdout."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -590,8 +586,7 @@ trigger-time to stdout."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -608,8 +603,7 @@ trigger-time to stdout."
                               log-dir
                               measurement-id acquisition-project
                               &allow-other-keys)
-        (command-line-arguments:process-command-line-options
-         *cli-options* command-line-arguments:*command-line-arguments*)
+        (process-command-line-options *cli-options* *command-line-arguments*)
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -628,8 +622,7 @@ trigger-time to stdout."
                             log-dir
                             measurement-id acquisition-project
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -649,8 +642,7 @@ trigger-time to stdout."
                               log-dir
                               user-password user-full-name presentation-project
                               &allow-other-keys)
-        (command-line-arguments:process-command-line-options
-         *cli-options* command-line-arguments:*command-line-arguments*)
+        (process-command-line-options *cli-options* *command-line-arguments*)
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -665,8 +657,7 @@ trigger-time to stdout."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -682,8 +673,7 @@ trigger-time to stdout."
 projects."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (let ((content
@@ -718,8 +708,7 @@ projects."
   "List content of presentation projects."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (let ((content
@@ -789,8 +778,7 @@ projects."
                             log-dir
                             server-port common-root
                             &allow-other-keys)
-      (command-line-arguments:process-command-line-options
-       *cli-options* command-line-arguments:*command-line-arguments*)
+      (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (setf *postgresql-credentials*
           (list database user password host :port port

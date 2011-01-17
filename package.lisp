@@ -18,8 +18,8 @@
 
 (defpackage :phoros
   (:use :cl
+        :command-line-arguments
         :photogrammetrie
         :hunchentoot
-        :cl-who
         :parenscript
         :postmodern))
