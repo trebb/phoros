@@ -527,6 +527,19 @@ of presentation project with presentation-project-id."
             (get-x-global) (get-y-global) (get-z-global)
             (get-stdx-global) (get-stdy-global) (get-stdz-global))))
 
+(defmethod photogrammetry ((mode (eql :intersection)) photo &optional other-photo)
+  "Calculate intersection from two photos.  (Used for debugging only)."
+  (add-cam* photo)
+  (add-bpoint* photo)
+  (add-cam* other-photo)
+  (add-bpoint* other-photo)
+  (calculate)
+  (pairlis '(:x-local :y-local :z-local
+             :stdx-local :stdy-local :stdz-local)
+           (list
+            (get-x-local) (get-y-local) (get-z-local)
+            (get-stdx-local) (get-stdy-local) (get-stdz-local))))
+
 (defmethod photogrammetry ((mode (eql :mono)) photo &optional floor)
   "Return in an alist the intersection point of the ray through m and n in photo, and floor."
   (add-cam* photo)
