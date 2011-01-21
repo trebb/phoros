@@ -323,7 +323,7 @@
     (show-option-help *cli-user-options*)))
 
 (defun cli-version-action (&rest rest)
-  "Print --version message."
+  "Print --version message. TODO: OpenLayers, Proj4js version."
   (declare (ignore rest))
   (process-command-line-options *cli-options* *command-line-arguments*)
   (case *verbose*
