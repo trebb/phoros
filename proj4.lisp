@@ -18,7 +18,7 @@
 
 (defpackage proj
   (:use :common-lisp :cffi)
-  (:export cs2cs degrees-to-radians version)
+  (:export cs2cs degrees-to-radians radians-to-degrees version)
   (:documentation "Interface to the PROJ.4 cartographic projection library."))
 
 (in-package :proj)
@@ -49,6 +49,10 @@
 (defun degrees-to-radians (degrees)
   "Convert degrees into radians."
   (* degrees  (/ pi 180)))
+
+(defun radians-to-degrees (radians)
+  "Convert radians into degrees."
+  (* radians  (/ 180 pi)))
 
 (defun cs2cs (point &key
               (source-cs "+proj=latlong +datum=WGS84")
