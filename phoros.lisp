@@ -625,14 +625,16 @@ image-index in array images."
       (:body :onload (ps (init))
              (:h1 :id "title" (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
              (:p :id "shortdesc"
-                 "This example shows the use of blah blah.")
-              (:div :id "finish-point-button" (:button :type "button" :onclick (ps ()) "finish point"))
-              (:div :id "remove-work-layers-button" (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
-              (:div :id "logout-button" (:button :type "button" :onclick "self.location.href = \"/logout\"" "bye"))
-              (:div :id "streetmap" :class "smallmap" :style "float:left")
-              (loop
-                 for i from 0 to 3 do 
-                   (who:htm (:div :id i :class "image" :style "float:left"))))))
+                 "unfinished prototype")
+             (:div :id "finish-point-button" :style "float:left" (:button :type "button" :onclick (ps ()) "finish point"))
+             (:div :id "remove-work-layers-button" :style "float:left" (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
+             (:div :id "logout-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/logout\"" "bye"))
+             
+             (:div :style "clear:both"
+                   (:div :id "streetmap" :class "smallmap" :style "float:left")
+                   (loop
+                      for i from 0 to 3 do 
+                        (who:htm (:div :id i :class "image" :style "float:left")))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
     :add-session-id t)))
