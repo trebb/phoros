@@ -275,61 +275,126 @@ of presentation project with presentation-project-id."
   "Serve some Javascript."
   (when (session-value 'authenticated-p)
     (ps
-      (setf geographic (new ((@ *open-layers *projection) "EPSG:4326")))
-      (setf spherical-mercator (new ((@ *open-layers *projection) "EPSG:900913")))
+
+      (setf
+       (@ *open-layers *control *click)
+       ((@ *open-layers *class) 
+        (@ *open-layers *control)
+        (create :default-handler-options
+                (create :single t
+                        :double false
+                        :pixel-tolerance 0
+                        :stop-single false
+                        :stop-double false)
+                :initialize
+                (lambda (options)
+                  (setf 
+                   (@ this handler-options) ((@ *open-layers *util extend)
+                                             (create)
+                                             (@ this default-handler-options)))
+                  ((@ *open-layers *control prototype initialize apply)
+                   this arguments)
+                  (setf (@ this handler)
+                        (new ((@ *open-layers *handler *click) this
+                              (create :click (@ this trigger))
+                              (@ this handler-options))))))))
+
+      (setf geographic
+            (new ((@ *open-layers *projection) "EPSG:4326")))
+      (setf spherical-mercator
+            (new ((@ *open-layers *projection) "EPSG:900913")))
           
-      (setf (@ *open-layers *control *click)
-            ((@ *open-layers *class) 
-             (@ *open-layers *control)
-             (create :default-handler-options
-                     (create :single t
-                             :double false
-                             :pixel-tolerance 0
-                             :stop-single false
-                             :stop-double false)
-                     :initialize
-                     (lambda (options)
-                       (setf 
-                        (@ this handler-options) ((@ *open-layers *util extend)
-                                                  (create)
-                                                  (@ this default-handler-options)))
-                       ((@ *open-layers *control prototype initialize apply) this arguments)
-                       (setf (@ this handler)
-                             (new ((@ *open-layers *handler *click) this
-                                   (create :click (@ this trigger))
-                                   (@ this handler-options))))))))
+      (defvar images (array) "Collection of the photos currently shown.")
+      (defvar streetmap "The streetmap shown to the user.")
+      (defvar streetmap-estimated-position-layer)
+              
+      (defun *image ()
+        "Anything necessary to deal with a photo."
+        (setf (getprop this 'map)
+              (new ((getprop *open-layers '*map)
+                    (create projection spherical-mercator
+                            all-overlays t)))
+              (getprop this 'dummy) false ;TODO why? (omitting splices map components directly into *image)
+              ))
+
+      (setf (getprop *image 'prototype 'show-photo) show-photo)
+      (setf (getprop *image 'prototype 'draw-epipolar-line) draw-epipolar-line)
+      (setf (getprop *image 'prototype 'draw-active-point) draw-active-point)
+      (setf (getprop *image 'prototype 'draw-estimated-positions)
+            draw-estimated-positions)
+
       (defun photo-path (photo-parameters)
-        (+ "/photo/" (@ photo-parameters directory) "/" (@ photo-parameters filename) "/" (@ photo-parameters byte-position) ".png"))
+        "Create from stuff found in photo-parameters a path for use in
+a image url."
+        (+ "/photo/" (@ photo-parameters directory) "/"
+           (@ photo-parameters filename) "/"
+           (@ photo-parameters byte-position) ".png"))
+
+      (defun has-layer-p (map layer-name)
+        "False if map doesn't have a layer called layer-name."
+        (chain map (get-layers-by-name layer-name) length))
+
+      (defun some-active-point-p ()
+        "False if no image in images has an Active Point."
+        (loop
+           for i across images
+           sum (has-layer-p (getprop i 'map) "Active Point")))
+
+      (defun remove-layer (map layer-name)
+        "Destroy layer layer-name in map."
+        (when (has-layer-p map layer-name)
+          (chain map (get-layers-by-name layer-name) 0 (destroy))))
+
+      (defun remove-any-layers (layer-name)
+        "Destroy in all images and in streetmap the layer named layer-name."
+        (loop
+           for i across images do (remove-layer (getprop i 'map) layer-name))
+        (remove-layer streetmap layer-name))
+
+      (defun remove-work-layers ()
+        "Destroy user-generated layers in streetmap and in all images."
+        (remove-any-layers "Epipolar Line")
+        (remove-any-layers "Active Point")
+        (remove-any-layers "Estimated Position")
+        (setf pristine-images-p t))
 
       (defun present-photos ()
-        (let ((photo-parameters ((@ *json* parse) (@ photo-request-response response-text))))
+        "Handle the response triggered by request-photos."
+        (let ((photo-parameters ((@ *json* parse)
+                                 (@ photo-request-response response-text))))
           (loop
              for p across photo-parameters
              for i across images
              do
-             (setf (getprop i 'photo-parameters) p)
-             ((getprop i 'show-photo)))
+               (setf (getprop i 'photo-parameters) p)
+               ((getprop i 'show-photo)))
           ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
           ))
 
       (defun request-photos (event)
+        "Handle the response to a click into streetmap; fetch photo data."
+        (remove-any-layers "Estimated Position")
         (let ((lonlat
-               ((@ ((@ map get-lon-lat-from-pixel) (@ event xy)) transform)
+               ((@ ((@ streetmap get-lon-lat-from-pixel) (@ event xy)) transform)
                 spherical-mercator      ; why?
                 geographic)))
-              
-          (setf content ((@ *json* stringify) (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
-                                                      :latitude (@ lonlat lat)
-                                                      :zoom ((@ map get-zoom))
-                                                      :count 6)) ; that's left and right (or it was)
-                photo-request-response ((@ *open-layers *Request *POST*)
-                                        (create :url "local-data"
-                                                :data content
-                                                :headers (create "Content-type" "text/plain"
-                                                                 "Content-length" (@ content length))
-                                                :success present-photos)))))
+          (setf content
+                ((@ *json* stringify)
+                 (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
+                         :latitude (@ lonlat lat)
+                         :zoom ((@ streetmap get-zoom))
+                         :count 6)))
+          (setf photo-request-response
+                ((@ *open-layers *Request *POST*)
+                 (create :url "local-data"
+                         :data content
+                         :headers (create "Content-type" "text/plain"
+                                          "Content-length" (@ content length))
+                         :success present-photos)))))
 
       (defun draw-epipolar-line ()
+        "Draw an epipolar line from response triggered by clicking
+into a (first) photo."
         (let ((epipolar-line ((@ *json* parse)
                               (@ this epipolar-request-response response-text))))
           (chain this epipolar-layer
@@ -337,31 +402,42 @@ of presentation project with presentation-project-id."
                   (new ((@ *open-layers *feature *vector)
                         (new ((@ *open-layers *geometry *line-string)
                               ((@ epipolar-line map)
-                               (lambda (x) (new ((@ *open-layers *geometry *point) (@ x :m) (@ x :n)))))))))))))
+                               (lambda (x)
+                                 (new ((@ *open-layers *geometry *point)
+                                       (@ x :m) (@ x :n)))))))))))))
       ;; either *line-string or *multi-point are usable
     
       (defun draw-estimated-positions ()
-        "Draw points at Estimated Position, i.e. the position returned
-so far from photogrammetric calculations."
+        "Draw into streetmap and into all images points at Estimated
+Position.  Estimated Position is the point returned so far from
+photogrammetric calculations that are triggered by clicking into
+another photo."
         (let* ((estimated-positions-request-response
-                ((@ *json* parse) (getprop this 'estimated-positions-request-response 'response-text)))
-               (global-position (aref estimated-positions-request-response 0))
-               (estimated-positions (aref estimated-positions-request-response 1)))
+                ((@ *json* parse)
+                 (getprop this
+                          'estimated-positions-request-response
+                          'response-text)))
+               (global-position
+                (aref estimated-positions-request-response 0))
+               (estimated-positions
+                (aref estimated-positions-request-response 1)))
           ((@ console log) global-position)
-
-          ;;(chain estimated-position-layer
-          ;;       (add-features
-          ;;        (new ((@ *open-layers *feature *vector)
-          ;;              (new ((@ *open-layers *geometry *point)
-          ;;                    (getprop global-position 'longitude)
-          ;;                    (getprop global-position 'latitude)))))))
-          ;;((@ map add-layer) estimated-position-layer)
-        
+          (setf streetmap-estimated-position-layer
+                (new ((@ *open-layers *layer *vector) "Estimated Position")))
+          (chain streetmap-estimated-position-layer
+                 (add-features
+                  (new ((@ *open-layers *feature *vector)
+                        ((@ (new ((@ *open-layers *geometry *point)
+                                  (getprop global-position 'longitude)
+                                  (getprop global-position 'latitude)))
+                            transform) geographic spherical-mercator)))))
+          ((@ streetmap add-layer) streetmap-estimated-position-layer)
           (loop
              for i in images
              for p in estimated-positions
              do
-             (setf (@ i estimated-position-layer) (new ((@ *open-layers *layer *vector) "Estimated Position")))
+             (setf (@ i estimated-position-layer)
+                   (new ((@ *open-layers *layer *vector) "Estimated Position")))
              ((@ i map add-layer) (@ i estimated-position-layer))
              (chain i estimated-position-layer
                     (add-features
@@ -380,102 +456,74 @@ photogrammetric calculations."
                             (getprop this 'photo-parameters 'm)
                             (getprop this 'photo-parameters 'n))))))))
     
-      (defun has-layer-p (layer-name)
-        "False if image doesn't have a layer called layer-name."
-        (chain this map (get-layers-by-name layer-name) length))
-
-      (defun some-active-point-p ()
-        "False if no image in images has an Active Point."
-        (loop for i across images sum (chain i (has-layer-p "Active Point"))))
-
-      (defun remove-layer (image layer-name)
-        "Destroy layer layer-name in image."
-        (when (chain image (has-layer-p layer-name))
-          (chain image map (get-layers-by-name layer-name) 0 (destroy))))
-
-      (defun remove-from-images (layer-name)
-        "Destroy in all images the layer named layer-name."
-        (loop for i across images do (remove-layer i layer-name)))
-
-      (defun remove-work-layers ()
-        "Destroy in all images anything but the Photo layer."
-        (remove-from-images "Epipolar Line")
-        (remove-from-images "Active Point")
-        (remove-from-images "Estimated Position")
-        (setf pristine-images-p t))
-
       (defun image-click-action (clicked-image)
         (lambda (event)
-          "Do appropriate things when an image is clicked."
+          "Do appropriate things when an image is clicked into."
           (let* ((lonlat
-                  ((@ (@ clicked-image map) get-lon-lat-from-view-port-px) (@ event xy)))
+                  ((@ (@ clicked-image map) get-lon-lat-from-view-port-px)
+                   (@ event xy)))
                  (photo-parameters
                   (getprop clicked-image 'photo-parameters))
                  pristine-image-p content request)
             (setf (@ photo-parameters m) (@ lonlat lon)
                   (@ photo-parameters n) (@ lonlat lat))
-            (remove-layer clicked-image "Active Point")
-            (remove-from-images "Epipolar Line")
+            (remove-layer (getprop clicked-image 'map) "Active Point")
+            (remove-any-layers "Epipolar Line")
             (setf pristine-images-p (not (some-active-point-p)))
-            (setf (@ clicked-image active-point-layer) (new ((@ *open-layers *layer *vector) "Active Point")))
-            ((@ clicked-image map add-layer) (@ clicked-image active-point-layer))
+            (setf (@ clicked-image active-point-layer)
+                  (new ((@ *open-layers *layer *vector) "Active Point")))
+            ((@ clicked-image map add-layer)
+             (@ clicked-image active-point-layer))
             ((getprop clicked-image 'draw-active-point))
-            (if pristine-images-p
+            (if
+             pristine-images-p
+             (progn
+               (loop
+                  for i across images do
+                  (unless (== i clicked-image)
+                    (setf
+                     (@ i epipolar-layer) (new ((@ *open-layers *layer *vector)
+                                                "Epipolar Line"))
+                     content ((@ *json* stringify)
+                              (append (array photo-parameters)
+                                      (@ i photo-parameters)))
+                     (@ i epipolar-request-response)
+                     ((@ *open-layers *Request *POST*)
+                      (create :url "epipolar-line"
+                              :data content
+                              :headers (create "Content-type" "text/plain"
+                                               "Content-length"
+                                               (@ content length))
+                              :success (getprop i 'draw-epipolar-line)
+                              :scope i)))
+                    ((@ i map add-layer) (@ i epipolar-layer)))))
                 (progn
-                  (loop
-                     for i across images do
-                     (unless (== i clicked-image)
-                       (setf (@ i epipolar-layer) (new ((@ *open-layers *layer *vector) "Epipolar Line"))
-                             content ((@ *json* stringify)
-                                      (append (array photo-parameters)
-                                              (@ i photo-parameters)))
-                             (@ i epipolar-request-response) ((@ *open-layers *Request *POST*)
-                                                              (create :url "epipolar-line"
-                                                                      :data content
-                                                                      :headers (create "Content-type" "text/plain"
-                                                                                       "Content-length" (@ content length))
-                                                                      :success (getprop i 'draw-epipolar-line)
-                                                                      :scope i)))
-                       ((@ i map add-layer) (@ i epipolar-layer)))))
-                (progn
-                  (remove-from-images "Epipolar Line")
-                  (remove-from-images "Estimated Position")
+                  (remove-any-layers "Epipolar Line")
+                  (remove-any-layers "Estimated Position")
                   (let* ((active-pointed-photo-parameters
                           (loop
                              for i across images
-                             when (chain i (has-layer-p "Active Point")) collect (getprop i 'photo-parameters)))
-                         (content ((@ *json* stringify)
-                                   (list active-pointed-photo-parameters
-                                         (chain images (map #'(lambda (x) (getprop x 'photo-parameters)))))))
-                         )
+                             when (has-layer-p (getprop i 'map) "Active Point")
+                             collect (getprop i 'photo-parameters)))
+                         (content
+                          ((@ *json* stringify)
+                           (list active-pointed-photo-parameters
+                                 (chain images
+                                        (map #'(lambda (x)
+                                                 (getprop
+                                                  x 'photo-parameters))))))))
                     (setf (@ clicked-image estimated-positions-request-response)
                           ((@ *open-layers *Request *POST*)
                            (create :url "estimated-positions"
                                    :data content
                                    :headers (create "Content-type" "text/plain"
-                                                    "Content-length" (@ content length))
-                                   :success (getprop clicked-image 'draw-estimated-positions)
+                                                    "Content-length"
+                                                    (@ content length))
+                                   :success (getprop clicked-image
+                                                     'draw-estimated-positions)
                                    :scope clicked-image)))))))))
-              
-      (defvar images (array))
-      (defvar map)
-
-      (defun *image ()
-        (setf (getprop this 'map)
-              (new ((getprop *open-layers '*map)
-                    (create projection spherical-mercator
-                            all-overlays t)))
-              (getprop this 'dummy) false ;TODO why? (omitting splices map components directly into *image)
-              ))
-
-      (setf (getprop *image 'prototype 'show-photo) show-photo
-            (getprop *image 'prototype 'draw-epipolar-line) draw-epipolar-line
-            (getprop *image 'prototype 'draw-active-point) draw-active-point
-            (getprop *image 'prototype 'draw-estimated-positions) draw-estimated-positions
-            (getprop *image 'prototype 'has-layer-p) has-layer-p
-            )
-
       (defun show-photo ()
+        "Show the photo described in this object's photo-parameters."
         (loop
            repeat ((getprop this 'map 'get-num-layers))
            do ((getprop this 'map 'layers 0 'destroy)))
@@ -484,56 +532,75 @@ photogrammetric calculations."
                "Photo"
                (photo-path (getprop this 'photo-parameters))
                (new ((@ *open-layers *bounds) -.5 -.5
-                     (+ (getprop this 'photo-parameters 'sensor-width-pix) .5)
-                     (+ (getprop this 'photo-parameters 'sensor-height-pix) .5))) ; coordinates shown
+                     (+ (getprop this 'photo-parameters 'sensor-width-pix)
+                        .5)
+                     (+ (getprop this 'photo-parameters 'sensor-height-pix)
+                        .5)))           ; coordinates shown
                (new ((@ *open-layers *size) 512 256))
                (create))))
         ((getprop this 'map 'zoom-to-extent)
          (new ((@ *open-layers *bounds) -.5 -.5 
                (1+ (getprop this 'photo-parameters 'sensor-width-pix))
-               (1+ (getprop this 'photo-parameters 'sensor-height-pix))))) ; in coordinates shown
-        )
+               (1+ (getprop this 'photo-parameters 'sensor-height-pix)))))) ; in coordinates shown
 
+      (defun initialize-image (image-index)
+        "Create an image usable for displaying photos at position
+image-index in array images."
+        (setf (aref images image-index) (new *image))
+        (setf (@ (aref images image-index) image-click-action)
+              (image-click-action (aref images image-index)))
+        (setf (@ (aref images image-index) click)
+              (new ((@ *open-layers *control *click)
+                    (create :trigger (@ (aref images image-index)
+                                        image-click-action)))))
+        ((@ (aref images image-index) map add-control)
+         (@ (aref images image-index) click))
+        ((@ (aref images image-index) click activate))
+        ((@ (aref images image-index) map add-control)
+         (new ((@ *open-layers *control *mouse-position))))
+        ((@ (aref images image-index) map add-control)
+         (new ((@ *open-layers *control *layer-switcher))))
+        ((@ (aref images image-index) map render) (+ image-index "")))        
+      
       (defun init ()
-        (setf map (new ((@ *open-layers *map) "map"
+        "Prepare user's playground."
+        (setf streetmap (new ((@ *open-layers *map) "streetmap"
                         (create projection geographic
                                 display-projection geographic))))
         (let* ((survey-layer
                 (new ((@ *open-layers *layer *vector) "Survey"
-                      (create :strategies (array (new ((@ *open-layers *strategy *bbox*)
-                                                       (create :ratio 1.1))))
-                              :protocol (new ((@ *open-layers *protocol *http*)
-                                              (create :url "points"
-                                                      :format (new ((@ *open-layers *format *geo-j-s-o-n)
-                                                                    (create external-projection geographic
-                                                                            internal-projection geographic))))))))))
-               (estimated-position-layer
-                (new ((@ *open-layers *layer *vector) "Estimated Position")))
-
+                      (create :strategies
+                              (array (new ((@ *open-layers *strategy *bbox*)
+                                           (create :ratio 1.1))))
+                              :protocol
+                              (new ((@ *open-layers *protocol *http*)
+                                    (create
+                                     :url "points"
+                                     :format
+                                     (new ((@ *open-layers *format *geo-j-s-o-n)
+                                           (create
+                                            external-projection geographic
+                                            internal-projection geographic))))))))))
                ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
                (osm-layer (new ((@ *open-layers *layer *osm*))))
-               (click-map (new ((@ *open-layers *control *click) (create :trigger request-photos))))
-               )
-          ((@ map add-control) click-map)
-          ((@ click-map activate))
+               (click-streetmap (new ((@ *open-layers *control *click)
+                                      (create :trigger request-photos)))))
+          ((@ streetmap add-control) click-streetmap)
+          ((@ click-streetmap activate))
           ;;((@ map add-layers) (array osm-layer google survey-layer))
-          ((@ map add-layers) (array survey-layer osm-layer))
-          ((@ map add-control) (new ((@ *open-layers *control *layer-switcher))))
-          ((@ map add-control) (new ((@ *open-layers *control *mouse-position))))
-          ((@ map zoom-to-extent)
-           ((@ (new ((@ *open-layers *bounds) 14.3258 51.75615 14.33124 51.75778))
+          ((@ streetmap add-layers) (array survey-layer osm-layer))
+          ((@ streetmap add-control)
+           (new ((@ *open-layers *control *layer-switcher))))
+          ((@ streetmap add-control)
+           (new ((@ *open-layers *control *mouse-position))))
+          ((@ streetmap zoom-to-extent)
+           ((@ (new ((@ *open-layers *bounds)
+                    14.32066 51.72693 14.32608 51.72862))
                transform) geographic spherical-mercator)))
         (loop
            for i from 0 to 3
            do
-           (setf (aref images i) (new *image))
-           (setf (@ (aref images i) image-click-action) (image-click-action (aref images i)))
-           (setf (@ (aref images i) click) (new ((@ *open-layers *control *click) (create :trigger (@ (aref images i) image-click-action)))))
-           ((@ (aref images i) map add-control) (@ (aref images i) click))
-           ((@ (aref images i) click activate))
-           ((@ (aref images i) map add-control) (new ((@ *open-layers *control *mouse-position))))
-           ((@ (aref images i) map add-control) (new ((@ *open-layers *control *layer-switcher))))
-           ((@ (aref images i) map render) (+ i "")))))))
+           (initialize-image i))))))
 
 (define-easy-handler (view :uri "/view" :default-request-type :post) ()
   "Serve the client their main workspace."
@@ -544,7 +611,10 @@ photogrammetric calculations."
       :xmlns
       "http://www.w3.org/1999/xhtml"
       (:head
-       (:title (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
+       (:title (who:str
+                (concatenate
+                 'string
+                 "Phoros: " (session-value 'presentation-project-name))))
        ;;(:link :rel "stylesheet" :href "lib/theme/default/style.css" :type "text/css")
        (:link :rel "stylesheet" :href "lib/style.css" :type "text/css")
        (:script :src "lib/openlayers/lib/OpenLayers.js")
@@ -556,12 +626,13 @@ photogrammetric calculations."
              (:h1 :id "title" (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
              (:p :id "shortdesc"
                  "This example shows the use of blah blah.")
-             (:div (:button :type "button" :onclick (ps ()) "finish point"))
-             (:div (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
-             (:div :id "map" :class "smallmap" :style "float:left")
-             (loop
-                for i from 0 to 3 do 
-                (who:htm (:div :id i :class "image" :style "float:left"))))))
+              (:div :id "finish-point-button" (:button :type "button" :onclick (ps ()) "finish point"))
+              (:div :id "remove-work-layers-button" (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
+              (:div :id "logout-button" (:button :type "button" :onclick "self.location.href = \"/logout\"" "bye"))
+              (:div :id "streetmap" :class "smallmap" :style "float:left")
+              (loop
+                 for i from 0 to 3 do 
+                   (who:htm (:div :id i :class "image" :style "float:left"))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
     :add-session-id t)))
