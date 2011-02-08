@@ -472,8 +472,31 @@ TODO: /images/ part not currently enforced.")
   (!foreign 'sys-device-stage-of-life 'device-stage-of-life-id
             :on-delete :restrict :on-update :restrict))
 
+(defun phoros-db-major-version ()
+  "Get the version number of the database structure we are currently
+connected to.  It is supposed to be equal to the :major part of
+phoros-version."
+  (query
+   (:select 'last-value :from 'sys-phoros-major-version)
+   :single!))
+
+(defun (setf phoros-db-major-version) (major-version)
+  "Set the version number of the database structure we are currently
+connected to. This can only be done once per database."
+  (execute
+   (:create-sequence 'sys-phoros-major-version :min-value -1 :max-value major-version :start major-version))
+  (phoros-db-major-version))
+
+(defun assert-phoros-db-major-version ()
+  "Check if phoros version and version of the database we are connected to match."
+  (assert (= (phoros-db-major-version) (phoros-version :major t)) ()
+          "Can't use a Phoros database structure of version ~D.  It should be version ~D.  Either create a new database structure using this version of Phoros, or use Phoros version ~2:*~D.x.x."
+          (phoros-db-major-version) (phoros-version :major t)))
+
 (defun create-sys-tables ()
-  "Create in current database a set of sys-* tables, i.e. tables that are used by all projects.  The database should probably be empty."
+  "Create in current database a set of sys-* tables, i.e. tables that
+are used by all projects.  The database should probably be empty."
+  (setf (phoros-db-major-version) (phoros-version :major t))
   (create-table 'sys-user)
   (create-table 'sys-acquisition-project)
   (create-table 'sys-presentation-project)
@@ -854,6 +877,7 @@ common-table-name."
   (create-data-table-definitions common-table-name)
   (handler-case (create-sys-tables) ;Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
+  (assert-phoros-db-major-version)
   (when (select-dao 'sys-acquisition-project (:= 'common-table-name
                                                  (s-sql:to-sql-name common-table-name)))
     (error "There is already a row with a common-table-name of ~A in table ~A."
@@ -869,6 +893,7 @@ common-table-name."
 (defun create-presentation-project (project-name)
   "Create a fresh presentation project in current database.  Return
 dao if one was created, or nil if it did exist already."
+  (assert-phoros-db-major-version)
   (unless (get-dao 'sys-presentation-project project-name)
     (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))))
@@ -876,6 +901,7 @@ dao if one was created, or nil if it did exist already."
 (defun delete-presentation-project (project-name)
   "Delete the presentation project project-name.  Return nil if there
 wasn't any."
+  (assert-phoros-db-major-version)
   (let ((project (get-dao 'sys-presentation-project project-name)))
     (when project (delete-dao project))))
 
@@ -886,6 +912,7 @@ wasn't any."
   "Create a fresh user entry or update an existing one with matching
 name.  Assign it presentation-projects, deleting any previously
 existing assignments."
+  (assert-phoros-db-major-version)
   (let ((user (or (car (select-dao 'sys-user (:= 'user-name name)))                  
                   (make-instance 'sys-user :user-name name)))
         fresh-user-p)
@@ -911,6 +938,7 @@ existing assignments."
 
 (defun delete-user (user-name)
   "Delete user user-name if any; return nil if not."
+  (assert-phoros-db-major-version)
   (let ((user (car (select-dao 'sys-user (:= 'user-name user-name)))))
     (when user (delete-dao user))))
 
@@ -919,6 +947,7 @@ existing assignments."
   "Add to presentation project presentation-project-name either a list
 of measurements (with measurement-id) or all measurements currently in
 acquisition-project (denoted by its common-table-name)."
+  (assert-phoros-db-major-version)
   (let* ((presentation-project
           (car (select-dao 'sys-presentation-project
                            (:= 'presentation-project-name
@@ -958,6 +987,7 @@ acquisition-project (denoted by its common-table-name)."
 list of measurements (with measurement-id) or all measurements
 currently in acquisition-project with (denoted by its common-table-name).  Return
 nil if there weren't anything to remove."
+  (assert-phoros-db-major-version)
   (let* ((presentation-project
           (car (select-dao 'sys-presentation-project
                            (:= 'presentation-project-name

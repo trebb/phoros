@@ -212,7 +212,7 @@
     ("d" :type string :documentation "Distance of vehicle ground plane.")))
 
 (defparameter *cli-store-images-and-points-options*
-  '((("store-images-points" #\s) :type string :action #'store-images-and-points-action
+  '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action
      :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
     (("directory" #\d) :type string
      :documentation "Directory containing one set of measuring data.")
@@ -322,6 +322,19 @@
     (show-help-headline "Manage Presentation Project Users")
     (show-option-help *cli-user-options*)))
 
+(defun phoros-version (&key major minor revision)
+  "Return version of this program, either one integer part as denoted by
+the key argument, or the whole dotted string."
+  (let* ((version-string
+          (asdf:component-version (asdf:find-system :phoros)))
+         (version-components
+          (mapcar #'parse-integer
+                  (cl-utilities:split-sequence #\. version-string))))
+    (cond (major (first version-components))
+          (minor (second version-components))
+          (revision (third version-components))
+          (t version-string))))
+
 (defun cli-version-action (&rest rest)
   "Print --version message. TODO: OpenLayers, Proj4js version."
   (declare (ignore rest))
@@ -330,7 +343,7 @@
     (0
      (format
       *standard-output*
-      "~&~A~&" (asdf:component-version (asdf:find-system :phoros))))
+      "~&~A~&" (phoros-version)))
     (otherwise
      (format
       *standard-output*

@@ -62,6 +62,8 @@ user password host &key (port 5432) use-ssl)."
   (setf *message-log-pathname* "hunchentoot-messages.log") ;TODO: try using cl-log
   (setf *access-log-pathname* "hunchentoot-access.log") ;TODO: try using cl-log
   (check-db *postgresql-credentials*)
+  (with-connection *postgresql-credentials*
+    (assert-phoros-db-major-version))
   (hunchentoot:start *phoros-server*))
 
 (defun stop-server () (hunchentoot:stop *phoros-server*))
@@ -267,7 +269,6 @@ of presentation project with presentation-project-id."
 (pushnew (create-prefix-dispatcher "/photo" 'photo-handler)
          *dispatch-table*)
 
-;;(pushnew (create-folder-dispatcher-and-handler "/lib/" "/home/bertb/lisphack/phoros/")
 (pushnew (create-folder-dispatcher-and-handler "/lib/" "") ;TODO: is this secure enough?
          *dispatch-table*)
 
@@ -608,8 +609,7 @@ image-index in array images."
    (session-value 'authenticated-p)
    (who:with-html-output-to-string (s nil :indent t)
      (:html
-      :xmlns
-      "http://www.w3.org/1999/xhtml"
+      :xmlns "http://www.w3.org/1999/xhtml"
       (:head
        (:title (who:str
                 (concatenate

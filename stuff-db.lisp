@@ -451,6 +451,7 @@ events match.  dir-path is a (probably absolute) path to a directory
 that contains one set of measuring data.  root-dir must be equal for
 all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
+  (assert-phoros-db-major-version)
   (create-data-table-definitions common-table-name)
   (initialize-leap-seconds)
   (let* ((images
@@ -546,6 +547,7 @@ all pojects."
      (try-overwrite t))
   "Store a new record in table sys-camera-hardware, or try updating an
 existing one.  Return camera-hardware-id of the altered record."
+  (assert-phoros-db-major-version)
   (let ((record
          (or (when try-overwrite
                (car (select-dao 'sys-camera-hardware
@@ -589,6 +591,7 @@ existing one.  Return camera-hardware-id of the altered record."
      (try-overwrite t))
   "Store a new record in table sys-lens, or try updating an existing
 one.  Return lens-id of the altered record."
+  (assert-phoros-db-major-version)
   (let ((record
          (or (when try-overwrite
                (car (select-dao 'sys-lens
@@ -612,6 +615,7 @@ one.  Return lens-id of the altered record."
     (&key (camera-hardware-id :null) (lens-id :null) (scanner-id :null))
   "Store a new record in table sys-generic-device.  Return
 generic-device-id of the new record."
+  (assert-phoros-db-major-version)
   (assert (notevery
            #'(lambda (x) (eq :null x))
            (list camera-hardware-id lens-id scanner-id))
@@ -642,6 +646,7 @@ generic-device-id of the new record."
   "Store a new record in table sys-device-stage-of-life, or try
 updating an existing one.  Return device-stage-of-life-id of the
 altered record."
+  (assert-phoros-db-major-version)
   (let ((record
          (or (when try-overwrite
                (car (select-dao
@@ -683,6 +688,7 @@ altered record."
      (unmounting-date (error "unmounting-date needed.")))
   "Update record in table sys-device-stage-of-life with an unmounting
 date.  Return device-stage-of-life-id of the altered record."
+  (assert-phoros-db-major-version)
   (let ((record
          (get-dao 'sys-device-stage-of-life device-stage-of-life-id)))
     (with-slots ((unmounting-date-slot unmounting-date))
@@ -739,6 +745,7 @@ date.  Return device-stage-of-life-id of the altered record."
   "Store a new record of camera-calibration in table
 sys-device-stage-of-life, or update an existing one.  Return
 device-stage-of-life-id and date of the altered record."
+  (assert-phoros-db-major-version)
   (let ((record
          (or (car (select-dao
                    'sys-camera-calibration
