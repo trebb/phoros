@@ -628,6 +628,7 @@ image-index in array images."
                  "unfinished prototype")
              (:div :id "finish-point-button" :style "float:left" (:button :type "button" :onclick (ps ()) "finish point"))
              (:div :id "remove-work-layers-button" :style "float:left" (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
+             (:div :id "blurb-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/blurb\"" "blurb"))
              (:div :id "logout-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/logout\"" "bye"))
              
              (:div :style "clear:both"

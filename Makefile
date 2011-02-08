@@ -22,6 +22,7 @@ LIBPHOTOGRAMMETRIE_DIR = ../photogrammetrie/lib
 LIBPHOTOGRAMMETRIE = libphotogrammetrie.so
 SERVER_CSS = style.css
 SERVER_JAVASCRIPT = openlayers/
+LOGO = phoros-logo-plain.png
 
 SOURCE = *.lisp *.asd
 
@@ -29,7 +30,7 @@ phoros: $(SOURCE)
 	$(LISP) --load make.lisp
 
 phoros-bin.tar: phoros TimeSteps.history
-	$(TAR) -cf $@ $^ $(SERVER_CSS) $(SERVER_JAVASCRIPT) -C $(LIBPHOTOGRAMMETRIE_DIR) $(LIBPHOTOGRAMMETRIE)
+	$(TAR) -cf $@ $^ $(SERVER_CSS) $(SERVER_JAVASCRIPT) -C $(LIBPHOTOGRAMMETRIE_DIR) $(LIBPHOTOGRAMMETRIE) $(LOGO)
 
 phoros-bin.tar.gz: phoros-bin.tar $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
 	rm -f $@
