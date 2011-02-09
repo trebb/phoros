@@ -16,25 +16,31 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 LISP = ../sbcl/bin/sbcl
-TAR = tar
-GZIP = gzip
+MEATWARE_DRIVER = echo
 LIBPHOTOGRAMMETRIE_DIR = ../photogrammetrie/lib
 LIBPHOTOGRAMMETRIE = libphotogrammetrie.so
 SERVER_CSS = style.css
 SERVER_JAVASCRIPT = openlayers/
 LOGO = phoros-logo-plain.png
+PHOROS_VERSION = $(shell ./phoros --version)
+SOURCE = *.lisp *.asd Makefile
 
-SOURCE = *.lisp *.asd
-
-phoros: $(SOURCE)
+phoros : $(SOURCE)
 	$(LISP) --load make.lisp
 
-phoros-bin.tar: phoros TimeSteps.history
-	$(TAR) -cf $@ $^ $(SERVER_CSS) $(SERVER_JAVASCRIPT) -C $(LIBPHOTOGRAMMETRIE_DIR) $(LIBPHOTOGRAMMETRIE) $(LOGO)
+$(LOGO) : phoros-logo-plain.xcf
+	$(MEATWARE_DRIVER) Go get GIMP and make $(LOGO) from $<.
+	false
 
-phoros-bin.tar.gz: phoros-bin.tar $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
-	rm -f $@
-	$(GZIP) $<
+tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
+          $(LOGO) $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
+	tar -cf - \
+		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
+		phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
+		$(LOGO) --directory=$(LIBPHOTOGRAMMETRIE_DIR) \
+		$(LIBPHOTOGRAMMETRIE) \
+		| gzip -f \
+		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 
-clean:
-	rm -f *.fasl *.log phoros phoros.tar.gz
+clean :
+	rm -f *.fasl *.log phoros phoros*.tar.gz
