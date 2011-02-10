@@ -571,39 +571,61 @@ image-index in array images."
       
       (defun init ()
         "Prepare user's playground."
-        (setf streetmap (new ((@ *open-layers *map) "streetmap"
-                        (create projection geographic
-                                display-projection geographic))))
+        (setf streetmap
+              (new (chain
+                    *open-layers
+                    (*map "streetmap"
+                          (create projection geographic
+                                  display-projection geographic)))))
         (let* ((survey-layer
-                (new ((@ *open-layers *layer *vector) "Survey"
-                      (create :strategies
-                              (array (new ((@ *open-layers *strategy *bbox*)
-                                           (create :ratio 1.1))))
+                (new (chain *open-layers *layer
+                            (*vector
+                             "Survey"
+                             (create
+                              :strategies
+                              (array (new
+                                      (chain *open-layers *strategy
+                                             (*bbox* (create :ratio 1.1)))))
                               :protocol
-                              (new ((@ *open-layers *protocol *http*)
-                                    (create
-                                     :url "points"
-                                     :format
-                                     (new ((@ *open-layers *format *geo-j-s-o-n)
-                                           (create
-                                            external-projection geographic
-                                            internal-projection geographic))))))))))
+                              (new (chain
+                                    *open-layers *protocol
+                                    (*http*
+                                     (create
+                                      :url "points"
+                                      :format
+                                      (new
+                                       (chain *open-layers *format
+                                              (*geo-j-s-o-n
+                                               (create
+                                                external-projection geographic
+                                                internal-projection geographic)))))))))))))
                ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
-               (osm-layer (new ((@ *open-layers *layer *osm*))))
-               (click-streetmap (new ((@ *open-layers *control *click)
-                                      (create :trigger request-photos)))))
-          ((@ streetmap add-control) click-streetmap)
-          ((@ click-streetmap activate))
+               (osm-layer (new (chain *open-layers *layer (*osm*))))
+               (streetmap-overview
+                (new (chain *open-layers *control (*overview-map
+                                                   (create maximized t
+                                                           min-ratio 14
+                                                           max-ratio 16)))))
+               (click-streetmap
+                (new (chain *open-layers *control
+                            (*click (create :trigger request-photos))))))
+          (chain streetmap (add-control click-streetmap))
+          (chain click-streetmap (activate))
           ;;((@ map add-layers) (array osm-layer google survey-layer))
-          ((@ streetmap add-layers) (array survey-layer osm-layer))
-          ((@ streetmap add-control)
-           (new ((@ *open-layers *control *layer-switcher))))
-          ((@ streetmap add-control)
-           (new ((@ *open-layers *control *mouse-position))))
-          ((@ streetmap zoom-to-extent)
-           ((@ (new ((@ *open-layers *bounds)
-                    14.32066 51.72693 14.32608 51.72862))
-               transform) geographic spherical-mercator)))
+          (chain streetmap (add-layers (array survey-layer osm-layer)))
+          (chain streetmap
+                 (add-control
+                  (new (chain *open-layers *control (*layer-switcher)))))
+          (chain streetmap
+                 (add-control
+                  (new (chain *open-layers *control (*mouse-position)))))
+          (chain streetmap (add-control streetmap-overview))
+          (chain streetmap
+                 (zoom-to-extent
+                  (chain (new (chain *open-layers
+                                     (*bounds
+                                      14.32066 51.72693 14.32608 51.72862)))
+                         (transform geographic spherical-mercator)))))
         (loop
            for i from 0 to 3
            do
