@@ -23,12 +23,18 @@
 (defparameter *tt* nil)
 
 (cffi:define-foreign-library photogrammetrie
-  (t (:or "../photogrammetrie/lib/libphotogrammetrie.so"
-          "libphotogrammetrie.so")))
+  (:unix (:or "./libphotogrammetrie.so"
+              "../photogrammetrie/lib/libphotogrammetrie.so"))
+  (t (:default "libphotogrammetrie")))
 
-(defparameter *standard-coordinates* 4326 "EPSG code of the coordinate system that we use for communication.")
-(defparameter *postgresql-credentials* nil "A list: (database user password host &key (port 5432) use-ssl)")
+(defparameter *standard-coordinates* 4326
+  "EPSG code of the coordinate system that we use for communication.")
+
+(defparameter *postgresql-credentials* nil
+  "A list: (database user password host &key (port 5432) use-ssl)")
+
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
+
 (setf *read-default-float-format* 'double-float)
 
 (defparameter *phoros-server* nil "Hunchentoot acceptor.")
