@@ -24,7 +24,7 @@
   '((("help" #\h) :action #'cli-help-action
      :documentation "Print this help and exit.")
     ("version" :action #'cli-version-action
-     :documentation "Output version information and exit.  Use --verbose=1 to see more.")
+     :documentation "Output version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
     ("verbose" :type integer :initial-value 0 :action *verbose*
      :documentation "Dependent on bits set in this integer, emit various kinds of debugging output. ")
     ("log-dir" :type string :initial-value ""
@@ -287,14 +287,18 @@
       (cl-log:log-message :warning "Fatal: ~A" c)
       (format *error-output* "~A~&" c))))
 
+(defun ignore-warnings (c) (declare (ignore c)) (muffle-warning))
+
 (defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
   (flet ((show-help-headline (content)
            (format *standard-output* "~&~95,,,'#@<~A ~>" content)))
-    (format *standard-output*
-            "~&Usage: phoros [options] ...~&~A"
-            (asdf:system-long-description (asdf:find-system :phoros)))
+    (format
+     *standard-output*
+     "~&Usage: phoros [options] ...~&~A"
+     (handler-bind ((warning #'ignore-warnings))
+       (asdf:system-long-description (asdf:find-system :phoros))))
     (show-help-headline "Main Options")
     (show-option-help *cli-main-options*)
     (show-help-headline "Database Connection")
@@ -326,7 +330,8 @@
   "Return version of this program, either one integer part as denoted by
 the key argument, or the whole dotted string."
   (let* ((version-string
-          (asdf:component-version (asdf:find-system :phoros)))
+          (handler-bind ((warning #'ignore-warnings))
+            (asdf:component-version (asdf:find-system :phoros))))
          (version-components
           (mapcar #'parse-integer
                   (cl-utilities:split-sequence #\. version-string))))
@@ -348,8 +353,10 @@ the key argument, or the whole dotted string."
      (format
       *standard-output*
       "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  Photogrammetry version ~A~&"
-      (asdf:system-description (asdf:find-system :phoros))
-      (asdf:component-version (asdf:find-system :phoros))
+      (handler-bind ((warning #'ignore-warnings))
+        (asdf:system-description (asdf:find-system :phoros)))
+      (handler-bind ((warning #'ignore-warnings))
+        (asdf:component-version (asdf:find-system :phoros)))
       (lisp-implementation-type) (lisp-implementation-version)
       (proj:version)
       (photogrammetrie:get-version-number)))))
