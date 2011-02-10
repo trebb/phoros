@@ -23,8 +23,10 @@
 (defparameter *cli-main-options*
   '((("help" #\h) :action #'cli-help-action
      :documentation "Print this help and exit.")
+    (("licence" "license") :action #'cli-licence-action
+     :documentation "Print licence boilerplate and exit.")
     ("version" :action #'cli-version-action
-     :documentation "Output version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
+     :documentation "Print version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
     ("verbose" :type integer :initial-value 0 :action *verbose*
      :documentation "Dependent on bits set in this integer, emit various kinds of debugging output. ")
     ("log-dir" :type string :initial-value ""
@@ -293,7 +295,7 @@
   "Print --help message."
   (declare (ignore rest))
   (flet ((show-help-headline (content)
-           (format *standard-output* "~&~95,,,'#@<~A ~>" content)))
+           (format *standard-output* "~&~105,,,'#@<~A ~>" content)))
     (format
      *standard-output*
      "~&Usage: phoros [options] ...~&~A"
@@ -301,19 +303,24 @@
        (asdf:system-long-description (asdf:find-system :phoros))))
     (show-help-headline "Main Options")
     (show-option-help *cli-main-options*)
-    (show-help-headline "Database Connection")
+    (show-help-headline "Database Connection (necessary for most operations)")
     (show-option-help *cli-db-connection-options*)
     (show-help-headline "Examine .pictures File")
     (show-option-help *cli-get-image-options*)
-    (show-help-headline "Camera Hardware Parameters")
+    (show-help-headline
+     "Camera Hardware Parameters (not including information on lens or mounting)")
     (show-option-help *cli-camera-hardware-options*)
-    (show-help-headline "Lens Parameters")
+    (show-help-headline
+     "Lens Parameters (for human consumption; not used for photogrammetric calculation)")
     (show-option-help *cli-lens-options*)
-    (show-help-headline "Generic Device Definition")
+    (show-help-headline
+     "Generic Device Definition (basically a particular camera with a particular lens)")
     (show-option-help *cli-generic-device-options*)
-    (show-help-headline "Device Stage-Of-Life Definition")
+    (show-help-headline
+     "Device Stage-Of-Life Definition (generic device in a particular mounting constellation)")
     (show-option-help *cli-device-stage-of-life-options*)
-    (show-help-headline "Put An End To A Device's Stage-Of-Life")
+    (show-help-headline
+     "Put An End To A Device's Stage-Of-Life (e.g. after accidental change of mounting constellation)")
     (show-option-help *cli-device-stage-of-life-end-options*)
     (show-help-headline "Camera Calibration Parameters")
     (show-option-help *cli-camera-calibration-options*)
@@ -321,7 +328,7 @@
     (show-option-help *cli-store-images-and-points-options*)
     (show-help-headline "Become A HTTP Presentation Server")
     (show-option-help *cli-start-server-options*)
-    (show-help-headline "Manage Presentation Projects")
+    (show-help-headline "Manage Presentation Projects (comprising data visible via web interface)")
     (show-option-help *cli-presentation-project-options*)
     (show-help-headline "Manage Presentation Project Users")
     (show-option-help *cli-user-options*)))
@@ -360,6 +367,14 @@ the key argument, or the whole dotted string."
       (lisp-implementation-type) (lisp-implementation-version)
       (proj:version)
       (photogrammetrie:get-version-number)))))
+
+(defun cli-licence-action (&rest rest)
+  "Print --licence boilerplate."
+  (declare (ignore rest))
+  (format
+   *standard-output* "~&~A~&"
+   (handler-bind ((warning #'ignore-warnings))
+     (asdf:system-licence (asdf:find-system :phoros)))))
 
 (defun check-db-action (&rest rest)
   "Say `OK´ if database is accessible."
