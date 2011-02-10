@@ -362,7 +362,7 @@ recorded-device-id (a string) of camera (etc.)"
 (defun almost= (x y epsilon)
   (< (abs (- x y)) epsilon))
 
-(defun geographic-to-utm (utm-zone longitude latitude &optional (height 0))
+(defun geographic-to-utm (utm-zone longitude latitude &optional (height 0d0))
   "Return UTM utm-zone representation of geographic coordinates."
   (let ((utm-coordinate-system
          (format nil "+proj=utm +ellps=WGS84 +zone=~D" utm-zone)))
