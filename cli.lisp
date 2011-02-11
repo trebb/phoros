@@ -229,7 +229,9 @@
   '(("server" :action #'server-action :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<project>")
     ("server-port" :type integer :initial-value 8080 :documentation "Port the presentation server listens on.")
     (("common-root" #\r) :type string :initial-value "/"
-     :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")))
+     :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
+    ("images" :type integer :initial-value 4 :action *number-of-images*
+     :documentation "Number of photos shown to the HTTP client.")))
 
 (defparameter *cli-presentation-project-options*
   '(("create-presentation-project"
@@ -295,7 +297,7 @@
   "Print --help message."
   (declare (ignore rest))
   (flet ((show-help-headline (content)
-           (format *standard-output* "~&~105,,,'#@<~A ~>" content)))
+           (format *standard-output* "~&#### ~105,,,'#@<~A ~>" content)))
     (format
      *standard-output*
      "~&Usage: phoros [options] ...~&~A"

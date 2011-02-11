@@ -19,6 +19,7 @@
 
 (setf *js-target-version* 1.8)
 
+;;; Debug helpers.  TODO: remove them.
 (defparameter *t* nil)
 (defparameter *tt* nil)
 
@@ -38,8 +39,12 @@
 (setf *read-default-float-format* 'double-float)
 
 (defparameter *phoros-server* nil "Hunchentoot acceptor.")
-(defparameter *common-root* nil "Root directory; contains directories of measuring data.")
-(defparameter *verbose* 0 "Integer (interpreted as a bit mask) denoting various kinds of debugging output.")
+
+(defparameter *common-root* nil
+  "Root directory; contains directories of measuring data.")
+
+(defparameter *verbose* 0
+  "Integer (interpreted as a bit mask) denoting various kinds of debugging output.")
 
 (defun check-db (db-credentials)
   "Check postgresql connection.  Return t if successful; show error on
@@ -390,7 +395,7 @@ a image url."
                  (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
                          :latitude (@ lonlat lat)
                          :zoom ((@ streetmap get-zoom))
-                         :count 6)))
+                         :count (lisp *number-of-images*))))
           (setf photo-request-response
                 ((@ *open-layers *Request *POST*)
                  (create :url "local-data"
@@ -627,7 +632,7 @@ image-index in array images."
                                       14.32066 51.72693 14.32608 51.72862)))
                          (transform geographic spherical-mercator)))))
         (loop
-           for i from 0 to 3
+           for i from 0 to (lisp (1- *number-of-images*))
            do
            (initialize-image i))))))
 
@@ -662,7 +667,7 @@ image-index in array images."
              (:div :style "clear:both"
                    (:div :id "streetmap" :class "smallmap" :style "float:left")
                    (loop
-                      for i from 0 to 3 do 
+                      for i from 0 to (1- *number-of-images*) do 
                         (who:htm (:div :id i :class "image" :style "float:left")))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
