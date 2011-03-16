@@ -101,14 +101,14 @@ user password host &key (port 5432) use-ssl)."
         ((null presentation-project-id) "No such project.")
         ((and (equal (session-value 'presentation-project-name) presentation-project-name)
               (session-value 'authenticated-p))
-         (redirect "/view" :add-session-id t))
+         (redirect "/phoros-lib/view" :add-session-id t))
         (t
          (progn
            (setf (session-value 'presentation-project-name) presentation-project-name
                  (session-value 'presentation-project-id) presentation-project-id)
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
-                    :action "/authenticate"
+                    :action "/phoros-lib/authenticate"
                     "User:" :br
                     (:input :type "text" :name "user-name") :br
                     "Password:" :br
@@ -118,7 +118,7 @@ user password host &key (port 5432) use-ssl)."
 (pushnew (create-prefix-dispatcher "/phoros/" 'phoros-handler)
          *dispatch-table*)
 
-(define-easy-handler (authenticate-handler :uri "/authenticate" :default-request-type :post) ()
+(define-easy-handler (authenticate-handler :uri "/phoros-lib/authenticate" :default-request-type :post) ()
   (with-connection *postgresql-credentials*
     (let* ((user-name (post-parameter "user-name"))
            (user-password (post-parameter "user-password"))
@@ -139,19 +139,22 @@ user password host &key (port 5432) use-ssl)."
             (setf (session-value 'authenticated-p) t
                   (session-value 'user-name) user-name
                   (session-value 'user-full-name) user-full-name)
-            (redirect "/view" :add-session-id t))
+            (redirect "/phoros-lib/view" :add-session-id t))
           "Rejected."))))
 
-(define-easy-handler (logout :uri "/logout") ()
+(define-easy-handler logout-handler ()
   (if (session-verify *request*)
       (progn (remove-session *session*)
              "Bye.")
       "Bye (again)."))
 
-(define-easy-handler (test :uri "/test") ()
+(pushnew (create-regex-dispatcher "/logout" 'logout-handler)
+         *dispatch-table*)
+
+(define-easy-handler (test :uri "/phoros-lib/test") ()
   "Authenticated.")
 
-(define-easy-handler (local-data :uri "/local-data" :default-request-type :post) ()
+(define-easy-handler (local-data :uri "/phoros-lib/local-data" :default-request-type :post) ()
   "Receive coordinates, respond with the count nearest json objects containing picture url, calibration parameters, and car position, wrapped in an array."
   (when (session-value 'authenticated-p)
     (let* ((presentation-project-id (session-value 'presentation-project-id))
@@ -220,7 +223,7 @@ of presentation project with presentation-project-id."
                :column))
     (condition (c) (cl-log:log-message :server "While fetching common-table-names of presentation-project-id ~D: ~A" presentation-project-id c))))
 
-(define-easy-handler (points :uri "/points") (bbox)
+(define-easy-handler (points :uri "/phoros-lib/points") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (session-value 'authenticated-p)
     (handler-case 
@@ -260,7 +263,7 @@ of presentation project with presentation-project-id."
     (handler-case
         (let* ((s (cdr (cl-utilities:split-sequence #\/ (script-name*)
                                                     :remove-empty-subseqs t)))
-               (directory (butlast s 2))
+               (directory (last (butlast s 2)))
                (file-name-and-type (cl-utilities:split-sequence
                                     #\. (first (last s 2))))
                (byte-position (parse-integer (car (last s)) :junk-allowed t))
@@ -280,13 +283,13 @@ of presentation project with presentation-project-id."
                     :color-raiser (canonicalize-color-raiser color-raiser)))
       (condition (c) (cl-log:log-message :server "While serving image ~S: ~A" (request-uri*) c)))))
 
-(pushnew (create-prefix-dispatcher "/photo" 'photo-handler)
+(pushnew (create-prefix-dispatcher "/phoros-lib/photo" 'photo-handler)
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/lib/" "") ;TODO: is this secure enough?
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/lib/" "") ;TODO: is this secure enough?
          *dispatch-table*)
 
-(define-easy-handler (phoros.js :uri "/phoros.js") ()
+(define-easy-handler (phoros.js :uri "/phoros-lib/phoros.js") ()
   "Serve some Javascript."
   (when (session-value 'authenticated-p)
     (ps
@@ -343,7 +346,7 @@ of presentation project with presentation-project-id."
       (defun photo-path (photo-parameters)
         "Create from stuff found in photo-parameters a path for use in
 a image url."
-        (+ "/photo/" (@ photo-parameters directory) "/"
+        (+ "/phoros-lib/photo/" (@ photo-parameters directory) "/"
            (@ photo-parameters filename) "/"
            (@ photo-parameters byte-position) ".png"))
 
@@ -403,7 +406,7 @@ a image url."
                          :count (lisp *number-of-images*))))
           (setf photo-request-response
                 ((@ *open-layers *Request *POST*)
-                 (create :url "local-data"
+                 (create :url "/phoros-lib/local-data"
                          :data content
                          :headers (create "Content-type" "text/plain"
                                           "Content-length" (@ content length))
@@ -506,7 +509,7 @@ photogrammetric calculations."
                                       (@ i photo-parameters)))
                      (@ i epipolar-request-response)
                      ((@ *open-layers *Request *POST*)
-                      (create :url "epipolar-line"
+                      (create :url "/phoros-lib/epipolar-line"
                               :data content
                               :headers (create "Content-type" "text/plain"
                                                "Content-length"
@@ -531,7 +534,7 @@ photogrammetric calculations."
                                                   x 'photo-parameters))))))))
                     (setf (@ clicked-image estimated-positions-request-response)
                           ((@ *open-layers *Request *POST*)
-                           (create :url "estimated-positions"
+                           (create :url "/phoros-lib/estimated-positions"
                                    :data content
                                    :headers (create "Content-type" "text/plain"
                                                     "Content-length"
@@ -601,7 +604,7 @@ image-index in array images."
                                     *open-layers *protocol
                                     (*http*
                                      (create
-                                      :url "points"
+                                      :url "/phoros-lib/points"
                                       :format
                                       (new
                                        (chain *open-layers *format
@@ -641,7 +644,7 @@ image-index in array images."
            do
            (initialize-image i))))))
 
-(define-easy-handler (view :uri "/view" :default-request-type :post) ()
+(define-easy-handler (view :uri "/phoros-lib/view" :default-request-type :post) ()
   "Serve the client their main workspace."
   (if
    (session-value 'authenticated-p)
@@ -653,12 +656,12 @@ image-index in array images."
                 (concatenate
                  'string
                  "Phoros: " (session-value 'presentation-project-name))))
-       ;;(:link :rel "stylesheet" :href "lib/theme/default/style.css" :type "text/css")
-       (:link :rel "stylesheet" :href "lib/style.css" :type "text/css")
-       (:script :src "lib/openlayers/lib/Firebug/firebug.js") ;TODO: tie to --verbose
-       (:script :src "lib/openlayers/lib/OpenLayers.js")
-       (:script :src "lib/openlayers/lib/proj4js.js") ;TODO: we should be able to make this redundant.
-       (:script :src "/phoros.js")
+       ;;(:link :rel "stylesheet" :href "/phoros-lib/lib/theme/default/style.css" :type "text/css")
+       (:link :rel "stylesheet" :href "/phoros-lib/lib/style.css" :type "text/css")
+       (:script :src "/phoros-lib/lib/openlayers/lib/Firebug/firebug.js") ;TODO: tie to --verbose
+       (:script :src "/phoros-lib/lib/openlayers/lib/OpenLayers.js")
+       (:script :src "/phoros-lib/lib/openlayers/lib/proj4js.js") ;TODO: we should be able to make this redundant.
+       (:script :src "/phoros-lib/phoros.js")
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
        )
       (:body :onload (ps (init))
@@ -667,8 +670,8 @@ image-index in array images."
                  "unfinished prototype")
              (:div :id "finish-point-button" :style "float:left" (:button :type "button" :onclick (ps ()) "finish point"))
              (:div :id "remove-work-layers-button" :style "float:left" (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
-             (:div :id "blurb-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/blurb\"" "blurb"))
-             (:div :id "logout-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/logout\"" "bye"))
+             (:div :id "blurb-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\"" "blurb"))
+             (:div :id "logout-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/phoros-lib/logout\"" "bye"))
              
              (:div :style "clear:both"
                    (:div :id "streetmap" :class "smallmap" :style "float:left")
@@ -679,14 +682,14 @@ image-index in array images."
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
     :add-session-id t)))
 
-(define-easy-handler (epipolar-line :uri "/epipolar-line") ()
+(define-easy-handler (epipolar-line :uri "/phoros-lib/epipolar-line") ()
   "Receive vector of two sets of picture parameters, respond with
 JSON encoded epipolar-lines."
   (when (session-value 'authenticated-p)
     (let* ((data (json:decode-json-from-string (raw-post-data))))
       (json:encode-json-to-string (photogrammetry :epipolar-line (first data) (second data))))))
 
-(define-easy-handler (estimated-positions :uri "/estimated-positions") ()
+(define-easy-handler (estimated-positions :uri "/phoros-lib/estimated-positions") ()
   "Receive a two-part JSON vector comprising (1) a vector containing
 sets of picture-parameters including clicked points stored in :m, :n;
 and (2) a vector containing sets of picture-parameters; respond with
@@ -723,7 +726,7 @@ vector.  TODO: report error on bad data (ex: points too far apart)."
       (json:encode-json-to-string
         (list global-point-for-display image-coordinates)))))
 
-(define-easy-handler (multi-position-intersection :uri "/intersection") ()
+(define-easy-handler (multi-position-intersection :uri "/phoros-lib/intersection") ()
   "Receive vector of sets of picture parameters, respond with stuff."
   (when (session-value 'authenticated-p)
     (let* ((data (json:decode-json-from-string (raw-post-data))))

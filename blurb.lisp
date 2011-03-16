@@ -17,7 +17,7 @@
 
 (in-package :phoros)
 
-(define-easy-handler (blurb :uri "/blurb") ()
+(define-easy-handler (blurb :uri "/phoros-lib/blurb") ()
   (when
    (session-value 'authenticated-p)
    (who:with-html-output-to-string (s nil :indent t)
@@ -35,10 +35,10 @@
        (:div :style "clear:both"
              (:div :style "float:left"
                    (format s "This is Phoros version ~A " (phoros-version))
-                   (:a :href "http://www.sbcl.org" (:img :src "/lib/phoros-logo-plain.png" :alt "Phoros"))
+                   (:a :href "http://www.sbcl.org" (:img :src "/phoros-lib/lib/phoros-logo-plain.png" :alt "Phoros"))
                    ", a means for photogrammetric road survey written by"
                    (:a :href "mailto:Bert Burgemeister <trebbu@googlemail.com>" "Bert Burgemeister.")
-                   (:a :href "http://www.sbcl.org" (:img :src "/lib/phoros-logo-chrome.png" :alt "Phoros"))
+                   (:a :href "http://www.sbcl.org" (:img :src "/phoros-lib/lib/phoros-logo-chrome.png" :alt "Phoros"))
                    :br
                    "Its photogrammetric workhorse is "
                    (:a :href "mailto:Steffen.Scheller.home@gmail.com" "Steffen Scheller's ")
