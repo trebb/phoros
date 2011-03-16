@@ -25,7 +25,7 @@
       :xmlns "http://www.w3.org/1999/xhtml"
       (:head
        (:title "Phoros")
-       (:link :rel "stylesheet" :href "lib/style.css" :type "text/css"))
+       (:link :rel "stylesheet" :href "css/style.css" :type "text/css"))
       (:body 
        (:h1 :id "title" "Phoros")
        (:p :id "shortdesc"
@@ -35,10 +35,10 @@
        (:div :style "clear:both"
              (:div :style "float:left"
                    (format s "This is Phoros version ~A " (phoros-version))
-                   (:a :href "http://www.sbcl.org" (:img :src "/phoros-lib/lib/phoros-logo-plain.png" :alt "Phoros"))
+                   (:a :href "http://phoros.berlios.de" (:img :src "/phoros-lib/css/phoros-logo-plain.png" :alt "Phoros"))
                    ", a means for photogrammetric road survey written by"
                    (:a :href "mailto:Bert Burgemeister <trebbu@googlemail.com>" "Bert Burgemeister.")
-                   (:a :href "http://www.sbcl.org" (:img :src "/phoros-lib/lib/phoros-logo-chrome.png" :alt "Phoros"))
+                   (:a :href "http://phoros.berlios.de" (:img :src "/phoros-lib/css/phoros-logo-chrome.png" :alt "Phoros"))
                    :br
                    "Its photogrammetric workhorse is "
                    (:a :href "mailto:Steffen.Scheller.home@gmail.com" "Steffen Scheller's ")

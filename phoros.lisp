@@ -286,7 +286,10 @@ of presentation project with presentation-project-id."
 (pushnew (create-prefix-dispatcher "/phoros-lib/photo" 'photo-handler)
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/lib/" "") ;TODO: is this secure enough?
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/openlayers/" "openlayers/") ;TODO: is this secure enough?
+         *dispatch-table*)
+
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/css/" "css/") ;TODO: is this secure enough?
          *dispatch-table*)
 
 (define-easy-handler (phoros.js :uri "/phoros-lib/phoros.js") ()
@@ -657,10 +660,10 @@ image-index in array images."
                  'string
                  "Phoros: " (session-value 'presentation-project-name))))
        ;;(:link :rel "stylesheet" :href "/phoros-lib/lib/theme/default/style.css" :type "text/css")
-       (:link :rel "stylesheet" :href "/phoros-lib/lib/style.css" :type "text/css")
-       (:script :src "/phoros-lib/lib/openlayers/lib/Firebug/firebug.js") ;TODO: tie to --verbose
-       (:script :src "/phoros-lib/lib/openlayers/lib/OpenLayers.js")
-       (:script :src "/phoros-lib/lib/openlayers/lib/proj4js.js") ;TODO: we should be able to make this redundant.
+       (:link :rel "stylesheet" :href "/phoros-lib/css/style.css" :type "text/css")
+       (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js") ;TODO: tie to --verbose
+       (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
+       (:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we should be able to make this redundant.
        (:script :src "/phoros-lib/phoros.js")
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
        )

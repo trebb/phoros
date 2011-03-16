@@ -19,10 +19,10 @@ LISP = ../sbcl/bin/sbcl
 MEATWARE_DRIVER = echo
 LIBPHOTOGRAMMETRIE_DIR = ../photogrammetrie/lib
 LIBPHOTOGRAMMETRIE = libphotogrammetrie.so
-SERVER_CSS = style.css
+SERVER_CSS = css/style.css
 SERVER_JAVASCRIPT = openlayers/
-LOGO = phoros-logo-plain.png
-LOGO_CHROME = phoros-logo-chrome.png
+LOGO = css/phoros-logo-plain.png
+LOGO_CHROME = css/phoros-logo-chrome.png
 PHOROS_VERSION = $(shell ./phoros --version)
 SOURCE = *.lisp *.asd Makefile
 
@@ -31,18 +31,23 @@ phoros : $(SOURCE)
 
 
 $(LOGO) :
-	 convert -size 113x125 xc:transparent -font Gentium-Regular -pointsize 200 -gravity center -draw "text 3,3 'Φ'" -pointsize 57 -gravity center -draw "text 23,2 'Σ'" $@
+	 convert \
+		-size 113x125 xc:transparent \
+		-font Gentium-Regular \
+		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
+		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
+		$@
 
-$(LOGO_CHROME) : phoros-logo-plain.png
+$(LOGO_CHROME) : $(LOGO)
 	$(MEATWARE_DRIVER) Go get GIMP and make $(LOGO_CHROME) from $<.
 	false
 
 tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-          $(LOGOS) $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
+          $(LOGO) $(LOGO_CHROME) $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
 	tar -cf - \
 		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
 		phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-		$(LOGOS) --directory=$(LIBPHOTOGRAMMETRIE_DIR) \
+		$(LOGO) $(LOGO_CHROME) --directory=$(LIBPHOTOGRAMMETRIE_DIR) \
 		$(LIBPHOTOGRAMMETRIE) \
 		| gzip -f \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
