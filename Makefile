@@ -21,15 +21,20 @@ LIBPHOTOGRAMMETRIE_DIR = ../photogrammetrie/lib
 LIBPHOTOGRAMMETRIE = libphotogrammetrie.so
 SERVER_CSS = style.css
 SERVER_JAVASCRIPT = openlayers/
-LOGOS = phoros-logo-plain.png phoros-logo-chrome.png
+LOGO = phoros-logo-plain.png
+LOGO_CHROME = phoros-logo-chrome.png
 PHOROS_VERSION = $(shell ./phoros --version)
 SOURCE = *.lisp *.asd Makefile
 
 phoros : $(SOURCE)
 	$(LISP) --load make.lisp
 
-$(LOGOS) : phoros-logo-plain.xcf
-	$(MEATWARE_DRIVER) Go get GIMP and make $(LOGOS) from $<.
+
+$(LOGO) :
+	 convert -size 113x125 xc:transparent -font Gentium-Regular -pointsize 200 -gravity center -draw "text 3,3 'Φ'" -pointsize 57 -gravity center -draw "text 23,2 'Σ'" $@
+
+$(LOGO_CHROME) : phoros-logo-plain.png
+	$(MEATWARE_DRIVER) Go get GIMP and make $(LOGO_CHROME) from $<.
 	false
 
 tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
@@ -43,4 +48,4 @@ tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 
 clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz
+	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO)
