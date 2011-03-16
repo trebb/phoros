@@ -46,6 +46,9 @@
 (defparameter *verbose* 0
   "Integer (interpreted as a bit mask) denoting various kinds of debugging output.")
 
+(defparameter *number-of-images* 4
+  "Number of photos shown to the HTTP client.")
+
 (defun check-db (db-credentials)
   "Check postgresql connection.  Return t if successful; show error on
 *error-output* otherwise.  db-credentials is a list like so: (database
