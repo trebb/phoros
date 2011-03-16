@@ -290,6 +290,8 @@ of presentation project with presentation-project-id."
   "Serve some Javascript."
   (when (session-value 'authenticated-p)
     (ps
+       
+      (setf debug-info (@ *open-layers *console info))
 
       (setf
        (@ *open-layers *control *click)
@@ -436,7 +438,7 @@ another photo."
                 (aref estimated-positions-request-response 0))
                (estimated-positions
                 (aref estimated-positions-request-response 1)))
-          ((@ console log) global-position)
+          (debug-info global-position)
           (setf streetmap-estimated-position-layer
                 (new ((@ *open-layers *layer *vector) "Estimated Position")))
           (chain streetmap-estimated-position-layer
@@ -653,6 +655,7 @@ image-index in array images."
                  "Phoros: " (session-value 'presentation-project-name))))
        ;;(:link :rel "stylesheet" :href "lib/theme/default/style.css" :type "text/css")
        (:link :rel "stylesheet" :href "lib/style.css" :type "text/css")
+       (:script :src "lib/openlayers/lib/Firebug/firebug.js") ;TODO: tie to --verbose
        (:script :src "lib/openlayers/lib/OpenLayers.js")
        (:script :src "lib/openlayers/lib/proj4js.js") ;TODO: we should be able to make this redundant.
        (:script :src "/phoros.js")
