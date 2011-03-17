@@ -1,0 +1,110 @@
+/**
+ * CSS Reset
+ * From Blueprint reset.css
+ * http://blueprintcss.googlecode.com
+ */
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td {margin:0;padding:0;border:0;font-weight:inherit;font-style:inherit;font-size:100%;font-family:inherit;vertical-align:baseline;}
+body {line-height:1.5;}
+table {border-collapse:separate;border-spacing:0;}
+caption, th, td {text-align:left;font-weight:normal;}
+table, td, th {vertical-align:middle;}
+blockquote:before, blockquote:after, q:before, q:after {content:"";}
+blockquote, q {quotes:"" "";}
+a img {border:none;}
+
+/**
+ * Basic Typography
+ * From OpenLayers style.css
+ * http://openlayers.org
+ */
+body {
+    font-family: "Lucida Grande", Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
+    font-size: 80%;
+    color: #222;
+    background: #fff;
+    margin: 1em 1.5em;
+}
+pre, code {
+    margin: 1.5em 0;
+    white-space: pre;
+    font: 1em 'andale mono', 'lucida console', monospace;
+    line-height:1.5;
+}
+a[href] {
+    color: #436976;
+    background-color: transparent;
+}
+h1, h2, h3, h4, h5, h6 {
+    color: #003a6b;
+    background-color: transparent;
+    font: 100% 'Lucida Grande', Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
+    margin: 0;
+    padding-top: 0.5em;
+}
+h1 {
+    font-size: 130%;
+    margin-bottom: 0.5em;
+    border-bottom: 1px solid #fcb100;
+}
+h2 {
+    font-size: 120%;
+    margin-bottom: 0.5em;
+    border-bottom: 1px solid #aaa;
+}
+h3 {
+    font-size: 110%;
+    margin-bottom: 0.5em;
+    text-decoration: underline;
+}
+h4 {
+    font-size: 100%;
+    font-weight: bold;
+}
+h5 {
+    font-size: 100%;
+    font-weight: bold;
+}
+h6 {
+    font-size: 80%;
+    font-weight: bold;
+}
+
+
+/**
+ * Org-mode classes
+ */
+
+.title {
+    text-align: left;
+}
+#table-of-contents {
+    margin-bottom: 0.5em;
+}
+
+#table-of-contents ul {
+    padding: 0em;
+}
+#table-of-contents li {
+    list-style-type: none;
+    display: inline;
+    margin-right: .5em;
+}
+#table-of-contents a {
+    text-decoration: none;
+}
+#table-of-contents a:hover {
+    text-decoration: underline;
+}
+#table-of-contents h2 {
+    display: none;
+}
+#postamble {
+    margin-top: 1em;
+    padding-top: 0em;
+    border-top: 1px solid #aaa;
+}
+#postamble p {
+    float: left;
+    padding-right: 1.5em;
+}
+
