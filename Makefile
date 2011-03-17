@@ -17,8 +17,8 @@
 
 LISP = ../sbcl/bin/sbcl
 MEATWARE_DRIVER = echo
-LIBPHOTOGRAMMETRIE_DIR = ../photogrammetrie/lib
-LIBPHOTOGRAMMETRIE = libphotogrammetrie.so
+LIBPHOML_DIR = phoml/lib
+LIBPHOML = libphotogrammetrie.so
 SERVER_CSS = css/style.css
 SERVER_JAVASCRIPT = openlayers/
 LOGO = css/phoros-logo-plain.png
@@ -26,9 +26,11 @@ LOGO_CHROME = css/phoros-logo-chrome.png
 PHOROS_VERSION = $(shell ./phoros --version)
 SOURCE = *.lisp *.asd Makefile
 
-phoros : $(SOURCE)
+phoros : $(SOURCE) $(LIBPHOML)
 	$(LISP) --load make.lisp
 
+$(LIBPHOML) :
+	cd phoml; $(MAKE)
 
 $(LOGO) :
 	 convert \
@@ -43,12 +45,12 @@ $(LOGO_CHROME) : $(LOGO)
 	false
 
 tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-          $(LOGO) $(LOGO_CHROME) $(LIBPHOTOGRAMMETRIE_DIR)/$(LIBPHOTOGRAMMETRIE)
+          $(LOGO) $(LOGO_CHROME) $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf - \
 		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
 		phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-		$(LOGO) $(LOGO_CHROME) --directory=$(LIBPHOTOGRAMMETRIE_DIR) \
-		$(LIBPHOTOGRAMMETRIE) \
+		$(LOGO) $(LOGO_CHROME) --directory=$(LIBPHOML_DIR) \
+		$(LIBPHOML) \
 		| gzip -f \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 

@@ -285,7 +285,7 @@
   #+sbcl (sb-ext:disable-debugger)
   (handler-case
       (progn
-        (cffi:use-foreign-library photogrammetrie)
+        (cffi:use-foreign-library phoml)
         (compute-and-process-command-line-options *cli-options*))
     (serious-condition (c)
       (cl-log:log-message :warning "Fatal: ~A" c)

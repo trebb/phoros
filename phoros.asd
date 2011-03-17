@@ -16,7 +16,7 @@ over a web interface."
   ;; different major means data incompatibility,
   ;; different minor means changed feature set,
   ;; different revision means any other change.
-  :version "0.2.0"
+  :version "0.2.1"
 
   :licence
   "Copyright (C) 2011 Bert Burgemeister

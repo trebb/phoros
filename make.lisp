@@ -19,7 +19,7 @@
 ;;;; Make an executable.
 ;; TODO: don't expect quicklisp to be preloaded
 
-(push (make-pathname :directory '(:relative :up "photogrammetrie"))
+(push (make-pathname :directory '(:relative "phoml"))
       asdf:*central-registry*)
 
 (push (make-pathname :directory '(:relative :up "phoros"))

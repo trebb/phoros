@@ -23,9 +23,9 @@
 (defparameter *t* nil)
 (defparameter *tt* nil)
 
-(cffi:define-foreign-library photogrammetrie
+(cffi:define-foreign-library phoml
   (:unix (:or "./libphotogrammetrie.so"
-              "../photogrammetrie/lib/libphotogrammetrie.so"))
+              "./phoml/lib/libphotogrammetrie.so"))
   (t (:default "libphotogrammetrie")))
 
 (defparameter *standard-coordinates* 4326
