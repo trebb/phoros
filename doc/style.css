@@ -43,7 +43,7 @@ h1, h2, h3, h4, h5, h6 {
 }
 h1 {
     font-size: 130%;
-    margin-bottom: 0.5em;
+    margin-bottom: 0em;
     border-bottom: 1px solid #fcb100;
 }
 h2 {
@@ -68,7 +68,10 @@ h6 {
     font-size: 80%;
     font-weight: bold;
 }
-
+hr {
+    border: 1px solid #aaa;
+    /* color: #aaa; */
+}
 
 /**
  * Org-mode classes
@@ -87,7 +90,7 @@ h6 {
 #table-of-contents li {
     list-style-type: none;
     display: inline;
-    margin-right: .5em;
+    padding-right: 1em;
 }
 #table-of-contents a {
     text-decoration: none;

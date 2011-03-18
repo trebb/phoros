@@ -1,0 +1,72 @@
+#+TITLE:     Phoros
+#+AUTHOR:    Bert Burgemeister
+#+EMAIL:     trebbu@googlemail.com
+#+DESCRIPTION:
+#+KEYWORDS: 
+#+LANGUAGE:  en
+#+OPTIONS:   H:3 num:nil toc:1 \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS:   TeX:nil LaTeX:nil skip:nil d:nil todo:t pri:nil tags:not-in-toc
+#+OPTIONS:   author:t creator:nil timestamp:t
+#+STYLE: <link rel="stylesheet" type="text/css" href="style.css" />
+#+LINK_UP:   
+#+LINK_HOME: http://phoros.berlios.de
+
+A Tool for Photogrammetric Road Survey
+
+* Workflow
+
+  - Images and GPS data are acquired using a measuring vehicle. ([[http://www.tu-dresden.de/vkiva/strasse/messfahrzeug.html][Here]]
+    is a working example.)
+
+    Sequences of a few hundred images together with their trigger times are stored
+    Huffman-encoded in files called =*.pictures=.  GPS data is
+    preprocessed into a table of ASCII text.  The format of both image
+    and GPS files is not (yet) explained here.
+
+  - Cameras and GPS system need to be calibrated, which is not
+    explained here.
+
+  - Calibration parameters are stored into the database using the
+    [[Command Line Interface]] (There, cf.
+    =Camera Hardware Parameters= through
+    =Camera Calibration Parameters=.)
+
+  - GPS data and image information are fed into the database using
+    option =--store-images-and-points= of the [[Command Line Interface]].
+
+  - Presentation project users use the web interface to point in a map
+    at a point of interest and are shown a couple of relevant images.
+    In these images they point at features of interest the coordinates
+    of which can be stored into the database.  (Storage not yet
+    implemented; coordinates are just shown.)
+
+* Command Line Interface
+
+  The command line interface is used to
+  - set up and manage projects,
+  - store camera calibration parameters,
+  - store measurement data (i.e., images and GPS positions),
+  - manage presentation project users,
+  - start Phoros as a presentation server (a web server presenting
+    measurement data to presentation project users)
+
+  Below is the output of
+  #+BEGIN_SRC bash
+  ./phoros --help
+  #+END_SRC
+
+#+INCLUDE "phoros-help.txt" example
+
+* Download
+
+  - Browse Phoros source code via [[http://git.berlios.de/cgi-bin/gitweb.cgi?p=phoros;a=summary][gitweb]].  Phoros uses [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library.
+
+  - Get everything:
+    #+BEGIN_SRC bash
+    git clone git://git.berlios.de/phoros
+    cd phoros
+    git submodule add git://github.com/trebb/phoml.git
+    #+END_SRC
+
+-----
+#+HTML: <a href="http://developer.berlios.de/projects/phoros" title="BerliOS Developer"> <img src="http://developer.berlios.de/bslogo.php?group_id=12315" width="124px" height="32px" border="0" alt="BerliOS Developer Logo"></a>

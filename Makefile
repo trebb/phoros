@@ -24,6 +24,7 @@ SERVER_JAVASCRIPT = openlayers/
 LOGO = css/phoros-logo-plain.png
 LOGO_CHROME = css/phoros-logo-chrome.png
 PHOROS_VERSION = $(shell ./phoros --version)
+PHOROS_HELP = ./phoros --help
 SOURCE = *.lisp *.asd Makefile
 
 phoros : $(SOURCE) $(LIBPHOML)
@@ -43,6 +44,9 @@ $(LOGO) :
 $(LOGO_CHROME) : $(LOGO)
 	$(MEATWARE_DRIVER) Go get GIMP and make $(LOGO_CHROME) from $<.
 	false
+
+doc/phoros-help.txt : phoros
+	$(PHOROS_HELP) > $@
 
 tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
           $(LOGO) $(LOGO_CHROME) $(LIBPHOML_DIR)/$(LIBPHOML)
