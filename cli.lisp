@@ -137,7 +137,7 @@
     ("computer-interface-name" :type string
      :documentation "Interface at device.")
     ("mounting-date" :type string
-     :documentation "Time this device constellation became effective.  Format: `2010-11-19T13:49+01´.")))
+     :documentation "Time this device constellation became effective.  Format: \"2010-11-19T13:49+01\".")))
 
 (defparameter *cli-device-stage-of-life-end-options*
   '(("store-device-stage-of-life-end" :action #'store-device-stage-of-life-end-action
@@ -145,7 +145,7 @@
     ("device-stage-of-life-id" :type string
      :documentation "Id of the device-stage-of-life to put to an end.")
     ("unmounting-date" :type string
-     :documentation "Time this device constellation ceased to be effective.  Format: `2010-11-19T17:02+01´.")))
+     :documentation "Time this device constellation ceased to be effective.  Format: \"2010-11-19T17:02+01\".")))
 
 (defparameter *cli-camera-calibration-options*
   '(("store-camera-calibration" :action #'store-camera-calibration-action
@@ -153,7 +153,7 @@
     ("device-stage-of-life-id" :type string
      :documentation "This tells us what hardware this calibration is for.")
     ("date" :type string
-     :documentation "Date of calibration.  Format: `2010-11-19T13:49+01´.")
+     :documentation "Date of calibration.  Format: \"2010-11-19T13:49+01\".")
     ("person" :type string
      :documentation "Person who did the calibration.")
     ("main-description" :type string
@@ -226,8 +226,10 @@
      :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")))
 
 (defparameter *cli-start-server-options*
-  '(("server" :action #'server-action :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<project>")
-    ("server-port" :type integer :initial-value 8080 :documentation "Port the presentation server listens on.")
+  '(("server" :action #'server-action
+     :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>")
+    ("server-port" :type integer :initial-value 8080
+     :documentation "Port the presentation server listens on.")
     (("common-root" #\r) :type string :initial-value "/"
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
     ("images" :type integer :initial-value 4 :action *number-of-images*
@@ -236,7 +238,7 @@
 (defparameter *cli-presentation-project-options*
   '(("create-presentation-project"
      :type string :action #'create-presentation-project-action
-     :documentation "Create a fresh presentation project which is to expose a set of meassurements to certain users.")
+     :documentation "Create a fresh presentation project which is to expose a set of measurements to certain users.")
     ("delete-presentation-project"
      :type string :action #'delete-presentation-project-action
      :documentation "Delete a presentation project.")
@@ -257,7 +259,7 @@
 (defparameter *cli-user-options*
   '(("create-user"
      :type string :action #'create-user-action
-     :documentation "Create or update a user of certain presentation projects.")
+     :documentation "Create or update user (specified by their ID) of certain presentation projects.")
     ("user-password" :type string :documentation "User's password.")
     ("user-full-name" :type string :documentation "User's real name.")
     ("presentation-project" :type string :list t :optional t

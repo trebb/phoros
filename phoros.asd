@@ -3,20 +3,20 @@
   :description                          ;goes with --version output
   "PHOROS (Photogrammetric Road Survey)"
 
-  :author "Bert Burgemeister"
+  :author "Bert Burgemeister <trebbu@googlemail.com>"
 
-  :maintainer "Bert Burgemeister"
+  :maintainer "Bert Burgemeister <trebbu@googlemail.com>"
 
   :long-description                     ;goes with --help output
-  "Phoros is a facility for photogrammetric road survey.
-It stores data in a PostgreSQL database and then makes it available
-over a web interface."
+  "Phoros is a tool for photogrammetric road survey.  It stores data
+in a PostgreSQL database and then makes it available over a web
+interface.                              http://phoros.berlios.de"
 
-  ;; :version is major.minor.revision where
-  ;; different major means data incompatibility,
-  ;; different minor means changed feature set,
-  ;; different revision means any other change.
   :version "0.2.1"
+  ;; :version is MAJOR.MINOR.REVISION where
+  ;; different MAJOR means data incompatibility,
+  ;; different MINOR means changed feature set,
+  ;; different REVISION means any other change.
 
   :licence
   "Copyright (C) 2011 Bert Burgemeister
@@ -36,6 +36,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA."
 
   :serial t
+
   :components ((:file "package")
                (:file "proj4")
                (:file "log")
@@ -45,6 +46,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "db-tables")
                (:file "stuff-db")
                (:file "cli"))
+
   :depends-on (:photogrammetrie
                :hunchentoot
                :cl-who
@@ -56,4 +58,3 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :command-line-arguments
                :cl-utilities
                :cl-log))
-;; TODO: put Phoros homepage somewhere.

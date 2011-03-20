@@ -15,38 +15,52 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-LISP = ../sbcl/bin/sbcl
+LISP = $(shell echo ../sbcl/bin/sbcl || which sbcl)
 MEATWARE_DRIVER = echo
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphotogrammetrie.so
 SERVER_CSS = css/style.css
 SERVER_JAVASCRIPT = openlayers/
-LOGO = css/phoros-logo-plain.png
+LOGO = doc/phoros-logo-plain.png
 LOGO_CHROME = css/phoros-logo-chrome.png
+FAVICON = doc/favicon.ico
+INDEX_HTML = doc/index.html
 PHOROS_VERSION = $(shell ./phoros --version)
-PHOROS_HELP = ./phoros --help
+PHOROS_HELP_OUTPUT = doc/phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
 
-phoros : $(SOURCE) $(LIBPHOML)
+phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML)
 	$(LISP) --load make.lisp
 
-$(LIBPHOML) :
+$(LIBPHOML_DIR)/$(LIBPHOML) :
 	cd phoml; $(MAKE)
 
-$(LOGO) :
+$(LOGO) : Makefile
 	 convert \
 		-size 113x125 xc:transparent \
 		-font Gentium-Regular \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
 		$@
+# Font Gentium-Regular is in Debian package ttf-sil-gentium.
+
+$(FAVICON) : favicon.png
+	icotool -c -o $@ $<
+
+.INTERMEDIATE : favicon.png
+
+favicon.png : $(LOGO)
+	convert $< -resize 16x16 $@
 
 $(LOGO_CHROME) : $(LOGO)
-	$(MEATWARE_DRIVER) Go get GIMP and make $(LOGO_CHROME) from $<.
+	$(MEATWARE_DRIVER) Go get GIMP and make $@ from $<.
 	false
 
-doc/phoros-help.txt : phoros
-	$(PHOROS_HELP) > $@
+$(PHOROS_HELP_OUTPUT) : phoros
+	./phoros --help > $@
+
+$(INDEX_HTML) : doc/index.org $(PHOROS_HELP_OUTPUT) $(LOGO)
+	emacs --batch --visit=$< --funcall org-export-as-html-batch
 
 tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
           $(LOGO) $(LOGO_CHROME) $(LIBPHOML_DIR)/$(LIBPHOML)
@@ -59,4 +73,4 @@ tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 
 clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO)
+	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO) $(FAVICON) $(PHOROS_HELP_OUTPUT) $(INDEX_HTML)
