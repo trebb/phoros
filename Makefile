@@ -16,26 +16,46 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 LISP = $(shell echo ../sbcl/bin/sbcl || which sbcl)
-MEATWARE_DRIVER = echo
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphotogrammetrie.so
+PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
+OPENLAYERS_DIR = ol/		#for compiled/shrunk OpenLayers
+OPENLAYERS_JS = ol/OpenLayers.js
+OPENLAYERS_THEME = ol/theme
+OPENLAYERS_IMG = ol/img
 SERVER_CSS = css/style.css
-SERVER_JAVASCRIPT = openlayers/
-LOGO = doc/phoros-logo-plain.png
-LOGO_CHROME = css/phoros-logo-chrome.png
-FAVICON = doc/favicon.ico
-INDEX_HTML = doc/index.html
+LOGO = public_html/phoros-logo-plain.png
+FAVICON = public_html/favicon.ico
+INDEX_HTML = public_html/index.html
+PUBLIC_CSS = public_html/style.css
 PHOROS_VERSION = $(shell ./phoros --version)
-PHOROS_HELP_OUTPUT = doc/phoros-help.txt
+PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
 
-phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML)
+phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML) $(OPENLAYERS_JS) $(OPENLAYERS_THEME) $(OPENLAYERS_IMG)
 	$(LISP) --load make.lisp
+
+$(OPENLAYERS_JS) : $(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js
+	mkdir -p $(OPENLAYERS_DIR) && cp $< $@
+
+$(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js : $(PRISTINE_OPENLAYERS_DIR)/lib/*
+	cd $(PRISTINE_OPENLAYERS_DIR)/build && ./build.py full.cfg
+
+.INTERMEDIATE : $(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js
+
+$(OPENLAYERS_THEME) : $(PRISTINE_OPENLAYERS_DIR)/theme $(OPENLAYERS_JS)
+	cp -R $< $@
+
+$(OPENLAYERS_IMG) : $(PRISTINE_OPENLAYERS_DIR)/img $(OPENLAYERS_JS)
+	cp -R $< $@
 
 $(LIBPHOML_DIR)/$(LIBPHOML) :
 	cd phoml; $(MAKE)
 
-$(LOGO) : Makefile
+public_html :
+	mkdir -p public_html
+
+$(LOGO) : Makefile public_html
 	 convert \
 		-size 113x125 xc:transparent \
 		-font Gentium-Regular \
@@ -47,30 +67,35 @@ $(LOGO) : Makefile
 $(FAVICON) : favicon.png
 	icotool -c -o $@ $<
 
-.INTERMEDIATE : favicon.png
-
 favicon.png : $(LOGO)
 	convert $< -resize 16x16 $@
 
-$(LOGO_CHROME) : $(LOGO)
-	$(MEATWARE_DRIVER) Go get GIMP and make $@ from $<.
-	false
+.INTERMEDIATE : favicon.png $(PHOROS_HELP_OUTPUT)
 
 $(PHOROS_HELP_OUTPUT) : phoros
 	./phoros --help > $@
 
 $(INDEX_HTML) : doc/index.org $(PHOROS_HELP_OUTPUT) $(LOGO)
-	emacs --batch --visit=$< --funcall org-export-as-html-batch
+	emacs --batch --visit=$< --funcall org-export-as-html-batch \
+	&& mv doc/index.html $@
 
-tarball : phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-          $(LOGO) $(LOGO_CHROME) $(LIBPHOML_DIR)/$(LIBPHOML)
+$(PUBLIC_CSS) : doc/style.css public_html
+	cp $< $@
+
+tarball : phoros TimeSteps.history $(SERVER_CSS) $(OPENLAYERS_DIR) \
+          $(LOGO) $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf - \
 		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
 		phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-		$(LOGO) $(LOGO_CHROME) --directory=$(LIBPHOML_DIR) \
+		$(LOGO) --directory=$(LIBPHOML_DIR) \
 		$(LIBPHOML) \
 		| gzip -f \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 
 clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO) $(FAVICON) $(PHOROS_HELP_OUTPUT) $(INDEX_HTML)
+	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO) $(FAVICON) $(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
+	rm -rf $(OPENLAYERS_DIR)
+
+html : $(INDEX_HTML) $(PUBLIC_CSS) $(FAVICON)
+
+.PHONY : html

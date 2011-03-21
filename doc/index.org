@@ -61,28 +61,71 @@ A Tool for Photogrammetric Road Survey
   $ ./phoros --help
   #+END_SRC
 
-#+INCLUDE "phoros-help.txt" example
+#+INCLUDE "../phoros-help.txt" example
 
-* Web Interface
+* Web Interface (with screenshots)
 
-  (sorry, only dummy screenshots)
+  - In the map, points are shown where pictures have been taken.[fn:: Actually,
+    the map should display where the "photographer" has looked rather
+    than where he stood, but this is not yet implemented.]
+    Pointing into an area of interest lets Phoros display a few[fn::
+    The number of images can be specified during server
+    start. Example:  phoros --start-server --images=N ...]
+    relevant images.
 
-  #+CAPTION: Step 1: In map, point into an area of interest
-  [[file:phoros-logo-plain.png]]
+    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
+    [[file:map-click.png]]
 
-  #+CAPTION: Step 2: In first image, zoom in and point at a feature of interest.
-  [[file:phoros-logo-plain.png]]
+  - After zooming into a first image and selecting a feature of
+    interest, [[http://en.wikipedia.org/wiki/Epipolar_line#Epipolar_line][epipolar lines]] appear in the other images which may be
+    helpful in recognising the selected feature there.
 
-  You see [[http://en.wikipedia.org/wiki/Epipolar_line#Epipolar_line][epipolar lines]] in the other images.
+    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
+    [[file:image-click-1.png]]
 
-  #+CAPTION: Step 3: In another image, zoom in and point at the same feature
-  [[file:phoros-logo-plain.png]]
+  - Zooming in and selecting the same feature in another image
+    triggers calculation of the estimated global position.  The
+    estimated position is now shown in all images and in the map
+    (where the initially displaye sequence of points has been
+    switched off to make this more obvious).  Neither estimated
+    position accuracy nor pointing precision are bounded by pixel
+    size.
 
-  #+CAPTION: Step 3: Map and images show estimated positions of the selected feature
-  [[file:phoros-logo-plain.png]]
+    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
+    [[file:image-click-2.png]]
 
-  Pointing at the feature in the remaining images improves accuracy of
-  the estimated point.
+  - Zooming in and pointing at the feature in a third image improves
+    accuracy.
+
+    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
+    [[file:image-click-3.png]]
+
+  - Although it doesn't seem necessary in this example, more images
+    could be used to improve accuracy even further.
+
+    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
+    [[file:image-view-4.png]]
+
+* Licence
+
+  PHOROS -- Photogrammetric Road Survey
+
+  Copyright (C) 2010, 2011 [[mailto:Bert Burgemeister <trebbu@googlemail.com>][Bert Burgemeister]]
+
+  This program is free software; you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation; either [[http://www.gnu.org/licenses/gpl-2.0.html][version 2 of the License]], or (at
+  your option) any later version.
+
+  This program is distributed in the hope that it will be useful, but
+  WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+  General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program; if not, write to the Free Software
+  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+  02110-1301 USA.
 
 * Download
 
@@ -96,6 +139,8 @@ A Tool for Photogrammetric Road Survey
     $ cd phoros
     $ git submodule init
     $ git submodule update
+    $ wget http://openlayers.org/download/OpenLayers-2.10.tar.gz
+    $ tar -xzf OpenLayers-2.10.tar.gz
     #+END_SRC
 
     The build process isn't perfect yet.  You'll (probably) need an x86-64 Debian
@@ -119,6 +164,11 @@ A Tool for Photogrammetric Road Survey
 
   - Once decoded, images are turned into something a web browser can
     handle by [[http://www.xach.com/lisp/zpng/][ZPNG]].
+
+  - Leap second information is taken from the [[http://hpiers.obspm.fr/eop-pc][Earth Orientation Center]].
+
+  - [[http://www.openstreetmap.org][OpenStreetMap]] provides the map.  (Other map services can be used
+    as well, though.)
 
   - It's a pleasure to have this project hosted at
     #+BEGIN_HTML:

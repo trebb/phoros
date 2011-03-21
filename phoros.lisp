@@ -46,6 +46,9 @@
 (defparameter *verbose* 0
   "Integer (interpreted as a bit mask) denoting various kinds of debugging output.")
 
+(defparameter *use-multi-file-openlayers* nil
+  "If t, use OpenLayers uncompiled from openlayers/*, which makes debugging easier.  Otherwise use a single-file shrunk ol/Openlayers.js.")
+
 (defparameter *number-of-images* 4
   "Number of photos shown to the HTTP client.")
 
@@ -72,6 +75,7 @@ user password host &key (port 5432) use-ssl)."
   (setf *common-root* common-root)
   (setf *show-lisp-errors-p* (logbitp 16 *verbose*))
   (setf *ps-print-pretty* (logbitp 15 *verbose*))
+  (setf *use-multi-file-openlayers* (logbitp 14 *verbose*))
   ;; Doesn't seem to exist(setf *show-lisp-backtraces-p* t)  ;TODO: tie this to --debug option
   (setf *message-log-pathname* "hunchentoot-messages.log") ;TODO: try using cl-log
   (setf *access-log-pathname* "hunchentoot-access.log") ;TODO: try using cl-log
@@ -286,7 +290,11 @@ of presentation project with presentation-project-id."
 (pushnew (create-prefix-dispatcher "/phoros-lib/photo" 'photo-handler)
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/openlayers/" "openlayers/") ;TODO: is this secure enough?
+;;; for debugging; this is the multi-file OpenLayers
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/openlayers/" "OpenLayers-2.10/") ;TODO: is this secure enough?
+         *dispatch-table*)
+
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/ol/" "ol/") ;TODO: is this secure enough?
          *dispatch-table*)
 
 (pushnew (create-folder-dispatcher-and-handler "/phoros-lib/css/" "css/") ;TODO: is this secure enough?
@@ -659,11 +667,13 @@ image-index in array images."
                 (concatenate
                  'string
                  "Phoros: " (session-value 'presentation-project-name))))
-       ;;(:link :rel "stylesheet" :href "/phoros-lib/lib/theme/default/style.css" :type "text/css")
        (:link :rel "stylesheet" :href "/phoros-lib/css/style.css" :type "text/css")
-       (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js") ;TODO: tie to --verbose
-       (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
-       (:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we should be able to make this redundant.
+       (if *use-multi-file-openlayers*
+           (who:htm
+             (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js")
+             (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
+             (:script :src "/phoros-lib/openlayers/lib/proj4js.js")) ;TODO: we don't seem to use this
+           (who:htm (:script :src "/phoros-lib/ol/OpenLayers.js")))
        (:script :src "/phoros-lib/phoros.js")
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
        )

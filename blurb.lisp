@@ -38,7 +38,6 @@
                    (:a :href "http://phoros.berlios.de" (:img :src "/phoros-lib/css/phoros-logo-plain.png" :alt "Phoros"))
                    ", a means for photogrammetric road survey written by"
                    (:a :href "mailto:Bert Burgemeister <trebbu@googlemail.com>" "Bert Burgemeister.")
-                   (:a :href "http://phoros.berlios.de" (:img :src "/phoros-lib/css/phoros-logo-chrome.png" :alt "Phoros"))
                    :br
                    "Its photogrammetric workhorse is "
                    (:a :href "mailto:Steffen.Scheller.home@gmail.com" "Steffen Scheller's ")
