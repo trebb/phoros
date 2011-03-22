@@ -70,7 +70,7 @@ A Tool for Photogrammetric Road Survey
     than where he stood, but this is not yet implemented.]
     Pointing into an area of interest lets Phoros display a few[fn::
     The number of images can be specified during server
-    start. Example:  phoros --server --images=N ...]
+    start. Example:  @<code>phoros --server --images=N ... @</code>]
     relevant images.
 
     #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
@@ -129,7 +129,8 @@ A Tool for Photogrammetric Road Survey
 
 * Download
 
-  - Browse Phoros source code via [[http://git.berlios.de/cgi-bin/gitweb.cgi?p=phoros;a=summary][gitweb]].  
+  - Browse Phoros
+    [[http://git.berlios.de/cgi-bin/gitweb.cgi?p=phoros;a=summary][source code via gitweb]].
 
   - Browse source code of [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library, which is needed by Phoros.
 

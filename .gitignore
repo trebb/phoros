@@ -2,7 +2,12 @@
 *~
 *.log
 *.png
+*.ini
+*.json
 phoros
 *.tar.gz
 *.html
 phoros-help.txt
+OpenLayers-*/
+ol/
+public_html/
