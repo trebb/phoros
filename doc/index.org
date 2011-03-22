@@ -70,7 +70,7 @@ A Tool for Photogrammetric Road Survey
     than where he stood, but this is not yet implemented.]
     Pointing into an area of interest lets Phoros display a few[fn::
     The number of images can be specified during server
-    start. Example:  phoros --start-server --images=N ...]
+    start. Example:  phoros --server --images=N ...]
     relevant images.
 
     #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
@@ -86,7 +86,7 @@ A Tool for Photogrammetric Road Survey
   - Zooming in and selecting the same feature in another image
     triggers calculation of the estimated global position.  The
     estimated position is now shown in all images and in the map
-    (where the initially displaye sequence of points has been
+    (where the initially displayed sequence of points has been
     switched off to make this more obvious).  Neither estimated
     position accuracy nor pointing precision are bounded by pixel
     size.
