@@ -291,13 +291,19 @@ of presentation project with presentation-project-id."
          *dispatch-table*)
 
 ;;; for debugging; this is the multi-file OpenLayers
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/openlayers/" "OpenLayers-2.10/") ;TODO: is this secure enough?
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/openlayers/" "OpenLayers-2.10/")
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/ol/" "ol/") ;TODO: is this secure enough?
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/ol/" "ol/")
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/css/" "css/") ;TODO: is this secure enough?
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/css/" "css/") ;TODO: merge this style.css into public_html/style.css
+         *dispatch-table*)
+
+(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/public_html/" "public_html/")
+         *dispatch-table*)
+
+(pushnew (create-static-file-dispatcher-and-handler "/favicon.ico" "public_html/favicon.ico")
          *dispatch-table*)
 
 (define-easy-handler (phoros.js :uri "/phoros-lib/phoros.js") ()

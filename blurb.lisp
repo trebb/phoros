@@ -35,7 +35,7 @@
        (:div :style "clear:both"
              (:div :style "float:left"
                    (format s "This is Phoros version ~A " (phoros-version))
-                   (:a :href "http://phoros.berlios.de" (:img :src "/phoros-lib/css/phoros-logo-plain.png" :alt "Phoros"))
+                   (:a :href "http://phoros.berlios.de" (:img :src "/phoros-lib/public_html/phoros-logo-plain.png" :alt "Phoros"))
                    ", a means for photogrammetric road survey written by"
                    (:a :href "mailto:Bert Burgemeister <trebbu@googlemail.com>" "Bert Burgemeister.")
                    :br

@@ -19,7 +19,7 @@ LISP = $(shell echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
-OPENLAYERS_DIR = ol/		#for compiled/shrunk OpenLayers
+OPENLAYERS_DIR = ol		#for compiled/shrunk OpenLayers
 OPENLAYERS_JS = ol/OpenLayers.js
 OPENLAYERS_THEME = ol/theme
 OPENLAYERS_IMG = ol/img
@@ -82,23 +82,25 @@ $(INDEX_HTML) : doc/index.org $(PHOROS_HELP_OUTPUT) $(LOGO)
 $(PUBLIC_CSS) : doc/style.css public_html
 	cp $< $@
 
-tarball : phoros TimeSteps.history $(SERVER_CSS) $(OPENLAYERS_DIR) \
-          $(LOGO) $(LIBPHOML_DIR)/$(LIBPHOML)
+tarball : phoros TimeSteps.history README \
+          $(SERVER_CSS) $(OPENLAYERS_DIR) \
+          $(LOGO) $(FAVICON) $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf - \
 		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
-		phoros TimeSteps.history $(SERVER_CSS) $(SERVER_JAVASCRIPT) \
-		$(LOGO) --directory=$(LIBPHOML_DIR) \
+		phoros TimeSteps.history README \
+		$(SERVER_CSS) $(OPENLAYERS_DIR) \
+		$(LOGO) $(FAVICON) --directory=$(LIBPHOML_DIR) \
 		$(LIBPHOML) \
 		| gzip -f \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
-
-clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO) $(FAVICON) $(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
-	rm -rf $(OPENLAYERS_DIR)
 
 html : $(INDEX_HTML) $(PUBLIC_CSS) $(FAVICON)
 
 git-tag : phoros
 	git tag -a $(PHOROS_VERSION) -m ""
 
-.PHONY : html clean git-tag
+clean :
+	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO) $(FAVICON) $(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
+	rm -rf $(OPENLAYERS_DIR)
+
+.PHONY : tarball html git-tag clean
