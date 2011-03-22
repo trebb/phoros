@@ -19,7 +19,7 @@
 (defpackage :phoros
   (:use :cl
         :command-line-arguments
-        :photogrammetrie
+        :phoml
         :hunchentoot
         :parenscript
         :postmodern))

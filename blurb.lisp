@@ -41,7 +41,7 @@
                    :br
                    "Its photogrammetric workhorse is "
                    (:a :href "mailto:Steffen.Scheller.home@gmail.com" "Steffen Scheller's ")
-                   (format s "library PhoML (version ~A)." (photogrammetrie:get-version-number))
+                   (format s "library PhoML (version ~A)." (phoml:get-version-number))
                    :br
                    (format s "Phoros is implemented using Steel Bank Common Lisp (version ~A)" (lisp-implementation-version))
                    (:a :href "http://www.sbcl.org" (:img :src "http://www.sbcl.org/sbclbutton.png" :alt "SBCL"))

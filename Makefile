@@ -17,7 +17,7 @@
 
 LISP = $(shell echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
-LIBPHOML = libphotogrammetrie.so
+LIBPHOML = libphoml.so
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
 OPENLAYERS_DIR = ol/		#for compiled/shrunk OpenLayers
 OPENLAYERS_JS = ol/OpenLayers.js

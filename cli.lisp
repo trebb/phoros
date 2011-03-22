@@ -370,7 +370,7 @@ the key argument, or the whole dotted string."
         (asdf:component-version (asdf:find-system :phoros)))
       (lisp-implementation-type) (lisp-implementation-version)
       (proj:version)
-      (photogrammetrie:get-version-number)))))
+      (phoml:get-version-number)))))
 
 (defun cli-licence-action (&rest rest)
   "Print --licence boilerplate."

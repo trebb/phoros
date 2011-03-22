@@ -12,7 +12,7 @@
 in a PostgreSQL database and then makes it available over a web
 interface.                              http://phoros.berlios.de"
 
-  :version "0.2.1"
+  :version "0.2.2"
   ;; :version is MAJOR.MINOR.REVISION where
   ;; different MAJOR means data incompatibility,
   ;; different MINOR means changed feature set,
@@ -47,7 +47,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "stuff-db")
                (:file "cli"))
 
-  :depends-on (:photogrammetrie
+  :depends-on (:phoml
                :hunchentoot
                :cl-who
                :parenscript

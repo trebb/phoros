@@ -24,9 +24,9 @@
 (defparameter *tt* nil)
 
 (cffi:define-foreign-library phoml
-  (:unix (:or "./libphotogrammetrie.so"
-              "./phoml/lib/libphotogrammetrie.so"))
-  (t (:default "libphotogrammetrie")))
+  (:unix (:or "./libphoml.so"
+              "./phoml/lib/libphoml.so"))
+  (t (:default "libphoml")))
 
 (defparameter *standard-coordinates* 4326
   "EPSG code of the coordinate system that we use for communication.")
