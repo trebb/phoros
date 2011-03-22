@@ -98,4 +98,7 @@ clean :
 
 html : $(INDEX_HTML) $(PUBLIC_CSS) $(FAVICON)
 
-.PHONY : html
+git-tag : phoros
+	git tag -a $(PHOROS_VERSION) -m ""
+
+.PHONY : html clean git-tag
