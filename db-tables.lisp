@@ -908,11 +908,17 @@ wasn't any."
 (defun create-user (name &key
                     (password (error "password needed."))
                     (full-name (error "full-name needed."))
+                    (user-role "read")
                     presentation-projects)
   "Create a fresh user entry or update an existing one with matching
 name.  Assign it presentation-projects, deleting any previously
 existing assignments."
   (assert-phoros-db-major-version)
+  (assert (or (string-equal "read" user-role)
+              (string-equal "write" user-role)
+              (string-equal "admin" user-role))
+          (user-role)
+          "~A is not a valid user-role." user-role)
   (let ((user (or (car (select-dao 'sys-user (:= 'user-name name)))                  
                   (make-instance 'sys-user :user-name name)))
         fresh-user-p)
@@ -931,7 +937,7 @@ existing assignments."
               :user-id (user-id user)
               :presentation-project-id
               (presentation-project-id presentation-project)
-              :user-role "read")) ;TODO: currently unused
+              :user-role (string-downcase user-role))) ;TODO: we should be able to set role per presentation-project.
             (warn
              "There is no presentation project ~A" presentation-project-name))))
     fresh-user-p))

@@ -262,6 +262,9 @@
      :documentation "Create or update user (specified by their ID) of certain presentation projects.")
     ("user-password" :type string :documentation "User's password.")
     ("user-full-name" :type string :documentation "User's real name.")
+    ("user-role"
+     :type string :initial-value "read"
+     :documentation "User's permission on their projects.  One of \"read\", \"write\", or \"admin\" where \"write\" is the same as \"read\" plus permission to add user points and delete them if written by same user; and \"admin\" is the same as \"write\" plus permission to delete points written by other users.")
     ("presentation-project" :type string :list t :optional t
      :documentation "Presentation project the user is allowed to see.  Repeat if necessary.")
     ("delete-user"
@@ -679,17 +682,19 @@ trigger-time to stdout."
   (let (fresh-user-p)
     (destructuring-bind (&key host port database (user "") (password "") use-ssl
                               log-dir
-                              user-password user-full-name presentation-project
+                              user-password user-full-name user-role presentation-project
                               &allow-other-keys)
         (process-command-line-options *cli-options* *command-line-arguments*)
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
-        (setf fresh-user-p (create-user presentation-project-user :password user-password :full-name user-full-name :presentation-projects presentation-project)))
+        (setf fresh-user-p (create-user presentation-project-user :password user-password :full-name user-full-name :user-role user-role :presentation-projects presentation-project)))
       (cl-log:log-message
        :db-dat ;TODO: We're listing nonexistent p-projects here as well.
-       "~:[Updated~;Created~] user ~A (~A) who has access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
-       fresh-user-p presentation-project-user user-full-name presentation-project database host port))))
+       "~:[Updated~;Created~] user ~A (~A) who has ~A access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
+       fresh-user-p presentation-project-user
+       user-full-name user-role
+       presentation-project database host port))))
 
 (defun delete-user-action (presentation-project-user)
   "Delete a presentation project user."
