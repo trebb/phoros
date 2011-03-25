@@ -40,7 +40,9 @@
     ("create-sys-tables" :action #'create-sys-tables-action
      :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")
     ("create-acquisition-project" :type string :action #'create-acquisition-project-action
-     :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")))
+     :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")
+    ("list-acquisition-projects" :type string
+     :documentation "TODO: actually list something.")))
 
 (defparameter *cli-db-connection-options*
   '((("host" #\H) :type string :initial-value "localhost" :documentation "Database server.")
@@ -241,7 +243,7 @@
      :documentation "Create a fresh presentation project which is to expose a set of measurements to certain users.")
     ("delete-presentation-project"
      :type string :action #'delete-presentation-project-action
-     :documentation "Delete a presentation project.")
+     :documentation "Ask for confirmation, then delete the presentation project including its table of user-generated points.")
     ("list-presentation-project"
      :type string :optional t :action #'list-presentation-project-action
      :documentation "List one presentation project if specified, or all presentation projects if not.")
@@ -623,6 +625,7 @@ trigger-time to stdout."
          "~:[Tried to recreate an existing~;Created a fresh~] presentation project by the name of ~A in database ~A at ~A:~D."
          fresh-project-p presentation-project-name database host port)))))
 
+
 (defun delete-presentation-project-action (presentation-project-name)
   "Delete a presentation project."
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
@@ -630,14 +633,17 @@ trigger-time to stdout."
                             &allow-other-keys)
       (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
-    (with-connection (list database user password host :port port
-                           :use-ssl (s-sql:from-sql-name use-ssl))
-      (let ((project-did-exist-p
-             (delete-presentation-project presentation-project-name)))
-        (cl-log:log-message
-         :db-dat
-         "~:[Tried to delete nonexistent~;Deleted~] presentation project ~A from database ~A at ~A:~D."
-         project-did-exist-p presentation-project-name database host port)))))
+    (when (yes-or-no-p
+           "You asked me to delete presentation-project ~A (including its table of user-defined points usr-~:*~A-point) from database ~A at ~A:~D.  Proceed?"
+           presentation-project-name database host port)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl))
+        (let ((project-did-exist-p
+               (delete-presentation-project presentation-project-name)))
+          (cl-log:log-message
+           :db-dat
+           "~:[Tried to delete nonexistent~;Deleted~] presentation project ~A from database ~A at ~A:~D."
+           project-did-exist-p presentation-project-name database host port))))))
 
 (defun add-to-presentation-project-action (presentation-project-name)
   "Add measurements to a presentation project."

@@ -727,6 +727,55 @@ are used by all projects.  The database should probably be empty."
 ;;  (:documentation
 ;;   "Representation of a view into all relevant data for one image.  TODO: use mixins to avoid repetition."))
 
+(defclass user-point-template ()
+  (;; We need a slot user-point-id which is defined in our subclasses.
+   (user-id
+    :initarg :user-id
+    :col-type integer
+    :documentation "User who stored this point.")
+   (attribute
+    :initarg :attribute
+    :col-type text
+    :documentation "Class of this user point.")
+   (description
+    :initarg :description
+    :col-type text
+    :documentation "User comment regarding this point.")
+   (numeric-description
+    :initarg :numeric-description
+    :col-type text
+    :documentation "User-generated point id regarding this point.")
+;;   (longitude
+;;    :col-type double-precision
+;;    :reader longitude
+;;    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+;;   (latitude
+;;    :col-type double-precision
+;;    :reader latitude
+;;    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+;;   (ellipsoid-height
+;;    :col-type double-precision
+;;    :reader ellipsoid-height
+;;    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+   (coordinates
+    :col-type (or db-null geometry)
+    :documentation "Geographic coordinates.")
+   (stdx-global
+    :initarg :stdx-global
+    :col-type double-precision
+    :documentation "Component of standard deviation, in metres.")
+   (stdy-global
+    :initarg :stdy-global
+    :col-type double-precision
+    :documentation "Component of standard deviation, in metres.")
+   (stdz-global
+    :initarg :stdz-global
+    :col-type double-precision
+    :documentation "Component of standard deviation, in metres."))
+  (:metaclass dao-class)
+  (:keys user-point-id)
+  (:documentation "Points defined by users."))
+
 (defclass point-data (point-template)
   ((point-id
     :accessor point-id
@@ -747,6 +796,16 @@ are used by all projects.  The database should probably be empty."
 ;;  (:metaclass dao-class)
 ;;  (:table-name nil))                    ;to be redefined
 
+(defclass user-point-data (user-point-template)
+  ((user-point-id
+    :accessor user-point-id
+    :initform nil
+    :col-type integer
+    :col-default nil)                   ;to be redefined
+   user-point-id-sequence-name)         ;to be redefined)
+  (:metaclass dao-class)
+  (:table-name nil))                    ;to be redefined
+
 (let ((table-prefix "dat-"))
   (defun point-data-table-name (common-table-name)
     (make-symbol (format nil "~A~A-point" table-prefix common-table-name)))
@@ -759,6 +818,13 @@ are used by all projects.  The database should probably be empty."
 
   (defun aggregate-view-name (common-table-name)
     (make-symbol (format nil "~A~A-aggregate" table-prefix common-table-name))))
+
+(let ((table-prefix "usr-"))
+  (defun user-point-table-name (presentation-project-name)
+    (make-symbol (format nil "~A~A-point" table-prefix presentation-project-name)))
+
+  (defun user-point-id-seq-name (presentation-project-name)
+    (make-symbol (format nil "~A~A-point-id-seq" table-prefix presentation-project-name))))
 
 (defun create-data-table-definitions (common-table-name)
   "Define or redefine a bunch of dao-classes which can hold measuring
@@ -810,6 +876,26 @@ common-table-name plus type-specific prefix and suffix."
                   :on-delete :cascade :on-update :cascade)
         (!foreign 'sys-measurement 'measurement-id
                   :on-delete :cascade :on-update :cascade)))))
+
+(defun create-user-table-definition (presentation-project-name)
+  "Define or redefine a dao-class which can hold user points and which
+is connected to a database table named presentation-project-name plus
+type-specific prefix and suffix."
+  (let ((user-point-table-name (user-point-table-name presentation-project-name))
+        (user-point-id-sequence-name (user-point-id-seq-name presentation-project-name)))
+    (eval
+     `(defclass user-point (user-point-template)
+        ((user-point-id
+          :accessor point-id
+          :initform nil
+          :col-type integer
+          :col-default (:nextval ,user-point-id-sequence-name))) ; redefinition
+        (:metaclass dao-class)
+        (:table-name ,user-point-table-name))) ;redefinition
+    (deftable user-point
+      (:create-sequence user-point-id-sequence-name)
+      (!dao-def)
+      (!!index user-point-table-name 'coordinates :index-type :gist))))
 
 (defun create-aggregate-view (common-table-name)
   "Create a view of a set of measuring and calibration data
@@ -892,9 +978,11 @@ common-table-name."
 
 (defun create-presentation-project (project-name)
   "Create a fresh presentation project in current database.  Return
-dao if one was created, or nil if it did exist already."
+dao if one was created, or nil if it existed already."
   (assert-phoros-db-major-version)
   (unless (get-dao 'sys-presentation-project project-name)
+    (create-user-table-definition project-name)
+    (create-table 'user-point)
     (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))))
 
@@ -903,7 +991,12 @@ dao if one was created, or nil if it did exist already."
 wasn't any."
   (assert-phoros-db-major-version)
   (let ((project (get-dao 'sys-presentation-project project-name)))
-    (when project (delete-dao project))))
+    (when project
+      (delete-dao project)
+      (execute
+       (:drop-table :if-exists (user-point-table-name project-name)))
+      (execute
+       (:drop-sequence :if-exists (user-point-id-seq-name project-name))))))
 
 (defun create-user (name &key
                     (password (error "password needed."))

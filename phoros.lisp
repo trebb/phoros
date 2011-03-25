@@ -127,22 +127,29 @@ user password host &key (port 5432) use-ssl)."
     (let* ((user-name (post-parameter "user-name"))
            (user-password (post-parameter "user-password"))
            (presentation-project-id (session-value 'presentation-project-id))
-           (user-full-name
+           (user-info
             (when presentation-project-id
               (query
-               (:select 'user-full-name
+               (:select 'sys-user.user-full-name
+                        'sys-user.user-id
+                        'sys-user-role.user-role
                         :from 'sys-user-role 'sys-user
                         :where (:and
                                 (:= 'presentation-project-id presentation-project-id)
                                 (:= 'sys-user-role.user-id 'sys-user.user-id)
                                 (:= 'user-name user-name)
                                 (:= 'user-password user-password)))
-               :single))))
-      (if user-full-name
+               :row)))
+           (user-full-name (first user-info))
+           (user-id (second user-info))
+           (user-role (third user-info)))
+      (if user-role
           (progn
             (setf (session-value 'authenticated-p) t
                   (session-value 'user-name) user-name
-                  (session-value 'user-full-name) user-full-name)
+                  (session-value 'user-full-name) user-full-name
+                  (session-value 'user-id) user-id
+                  (session-value 'user-role) user-role)            
             (redirect "/phoros-lib/view" :add-session-id t))
           "Rejected."))))
 
@@ -210,6 +217,42 @@ user password host &key (port 5432) use-ssl)."
                        count)
                       :alists))))))
       (json:encode-json-to-string result))))
+
+(define-easy-handler (store-point :uri "/phoros-lib/store-point" :default-request-type :post) ()
+  "Receive point sent by user, store it into database."
+  (when (session-value 'authenticated-p)
+    (let* ((presentation-project-name (session-value 'presentation-project-name))
+           (user-id (session-value 'user-id))
+           (user-role (session-value 'user-role))
+           (data (json:decode-json-from-string (raw-post-data)))
+           (longitude-input (cdr (assoc :longitude data)))
+           (latitude-input (cdr (assoc :latitude data)))
+           (ellipsoid-height-input (cdr (assoc :ellipsoid-height data)))
+           (stdx-global (cdr (assoc :stdx-global data)))
+           (stdy-global (cdr (assoc :stdy-global data)))
+           (stdz-global (cdr (assoc :stdz-global data)))
+           (attribute (cdr (assoc :attribute data)))
+           (description (cdr (assoc :description data)))
+           (numeric-description (cdr (assoc :numeric-description data)))
+           (point-form
+            (format nil "SRID=4326; POINT(~S ~S ~S)"
+                    longitude-input latitude-input ellipsoid-height-input))
+           (user-point-table-name
+            (user-point-table-name presentation-project-name)))
+      (assert (not (string-equal user-role "read")) ;that is, "write" or "admin"
+              () "No write permission.")
+      (with-connection *postgresql-credentials*
+        (assert
+         (= 1 (execute (:insert-into user-point-table-name :set
+                                     'user-id user-id
+                                     'coordinates (:st_geomfromewkt point-form)
+                                     'stdx-global stdx-global
+                                     'stdy-global stdy-global
+                                     'stdz-global stdz-global
+                                     'attribute attribute
+                                     'description description
+                                     'numeric-description numeric-description)))
+         () "No point stored.  This should not happen.")))))
 
 (defun common-table-names (presentation-project-id)
   "Return a list of common-table-names of table sets that contain data
@@ -344,6 +387,7 @@ of presentation project with presentation-project-id."
       (defvar images (array) "Collection of the photos currently shown.")
       (defvar streetmap "The streetmap shown to the user.")
       (defvar streetmap-estimated-position-layer)
+      (defvar point-attributes-select "The HTML element for selecting user point attributes.")
               
       (defun *image ()
         "Anything necessary to deal with a photo."
@@ -390,10 +434,20 @@ a image url."
 
       (defun remove-work-layers ()
         "Destroy user-generated layers in streetmap and in all images."
+        (disable-element-with-id "finish-point-button")
+        (disable-element-with-id "remove-work-layers-button")
         (remove-any-layers "Epipolar Line")
         (remove-any-layers "Active Point")
         (remove-any-layers "Estimated Position")
         (setf pristine-images-p t))
+
+      (defun enable-element-with-id (id)
+        "Activate HTML element with id=\"id\"."
+        (setf (chain document (get-element-by-id id) disabled) nil))
+
+      (defun disable-element-with-id (id)
+        "Grey out HTML element with id=\"id\"."
+        (setf (chain document (get-element-by-id id) disabled) t))
 
       (defun present-photos ()
         "Handle the response triggered by request-photos."
@@ -410,6 +464,8 @@ a image url."
 
       (defun request-photos (event)
         "Handle the response to a click into streetmap; fetch photo data."
+        (disable-element-with-id "finish-point-button")
+        (disable-element-with-id "remove-work-layers-button")
         (remove-any-layers "Estimated Position")
         (let ((lonlat
                ((@ ((@ streetmap get-lon-lat-from-pixel) (@ event xy)) transform)
@@ -432,6 +488,7 @@ a image url."
       (defun draw-epipolar-line ()
         "Draw an epipolar line from response triggered by clicking
 into a (first) photo."
+        (enable-element-with-id "remove-work-layers-button")
         (let ((epipolar-line ((@ *json* parse)
                               (@ this epipolar-request-response response-text))))
           (chain this epipolar-layer
@@ -444,20 +501,23 @@ into a (first) photo."
                                        (@ x :m) (@ x :n)))))))))))))
       ;; either *line-string or *multi-point are usable
     
+      (defvar global-position "Coordinates of the current estimated position")
+
       (defun draw-estimated-positions ()
         "Draw into streetmap and into all images points at Estimated
 Position.  Estimated Position is the point returned so far from
 photogrammetric calculations that are triggered by clicking into
 another photo."
+        (enable-element-with-id "finish-point-button")
         (let* ((estimated-positions-request-response
                 ((@ *json* parse)
                  (getprop this
                           'estimated-positions-request-response
                           'response-text)))
-               (global-position
-                (aref estimated-positions-request-response 0))
                (estimated-positions
                 (aref estimated-positions-request-response 1)))
+          (setf global-position
+                (aref estimated-positions-request-response 0))
           (debug-info global-position)
           (setf streetmap-estimated-position-layer
                 (new ((@ *open-layers *layer *vector) "Estimated Position")))
@@ -482,6 +542,36 @@ another photo."
                            (new ((@ *open-layers *geometry *point)
                                  (getprop p 'm)
                                  (getprop p 'n))))))))))
+
+      (defun finish-point ()
+        "Send current global-position as a user point to the database."
+        (debug-info global-position)
+        (let ((global-position-etc global-position))
+          (setf (chain global-position-etc attribute)
+                (chain (elt (chain point-attributes-select options)
+                            (chain point-attributes-select options selected-index))
+                       text))
+          (setf (chain global-position-etc description)
+                (chain document (get-element-by-id "point-description") value))
+          (setf (chain global-position-etc numeric-description)
+                (chain document (get-element-by-id "point-numeric-description") value))
+          (setf content 
+                ((@ *json* stringify) global-position-etc))     ; TODO: use OpenLayer's JSON.
+          (setf photo-request-response
+                ((@ *open-layers *Request *POST*)
+                 (create :url "/phoros-lib/store-point"
+                         :data content
+                         :headers (create "Content-type" "text/plain"
+                                          "Content-length" (@ content length))
+                         :success remove-work-layers)))
+          (let* ((previous-numeric-description ;increment if possible
+                  (chain global-position-etc numeric-description))
+                 (current-numeric-description
+                  (1+ (parse-int previous-numeric-description 10))))
+            (setf (chain document (get-element-by-id "point-numeric-description") value)
+                  (if (is-finite current-numeric-description)
+                      current-numeric-description
+                      previous-numeric-description)))))
 
       (defun draw-active-point ()
         "Draw an Active Point, i.e. a point used in subsequent
@@ -559,6 +649,7 @@ photogrammetric calculations."
                                    :success (getprop clicked-image
                                                      'draw-estimated-positions)
                                    :scope clicked-image)))))))))
+
       (defun show-photo ()
         "Show the photo described in this object's photo-parameters."
         (loop
@@ -601,6 +692,13 @@ image-index in array images."
       
       (defun init ()
         "Prepare user's playground."
+        (disable-element-with-id "finish-point-button")
+        (disable-element-with-id "remove-work-layers-button")
+        (setf point-attributes-select (chain document (get-element-by-id "point-attribute")))
+        (loop for i in '("solitary" "polyline" "polygon") do
+             (setf point-attribute-item (chain document (create-element "option")))
+             (setf (chain point-attribute-item text) i)
+             (chain point-attributes-select (add point-attribute-item null))) ;TODO: input of user-defined attributes
         (setf streetmap
               (new (chain
                     *open-layers
@@ -659,7 +757,9 @@ image-index in array images."
         (loop
            for i from 0 to (lisp (1- *number-of-images*))
            do
-           (initialize-image i))))))
+           (initialize-image i))
+        ))))
+
 
 (define-easy-handler (view :uri "/phoros-lib/view" :default-request-type :post) ()
   "Serve the client their main workspace."
@@ -678,7 +778,8 @@ image-index in array images."
            (who:htm
              (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js")
              (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
-             (:script :src "/phoros-lib/openlayers/lib/proj4js.js")) ;TODO: we don't seem to use this
+             ;;(:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we don't seem to use this
+             )
            (who:htm (:script :src "/phoros-lib/ol/OpenLayers.js")))
        (:script :src "/phoros-lib/phoros.js")
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
@@ -687,11 +788,20 @@ image-index in array images."
              (:h1 :id "title" (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
              (:p :id "shortdesc"
                  "unfinished prototype")
-             (:div :id "finish-point-button" :style "float:left" (:button :type "button" :onclick (ps ()) "finish point"))
-             (:div :id "remove-work-layers-button" :style "float:left" (:button :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)"))
-             (:div :id "blurb-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\"" "blurb"))
-             (:div :id "logout-button" :style "float:left" (:button :type "button" :onclick "self.location.href = \"/phoros-lib/logout\"" "bye"))
-             
+             (if (string-equal (session-value 'user-role) "read")
+                 (who:htm
+                  (:button :style "float:left" :id "finish-point-button" :disabled t :type "button" :onclick (ps (finish-point)) "finish point")
+                  (:select :style "float:left" :id "point-attribute" :disabled t :size 1 :name "point-attribute")
+                  (:input :style "float:left" :id "point-description" :disabled t :type "text" :name "point-description")
+                  (:input :style "float:left" :id "point-numeric-description" :disabled t :type "text" :name "point-numeric-description"))
+                 (who:htm               ;TODO: make user-role known to client; disable stuff not here but in (init) etc. in javascript
+                  (:button :style "float:left" :id "finish-point-button" :type "button" :onclick (ps (finish-point)) "finish point")
+                  (:select :style "float:left" :id "point-attribute" :size 1 :name "point-attribute")
+                  (:input :style "float:left" :id "point-description" :type "text" :name "point-description")
+                  (:input :style "float:left" :id "point-numeric-description" :type "text" :name "point-numeric-description")))
+             (:button :style "float:left" :id "remove-work-layers-button" :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)")
+             (:button :style "float:left" :id "blurb-button" :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\"" "blurb")
+             (:button :style "float:left" :id "logout-button" :type "button" :onclick "self.location.href = \"/phoros-lib/logout\"" "bye")
              (:div :style "clear:both"
                    (:div :id "streetmap" :class "smallmap" :style "float:left")
                    (loop
