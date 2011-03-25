@@ -383,12 +383,14 @@ of presentation project with presentation-project-id."
             (new ((@ *open-layers *projection) "EPSG:4326")))
       (setf spherical-mercator
             (new ((@ *open-layers *projection) "EPSG:900913")))
-          
+      (defvar user-role (lisp (string-downcase (session-value 'user-role)))
+        "User's permissions")
       (defvar images (array) "Collection of the photos currently shown.")
       (defvar streetmap "The streetmap shown to the user.")
       (defvar streetmap-estimated-position-layer)
-      (defvar point-attributes-select "The HTML element for selecting user point attributes.")
-              
+      (defvar point-attributes-select
+        "The HTML element for selecting user point attributes.")
+      
       (defun *image ()
         "Anything necessary to deal with a photo."
         (setf (getprop this 'map)
@@ -500,7 +502,7 @@ into a (first) photo."
                                  (new ((@ *open-layers *geometry *point)
                                        (@ x :m) (@ x :n)))))))))))))
       ;; either *line-string or *multi-point are usable
-    
+      
       (defvar global-position "Coordinates of the current estimated position")
 
       (defun draw-estimated-positions ()
@@ -508,7 +510,8 @@ into a (first) photo."
 Position.  Estimated Position is the point returned so far from
 photogrammetric calculations that are triggered by clicking into
 another photo."
-        (enable-element-with-id "finish-point-button")
+        (unless (== user-role "read")
+          (enable-element-with-id "finish-point-button"))
         (let* ((estimated-positions-request-response
                 ((@ *json* parse)
                  (getprop this
@@ -533,15 +536,15 @@ another photo."
              for i in images
              for p in estimated-positions
              do
-             (setf (@ i estimated-position-layer)
-                   (new ((@ *open-layers *layer *vector) "Estimated Position")))
-             ((@ i map add-layer) (@ i estimated-position-layer))
-             (chain i estimated-position-layer
-                    (add-features
-                     (new ((@ *open-layers *feature *vector)
-                           (new ((@ *open-layers *geometry *point)
-                                 (getprop p 'm)
-                                 (getprop p 'n))))))))))
+               (setf (@ i estimated-position-layer)
+                     (new ((@ *open-layers *layer *vector) "Estimated Position")))
+               ((@ i map add-layer) (@ i estimated-position-layer))
+               (chain i estimated-position-layer
+                      (add-features
+                       (new ((@ *open-layers *feature *vector)
+                             (new ((@ *open-layers *geometry *point)
+                                   (getprop p 'm)
+                                   (getprop p 'n))))))))))
 
       (defun finish-point ()
         "Send current global-position as a user point to the database."
@@ -582,7 +585,7 @@ photogrammetric calculations."
                       (new ((@ *open-layers *geometry *point)
                             (getprop this 'photo-parameters 'm)
                             (getprop this 'photo-parameters 'n))))))))
-    
+      
       (defun image-click-action (clicked-image)
         (lambda (event)
           "Do appropriate things when an image is clicked into."
@@ -607,48 +610,48 @@ photogrammetric calculations."
              (progn
                (loop
                   for i across images do
-                  (unless (== i clicked-image)
-                    (setf
-                     (@ i epipolar-layer) (new ((@ *open-layers *layer *vector)
-                                                "Epipolar Line"))
-                     content ((@ *json* stringify)
-                              (append (array photo-parameters)
-                                      (@ i photo-parameters)))
-                     (@ i epipolar-request-response)
-                     ((@ *open-layers *Request *POST*)
-                      (create :url "/phoros-lib/epipolar-line"
-                              :data content
-                              :headers (create "Content-type" "text/plain"
-                                               "Content-length"
-                                               (@ content length))
-                              :success (getprop i 'draw-epipolar-line)
-                              :scope i)))
-                    ((@ i map add-layer) (@ i epipolar-layer)))))
-                (progn
-                  (remove-any-layers "Epipolar Line")
-                  (remove-any-layers "Estimated Position")
-                  (let* ((active-pointed-photo-parameters
-                          (loop
-                             for i across images
-                             when (has-layer-p (getprop i 'map) "Active Point")
-                             collect (getprop i 'photo-parameters)))
-                         (content
-                          ((@ *json* stringify)
-                           (list active-pointed-photo-parameters
-                                 (chain images
-                                        (map #'(lambda (x)
-                                                 (getprop
-                                                  x 'photo-parameters))))))))
-                    (setf (@ clicked-image estimated-positions-request-response)
-                          ((@ *open-layers *Request *POST*)
-                           (create :url "/phoros-lib/estimated-positions"
-                                   :data content
-                                   :headers (create "Content-type" "text/plain"
-                                                    "Content-length"
-                                                    (@ content length))
-                                   :success (getprop clicked-image
-                                                     'draw-estimated-positions)
-                                   :scope clicked-image)))))))))
+                    (unless (== i clicked-image)
+                      (setf
+                       (@ i epipolar-layer) (new ((@ *open-layers *layer *vector)
+                                                  "Epipolar Line"))
+                       content ((@ *json* stringify)
+                                (append (array photo-parameters)
+                                        (@ i photo-parameters)))
+                       (@ i epipolar-request-response)
+                       ((@ *open-layers *Request *POST*)
+                        (create :url "/phoros-lib/epipolar-line"
+                                :data content
+                                :headers (create "Content-type" "text/plain"
+                                                 "Content-length"
+                                                 (@ content length))
+                                :success (getprop i 'draw-epipolar-line)
+                                :scope i)))
+                      ((@ i map add-layer) (@ i epipolar-layer)))))
+             (progn
+               (remove-any-layers "Epipolar Line")
+               (remove-any-layers "Estimated Position")
+               (let* ((active-pointed-photo-parameters
+                       (loop
+                          for i across images
+                          when (has-layer-p (getprop i 'map) "Active Point")
+                          collect (getprop i 'photo-parameters)))
+                      (content
+                       ((@ *json* stringify)
+                        (list active-pointed-photo-parameters
+                              (chain images
+                                     (map #'(lambda (x)
+                                              (getprop
+                                               x 'photo-parameters))))))))
+                 (setf (@ clicked-image estimated-positions-request-response)
+                       ((@ *open-layers *Request *POST*)
+                        (create :url "/phoros-lib/estimated-positions"
+                                :data content
+                                :headers (create "Content-type" "text/plain"
+                                                 "Content-length"
+                                                 (@ content length))
+                                :success (getprop clicked-image
+                                                  'draw-estimated-positions)
+                                :scope clicked-image)))))))))
 
       (defun show-photo ()
         "Show the photo described in this object's photo-parameters."
@@ -692,8 +695,10 @@ image-index in array images."
       
       (defun init ()
         "Prepare user's playground."
-        (disable-element-with-id "finish-point-button")
-        (disable-element-with-id "remove-work-layers-button")
+        (unless (== user-role "read")
+          (enable-element-with-id "point-attribute")
+          (enable-element-with-id "point-description")
+          (enable-element-with-id "point-numeric-description"))
         (setf point-attributes-select (chain document (get-element-by-id "point-attribute")))
         (loop for i in '("solitary" "polyline" "polygon") do
              (setf point-attribute-item (chain document (create-element "option")))
@@ -785,27 +790,22 @@ image-index in array images."
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
        )
       (:body :onload (ps (init))
-             (:h1 :id "title" (who:str (concatenate 'string "Phoros: " (session-value 'presentation-project-name))))
-             (:p :id "shortdesc"
-                 "unfinished prototype")
-             (if (string-equal (session-value 'user-role) "read")
-                 (who:htm
-                  (:button :style "float:left" :id "finish-point-button" :disabled t :type "button" :onclick (ps (finish-point)) "finish point")
-                  (:select :style "float:left" :id "point-attribute" :disabled t :size 1 :name "point-attribute")
-                  (:input :style "float:left" :id "point-description" :disabled t :type "text" :name "point-description")
-                  (:input :style "float:left" :id "point-numeric-description" :disabled t :type "text" :name "point-numeric-description"))
-                 (who:htm               ;TODO: make user-role known to client; disable stuff not here but in (init) etc. in javascript
-                  (:button :style "float:left" :id "finish-point-button" :type "button" :onclick (ps (finish-point)) "finish point")
-                  (:select :style "float:left" :id "point-attribute" :size 1 :name "point-attribute")
-                  (:input :style "float:left" :id "point-description" :type "text" :name "point-description")
-                  (:input :style "float:left" :id "point-numeric-description" :type "text" :name "point-numeric-description")))
+             (:h1 :id "title" (who:str (format nil "Phoros: ~A (~A) with ~A permission on ~A"
+                                               (session-value 'user-full-name)
+                                               (session-value 'user-name)
+                                               (session-value 'user-role)
+                                               (session-value 'presentation-project-name))))
+             (:button :style "float:left" :id "finish-point-button" :disabled t :type "button" :onclick (ps (finish-point)) "finish point")
+             (:select :style "float:left" :id "point-attribute" :disabled t :size 1 :name "point-attribute")
+             (:input :style "float:left" :id "point-description" :disabled t :type "text" :name "point-description")
+             (:input :style "float:left" :id "point-numeric-description" :disabled t :type "text" :name "point-numeric-description")
              (:button :style "float:left" :id "remove-work-layers-button" :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)")
              (:button :style "float:left" :id "blurb-button" :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\"" "blurb")
              (:button :style "float:left" :id "logout-button" :type "button" :onclick "self.location.href = \"/phoros-lib/logout\"" "bye")
              (:div :style "clear:both"
                    (:div :id "streetmap" :class "smallmap" :style "float:left")
                    (loop
-                      for i from 0 to (1- *number-of-images*) do 
+                      for i from 0 below *number-of-images* do 
                         (who:htm (:div :id i :class "image" :style "float:left")))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
