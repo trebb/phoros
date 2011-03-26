@@ -976,6 +976,26 @@ common-table-name."
    (make-instance 'sys-acquisition-project
                   :common-table-name common-table-name)))
 
+(defun delete-acquisition-project (common-table-name)
+  "Delete the acquisition project that uses common-table-name.  Return
+nil if there wasn't any."
+  (assert-phoros-db-major-version)
+  (let ((project
+         (car (select-dao 'sys-acquisition-project
+                          (:= 'common-table-name common-table-name)))))
+    (when project
+      (delete-dao project)
+      (execute (:drop-view :if-exists (aggregate-view-name common-table-name)))
+      (execute (:drop-table :if-exists (image-data-table-name common-table-name)))
+      (execute (:drop-table :if-exists (point-data-table-name common-table-name)))
+      (execute (:drop-sequence :if-exists (point-id-seq-name common-table-name))))))
+
+(defun delete-measurement (measurement-id)
+  "Delete measurement with measurement-id if any; return nil if not."
+  (assert-phoros-db-major-version)
+  (let ((measurement (get-dao 'sys-measurement measurement-id)))
+    (when measurement (delete-dao measurement))))
+
 (defun create-presentation-project (project-name)
   "Create a fresh presentation project in current database.  Return
 dao if one was created, or nil if it existed already."

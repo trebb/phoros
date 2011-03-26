@@ -38,14 +38,11 @@
     ("nuke-all-tables" :action #'nuke-all-tables-action
      :documentation "Ask for confirmation, then delete anything in database and exit.")
     ("create-sys-tables" :action #'create-sys-tables-action
-     :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")
-    ("create-acquisition-project" :type string :action #'create-acquisition-project-action
-     :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")
-    ("list-acquisition-projects" :type string
-     :documentation "TODO: actually list something.")))
+     :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")))
 
 (defparameter *cli-db-connection-options*
-  '((("host" #\H) :type string :initial-value "localhost" :documentation "Database server.")
+  '((("host" #\H) :type string :initial-value "localhost"
+     :documentation "Database server.")
     (("port" #\P) :type integer :initial-value 5432
      :documentation "Port on database server.")
     (("database" #\D) :type string :initial-value "phoros"
@@ -215,6 +212,20 @@
      :documentation "Z component of unit vector of vehicle ground plane.")
     ("d" :type string :documentation "Distance of vehicle ground plane.")))
 
+(defparameter *cli-acquisition-project-options*
+  '(("create-acquisition-project"
+     :type string :action #'create-acquisition-project-action
+     :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")
+    ("delete-acquisition-project"
+     :type string :action #'delete-acquisition-project-action
+     :documentation "Ask for confirmation, then delete acquisition project and all its measurements.")
+    ("delete-measurement"
+     :type integer :action #'delete-measurement-action
+     :documentation "Delete a measurement by its ID.")
+    ("list-acquisition-project"
+     :type string :optional t :action #'list-acquisition-project-action
+     :documentation "List measurements of one acquisition project if its name is specified, or of all acquisition projects otherwise.")))
+
 (defparameter *cli-store-images-and-points-options*
   '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action
      :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
@@ -270,17 +281,21 @@
     ("presentation-project" :type string :list t :optional t
      :documentation "Presentation project the user is allowed to see.  Repeat if necessary.")
     ("delete-user"
-     :type string :action #'delete-user-action :documentation "Delete user.")
+     :type string :action #'delete-user-action
+     :documentation "Delete user.")
     ("list-user"
      :type string :optional t :action #'list-user-action
      :documentation "List the specified user with their presentation projects, or all users if no user is given.")))
 
 (defparameter *cli-options*
-  (append *cli-main-options* *cli-db-connection-options* *cli-get-image-options*
+  (append *cli-main-options* *cli-db-connection-options*
+          *cli-get-image-options*
           *cli-camera-hardware-options* *cli-lens-options*
           *cli-generic-device-options* *cli-device-stage-of-life-options*
           *cli-device-stage-of-life-end-options*
-          *cli-camera-calibration-options* *cli-store-images-and-points-options*
+          *cli-camera-calibration-options*
+          *cli-acquisition-project-options*
+          *cli-store-images-and-points-options*
           *cli-start-server-options*
           *cli-presentation-project-options* *cli-user-options*))
 
@@ -304,7 +319,7 @@
   "Print --help message."
   (declare (ignore rest))
   (flet ((show-help-headline (content)
-           (format *standard-output* "~&#### ~105,,,'#@<~A ~>" content)))
+           (format *standard-output* "~2&#### ~105,,,'#@<~A ~>" content)))
     (format
      *standard-output*
      "~&Usage: phoros [options] ...~&~A"
@@ -333,11 +348,14 @@
     (show-option-help *cli-device-stage-of-life-end-options*)
     (show-help-headline "Camera Calibration Parameters")
     (show-option-help *cli-camera-calibration-options*)
+    (show-help-headline "Manage Acquisition Projects")
+    (show-option-help *cli-acquisition-project-options*)
     (show-help-headline "Store Measure Data")
     (show-option-help *cli-store-images-and-points-options*)
     (show-help-headline "Become A HTTP Presentation Server")
     (show-option-help *cli-start-server-options*)
-    (show-help-headline "Manage Presentation Projects (comprising data visible via web interface)")
+    (show-help-headline
+     "Manage Presentation Projects (comprising data visible via web interface)")
     (show-option-help *cli-presentation-project-options*)
     (show-help-headline "Manage Presentation Project Users")
     (show-option-help *cli-user-options*)))
@@ -419,7 +437,9 @@ the key argument, or the whole dotted string."
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
         (nuke-all-tables))
-      (cl-log:log-message :db "Nuked database ~A at ~A:~D.  Back to square one!" database host port))))
+      (cl-log:log-message
+       :db "Nuked database ~A at ~A:~D.  Back to square one!"
+       database host port))))
 
 (defun create-sys-tables-action (&rest rest)
   "Make a set of sys-* tables.  Ask for confirmation first."
@@ -451,6 +471,76 @@ the key argument, or the whole dotted string."
      :db-dat
      "Created a fresh acquisition project by the name of ~A in database ~A at ~A:~D."
      common-table-name database host port)))
+
+(defun delete-acquisition-project-action (common-table-name)
+  "Delete an acquisition project."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            &allow-other-keys)
+      (process-command-line-options *cli-options* *command-line-arguments*)
+    (launch-logger log-dir)
+    (when (yes-or-no-p
+           "You asked me to delete acquisition-project ~A (including all its measurements) from database ~A at ~A:~D.  Proceed?"
+           common-table-name database host port)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl))
+        (let ((project-did-exist-p
+               (delete-acquisition-project common-table-name)))
+          (cl-log:log-message
+           :db-dat
+           "~:[Tried to delete nonexistent~;Deleted~] acquisition project ~A from database ~A at ~A:~D."
+           project-did-exist-p common-table-name database host port))))))
+
+(defun delete-measurement-action (measurement-id)
+  "Delete a measurement by its measurement-id."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            log-dir
+                            &allow-other-keys)
+      (process-command-line-options *cli-options* *command-line-arguments*)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((measurement-did-exist-p
+             (delete-measurement measurement-id)))
+        (cl-log:log-message
+         :db-dat
+         "~:[Tried to delete nonexistent~;Deleted~] measurement with ID ~A from database ~A at ~A:~D."
+         measurement-did-exist-p measurement-id database host port)))))
+
+(defun list-acquisition-project-action (&optional common-table-name)
+  "List content of acquisition projects."
+  (destructuring-bind (&key host port database (user "") (password "") use-ssl
+                            &allow-other-keys)
+      (process-command-line-options *cli-options* *command-line-arguments*)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((content
+             (if (stringp common-table-name)
+                 (query
+                  (:order-by
+                   (:select
+                    'common-table-name
+                    'sys-acquisition-project.acquisition-project-id
+                    'measurement-id
+                    'directory
+                    'cartesian-system
+                    :from
+                    'sys-acquisition-project :natural :left-join 'sys-measurement
+                    :where (:= 'common-table-name common-table-name))
+                   'measurement-id))
+                 (query
+                  (:order-by
+                   (:select
+                    'common-table-name
+                    'sys-acquisition-project.acquisition-project-id
+                    'measurement-id
+                    'directory
+                    'cartesian-system
+                    :from
+                    'sys-acquisition-project :natural :left-join 'sys-measurement)
+                   'common-table-name 'measurement-id)))))
+        (format-table *standard-output* " | " content
+                      "Acquisition Project" "ID" "Meas. ID" "Directory" "Cartesian CS")))))
 
 (defun store-images-and-points-action (common-table-name)
   "Put data into the data tables."
@@ -694,7 +784,12 @@ trigger-time to stdout."
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
-        (setf fresh-user-p (create-user presentation-project-user :password user-password :full-name user-full-name :user-role user-role :presentation-projects presentation-project)))
+        (setf fresh-user-p
+              (create-user presentation-project-user
+                           :password user-password
+                           :full-name user-full-name
+                           :user-role user-role
+                           :presentation-projects presentation-project)))
       (cl-log:log-message
        :db-dat ;TODO: We're listing nonexistent p-projects here as well.
        "~:[Updated~;Created~] user ~A (~A) who has ~A access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
@@ -806,7 +901,7 @@ projects."
 (defun format-table (destination column-separator content &rest column-headers)
   "Print content (a list of lists) to destination."
   (let* ((rows
-          (append (list column-headers) content))
+          (append (list column-headers) (list ()) content))
          (number-of-rows (length column-headers))
          (widths
           (loop
@@ -814,6 +909,10 @@ projects."
                (loop
                   for row in rows
                   maximize (length (format nil "~A" (nth column row)))))))
+    (setf (second rows)
+          (loop
+             for width in widths collect
+               (make-string width :initial-element #\-)))
     (loop 
        for row in rows do
          (format destination "~&~{~VA~1,#^~A~}~%"
