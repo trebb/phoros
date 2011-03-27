@@ -25,6 +25,7 @@ OPENLAYERS_THEME = ol/theme
 OPENLAYERS_IMG = ol/img
 SERVER_CSS = css/style.css
 LOGO = public_html/phoros-logo-plain.png
+BACKGROUND_IMAGE = public_html/phoros-logo-background.png
 FAVICON = public_html/favicon.ico
 INDEX_HTML = public_html/index.html
 PUBLIC_CSS = public_html/style.css
@@ -59,8 +60,19 @@ $(LOGO) : Makefile public_html
 	 convert \
 		-size 113x125 xc:transparent \
 		-font Gentium-Regular \
+		-fill black \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
+		$@
+
+$(BACKGROUND_IMAGE) : Makefile public_html
+	 convert \
+		-size 113x125 xc:transparent \
+		-font Gentium-Regular \
+		-fill "#f5f5f5" \
+		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
+		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
+		-resize 150% \
 		$@
 # Font Gentium-Regular is in Debian package ttf-sil-gentium.
 
@@ -89,8 +101,8 @@ tarball : phoros TimeSteps.history README \
 		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
 		phoros TimeSteps.history README \
 		$(SERVER_CSS) $(OPENLAYERS_DIR) \
-		$(LOGO) $(FAVICON) --directory=$(LIBPHOML_DIR) \
-		$(LIBPHOML) \
+		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
+		--directory=$(LIBPHOML_DIR) $(LIBPHOML) \
 		| gzip -f \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 
@@ -100,7 +112,9 @@ git-tag : phoros
 	git tag -a $(PHOROS_VERSION) -m ""
 
 clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz $(LOGO) $(FAVICON) $(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
+	rm -f *.fasl *.log phoros phoros*.tar.gz \
+		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
+		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR)
 
 .PHONY : tarball html git-tag clean

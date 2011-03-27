@@ -14,6 +14,8 @@ a img {border:none;}
 
 /**
  * Basic Typography
+ * From OpenLayers style.css
+ * http://openlayers.org
  */
 body {
     font-family: "Lucida Grande", Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
@@ -70,14 +72,32 @@ h6 {
 }
 
 /**
- * Map Examples Specific
+ * Phoros Specific
  */
+button, select {
+    cursor: pointer;
+}
+.smalltext {
+    float: left;
+    cursor: default;
+    background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
+    background-position: center;
+    background-repeat: no-repeat;
+    width: 300px;
+    height: 256px;
+    border: 1px solid #ccc;
+}
 .smallmap {
+    float:left;
     width: 512px;
     height: 256px;
     border: 1px solid #ccc;
 }
 .image {
+    float:left;
+    background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
+    background-position: center;
+    background-repeat: no-repeat;
     width: 300px;
     height: 256px;
     border: 1px solid #ccc;

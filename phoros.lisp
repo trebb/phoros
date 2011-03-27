@@ -693,6 +693,42 @@ image-index in array images."
          (new ((@ *open-layers *control *layer-switcher))))
         ((@ (aref images image-index) map render) (+ image-index "")))        
       
+      (defvar help-topics
+        (create
+         no-topic
+         (who-ps-html (:p))
+         user-role
+         (who-ps-html (:p "User role.  \"Read\" can't write anything.  \"Write\" may write user points and delete their own ones. \"Admin\" may write user points and delete points written by others."))
+         presentation-project-name
+         (who-ps-html (:p "Presentation project name."))
+         finish-point-button
+         (who-ps-html (:p "Store point with its attribute, description and numeric description into database.  Afterwards, increment the numeric description if possible."))
+         point-attribute
+         (who-ps-html (:p "One of a few possible point attributes.")
+                      (:p "TODO: currently only the hard-coded ones are available."))
+         point-description
+         (who-ps-html (:p "Optional verbal description of point."))
+         point-numeric-description
+         (who-ps-html (:p "Optional additional description of point.  Preferrably numeric and if so, automatically incremented after finishing point."))
+         remove-work-layers-button
+         (who-ps-html (:p "Discard the current, unstored point but let the rest of the workspace untouched."))
+         blurb-button
+         (who-ps-html (:p "View some info about phoros."))
+         logout-button
+         (who-ps-html (:p "Finish this session.  Fresh login is required to continue."))
+         streetmap
+         (who-ps-html (:p "Clicking into the streetmap fetches images which most probably feature the clicked point.")
+                      (:p "TODO: This is not quite so.  Currently images taken from points nearest to the clicked one are displayed."))
+         any-image
+         (who-ps-html (:p "Clicking into an image sets or resets the active point there.  Once a feature is marked by active points in more than one image, the estimated position is calculated."))
+         help-display
+         (who-ps-html (:p "Hints on Phoros' displays and controls is shown here while hovering over the respective elements."))))
+
+      (defun show-help (&optional (topic 'no-topic))
+        "Put text on topic into help-display"
+        (setf (chain document (get-element-by-id "help-display") inner-h-t-m-l)
+              (getprop help-topics topic)))
+      
       (defun init ()
         "Prepare user's playground."
         (unless (== user-role "read")
@@ -762,9 +798,7 @@ image-index in array images."
         (loop
            for i from 0 to (lisp (1- *number-of-images*))
            do
-           (initialize-image i))
-        ))))
-
+           (initialize-image i))))))
 
 (define-easy-handler (view :uri "/phoros-lib/view" :default-request-type :post) ()
   "Serve the client their main workspace."
@@ -778,7 +812,6 @@ image-index in array images."
                 (concatenate
                  'string
                  "Phoros: " (session-value 'presentation-project-name))))
-       (:link :rel "stylesheet" :href "/phoros-lib/css/style.css" :type "text/css")
        (if *use-multi-file-openlayers*
            (who:htm
              (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js")
@@ -786,27 +819,67 @@ image-index in array images."
              ;;(:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we don't seem to use this
              )
            (who:htm (:script :src "/phoros-lib/ol/OpenLayers.js")))
+       (:link :rel "stylesheet" :href "/phoros-lib/css/style.css" :type "text/css")
        (:script :src "/phoros-lib/phoros.js")
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
        )
-      (:body :onload (ps (init))
-             (:h1 :id "title" (who:str (format nil "Phoros: ~A (~A) with ~A permission on ~A"
-                                               (session-value 'user-full-name)
-                                               (session-value 'user-name)
-                                               (session-value 'user-role)
-                                               (session-value 'presentation-project-name))))
-             (:button :style "float:left" :id "finish-point-button" :disabled t :type "button" :onclick (ps (finish-point)) "finish point")
-             (:select :style "float:left" :id "point-attribute" :disabled t :size 1 :name "point-attribute")
-             (:input :style "float:left" :id "point-description" :disabled t :type "text" :name "point-description")
-             (:input :style "float:left" :id "point-numeric-description" :disabled t :type "text" :name "point-numeric-description")
-             (:button :style "float:left" :id "remove-work-layers-button" :type "button" :onclick (ps (remove-work-layers)) "start over (keep photos)")
-             (:button :style "float:left" :id "blurb-button" :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\"" "blurb")
-             (:button :style "float:left" :id "logout-button" :type "button" :onclick "self.location.href = \"/phoros-lib/logout\"" "bye")
-             (:div :style "clear:both"
-                   (:div :id "streetmap" :class "smallmap" :style "float:left")
-                   (loop
-                      for i from 0 below *number-of-images* do 
-                        (who:htm (:div :id i :class "image" :style "float:left")))))))
+      (:body
+       :onload (ps (init))
+       (:h1 :id "title"
+            "Phoros: " (who:str (session-value 'user-full-name))
+            (who:fmt " (~A)" (session-value 'user-name))
+            "with " (:span :onmouseover (ps-inline (show-help 'user-role))
+                           :onmouseout (ps-inline (show-help))
+                           (who:str (session-value 'user-role)))
+            "permission on "
+            (:span :onmouseover (ps-inline (show-help 'presentation-project-name))
+                   :onmouseout (ps-inline (show-help))
+                   (who:str (session-value 'presentation-project-name))))
+       (:button :style "float:left" :id "finish-point-button" :disabled t
+                :type "button"
+                :onclick (ps (finish-point))
+                :onmouseover (ps-inline (show-help 'finish-point-button))
+                :onmouseout (ps-inline (show-help))
+                "finish point")
+       (:select :style "float:left" :id "point-attribute" :disabled t
+                :size 1 :name "point-attribute"
+                :onmouseover (ps-inline (show-help 'point-attribute))
+                :onmouseout (ps-inline (show-help)))
+       (:input :style "float:left" :id "point-description" :disabled t
+               :type "text" :size 20 :name "point-description"
+               :onmouseover (ps-inline (show-help 'point-description))
+               :onmouseout (ps-inline (show-help)))
+       (:input :style "float:left" :id "point-numeric-description" :disabled t
+               :type "text" :size 6 :name "point-numeric-description"
+               :onmouseover (ps-inline (show-help 'point-numeric-description))
+               :onmouseout (ps-inline (show-help)))
+       (:button :style "float:left" :id "remove-work-layers-button" :disabled t
+                :type "button" :onclick (ps (remove-work-layers))
+                :onmouseover (ps-inline (show-help 'remove-work-layers-button))
+                :onmouseout (ps-inline (show-help))
+                "start over")
+       (:button :style "float:left" :id "blurb-button"
+                :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\""
+                :onmouseover (ps-inline (show-help 'blurb-button ))
+                :onmouseout (ps-inline (show-help))
+                "blurb")
+       (:button :style "float:left" :id "logout-button"
+                :type "button" :onclick "self.location.href = \"/phoros-lib/logout\""
+                :onmouseover (ps-inline (show-help 'logout-button))
+                :onmouseout (ps-inline (show-help))
+                "bye")
+       (:div :style "clear:both"
+             (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"
+                   :onmouseover (ps-inline (show-help 'streetmap))
+                   :onmouseout (ps-inline (show-help)))
+             (:div :id "help-display" :class "smalltext" :style "cursor:url(/phoros-lib/public_html/phoros-cursor.gif)"
+                   :onmouseover (ps-inline (show-help 'help-display))
+                   :onmouseout (ps-inline (show-help)))
+             (loop
+                for i from 0 below *number-of-images* do 
+                (who:htm (:div :id i :class "image" :style "cursor:crosshair"
+                               :onmouseover (ps-inline (show-help 'any-image))
+                               :onmouseout (ps-inline (show-help)))))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
     :add-session-id t)))
