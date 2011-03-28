@@ -18,6 +18,7 @@
 LISP = $(shell echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
+OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
 OPENLAYERS_DIR = ol		#for compiled/shrunk OpenLayers
 OPENLAYERS_JS = ol/OpenLayers.js
@@ -33,8 +34,16 @@ PHOROS_VERSION = $(shell ./phoros --version)
 PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
 
-phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML) $(OPENLAYERS_JS) $(OPENLAYERS_THEME) $(OPENLAYERS_IMG)
+phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML) $(OPENLAYERS_JS) \
+		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
+		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON)
 	$(LISP) --load make.lisp
+
+$(OPENLAYERS_TARBALL) :
+	wget http://openlayers.org/download/$@
+
+$(PRISTINE_OPENLAYERS_DIR)/lib/* : $(OPENLAYERS_TARBALL)
+	tar -xmzf $<
 
 $(OPENLAYERS_JS) : $(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js
 	mkdir -p $(OPENLAYERS_DIR) && cp $< $@
@@ -84,6 +93,7 @@ favicon.png : $(LOGO)
 
 .INTERMEDIATE : favicon.png $(PHOROS_HELP_OUTPUT)
 
+
 $(PHOROS_HELP_OUTPUT) : phoros
 	./phoros --help > $@
 
@@ -115,6 +125,6 @@ clean :
 	rm -f *.fasl *.log phoros phoros*.tar.gz \
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
 		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
-	rm -rf $(OPENLAYERS_DIR)
+	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
 
 .PHONY : tarball html git-tag clean
