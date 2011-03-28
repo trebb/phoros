@@ -727,7 +727,8 @@ image-index in array images."
       (defun show-help (&optional (topic 'no-topic))
         "Put text on topic into help-display"
         (setf (chain document (get-element-by-id "help-display") inner-h-t-m-l)
-              (getprop help-topics topic)))
+              (+ (who-ps-html (:h2 "Help"))
+              (getprop help-topics topic))))
       
       (defun init ()
         "Prepare user's playground."
@@ -835,46 +836,52 @@ image-index in array images."
             (:span :onmouseover (ps-inline (show-help 'presentation-project-name))
                    :onmouseout (ps-inline (show-help))
                    (who:str (session-value 'presentation-project-name))))
-       (:button :style "float:left" :id "finish-point-button" :disabled t
-                :type "button"
-                :onclick (ps (finish-point))
-                :onmouseover (ps-inline (show-help 'finish-point-button))
-                :onmouseout (ps-inline (show-help))
-                "finish point")
-       (:select :style "float:left" :id "point-attribute" :disabled t
-                :size 1 :name "point-attribute"
-                :onmouseover (ps-inline (show-help 'point-attribute))
-                :onmouseout (ps-inline (show-help)))
-       (:input :style "float:left" :id "point-description" :disabled t
-               :type "text" :size 20 :name "point-description"
-               :onmouseover (ps-inline (show-help 'point-description))
-               :onmouseout (ps-inline (show-help)))
-       (:input :style "float:left" :id "point-numeric-description" :disabled t
-               :type "text" :size 6 :name "point-numeric-description"
-               :onmouseover (ps-inline (show-help 'point-numeric-description))
-               :onmouseout (ps-inline (show-help)))
-       (:button :style "float:left" :id "remove-work-layers-button" :disabled t
-                :type "button" :onclick (ps (remove-work-layers))
-                :onmouseover (ps-inline (show-help 'remove-work-layers-button))
-                :onmouseout (ps-inline (show-help))
-                "start over")
-       (:button :style "float:left" :id "blurb-button"
-                :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\""
-                :onmouseover (ps-inline (show-help 'blurb-button ))
-                :onmouseout (ps-inline (show-help))
-                "blurb")
-       (:button :style "float:left" :id "logout-button"
-                :type "button" :onclick "self.location.href = \"/phoros-lib/logout\""
-                :onmouseover (ps-inline (show-help 'logout-button))
-                :onmouseout (ps-inline (show-help))
-                "bye")
+       (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"
+             :onmouseover (ps-inline (show-help 'streetmap))
+             :onmouseout (ps-inline (show-help)))
+       (:div :class "phoros-controls"
+             (:button :id "blurb-button"
+                      :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\""
+                      :onmouseover (ps-inline (show-help 'blurb-button ))
+                      :onmouseout (ps-inline (show-help))
+                      "blurb")
+             (:button :id "logout-button"
+                      :type "button" :onclick "self.location.href = \"/phoros-lib/logout\""
+                      :onmouseover (ps-inline (show-help 'logout-button))
+                      :onmouseout (ps-inline (show-help))
+                      "bye")
+             :br
+             (:button :id "remove-work-layers-button" :disabled t
+                      :type "button" :onclick (ps (remove-work-layers))
+                      :opnmouseover (ps-inline (show-help 'remove-work-layers-button))
+                      :onmouseout (ps-inline (show-help))
+                      "start over")
+             (:h2 "Next Point")
+             (:select :id "point-attribute" :disabled t
+                      :size 1 :name "point-attribute"
+                      :onmouseover (ps-inline (show-help 'point-attribute))
+                      :onmouseout (ps-inline (show-help)))
+             :br
+             (:input :id "point-description" :disabled t
+                     :type "text" :size 20 :name "point-description"
+                     :onmouseover (ps-inline (show-help 'point-description))
+                     :onmouseout (ps-inline (show-help)))
+             :br
+             (:input :id "point-numeric-description" :disabled t
+                     :type "text" :size 6 :name "point-numeric-description"
+                     :onmouseover (ps-inline (show-help 'point-numeric-description))
+                     :onmouseout (ps-inline (show-help)))
+             :br
+             (:div :onmouseover (ps-inline (show-help 'finish-point-button))
+                   :onmouseout (ps-inline (show-help))
+                   (:button :disabled t :id "finish-point-button"
+                            :type "button"
+                            :onclick (ps (finish-point))
+                            "finish point")))
+       (:div :id "help-display" :class "smalltext"
+             :onmouseover (ps-inline (show-help 'help-display))
+             :onmouseout (ps-inline (show-help)))
        (:div :style "clear:both"
-             (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"
-                   :onmouseover (ps-inline (show-help 'streetmap))
-                   :onmouseout (ps-inline (show-help)))
-             (:div :id "help-display" :class "smalltext" :style "cursor:url(/phoros-lib/public_html/phoros-cursor.gif)"
-                   :onmouseover (ps-inline (show-help 'help-display))
-                   :onmouseout (ps-inline (show-help)))
              (loop
                 for i from 0 below *number-of-images* do 
                 (who:htm (:div :id i :class "image" :style "cursor:crosshair"
