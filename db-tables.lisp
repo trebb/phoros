@@ -745,18 +745,9 @@ are used by all projects.  The database should probably be empty."
     :initarg :numeric-description
     :col-type text
     :documentation "User-generated point id regarding this point.")
-;;   (longitude
-;;    :col-type double-precision
-;;    :reader longitude
-;;    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
-;;   (latitude
-;;    :col-type double-precision
-;;    :reader latitude
-;;    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
-;;   (ellipsoid-height
-;;    :col-type double-precision
-;;    :reader ellipsoid-height
-;;    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+   (creation-date
+    :col-type :timestamp-with-time-zone
+    :documentation "Creation time of this point.")
    (coordinates
     :col-type (or db-null geometry)
     :documentation "Geographic coordinates.")

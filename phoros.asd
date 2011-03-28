@@ -12,7 +12,7 @@
 in a PostgreSQL database and then makes it available over a web
 interface.                              http://phoros.berlios.de"
 
-  :version "1.1.0"
+  :version "2.0.0"
   ;; :version is MAJOR.MINOR.REVISION where
   ;; different MAJOR means data incompatibility,
   ;; different MINOR means changed feature set,

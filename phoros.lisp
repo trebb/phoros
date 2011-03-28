@@ -44,10 +44,13 @@
   "Root directory; contains directories of measuring data.")
 
 (defparameter *verbose* 0
-  "Integer (interpreted as a bit mask) denoting various kinds of debugging output.")
+  "Integer (interpreted as a bit mask) denoting various kinds of
+  debugging output.")
 
 (defparameter *use-multi-file-openlayers* nil
-  "If t, use OpenLayers uncompiled from openlayers/*, which makes debugging easier.  Otherwise use a single-file shrunk ol/Openlayers.js.")
+  "If t, use OpenLayers uncompiled from openlayers/*, which makes
+  debugging easier.  Otherwise use a single-file shrunk
+  ol/Openlayers.js.")
 
 (defparameter *number-of-images* 4
   "Number of photos shown to the HTTP client.")
@@ -90,7 +93,8 @@ user password host &key (port 5432) use-ssl)."
   (register-sql-operators :2+-ary :&& :overlaps))
 
 (define-easy-handler phoros-handler ()
-  "First HTTP contact: if necessary, check credentials, establish new session."
+  "First HTTP contact: if necessary, check credentials, establish new
+session."
   (with-connection *postgresql-credentials*
     (let* ((presentation-project-name
             (second (cl-utilities:split-sequence #\/ (script-name*) :remove-empty-subseqs t)))
@@ -122,7 +126,11 @@ user password host &key (port 5432) use-ssl)."
 (pushnew (create-prefix-dispatcher "/phoros/" 'phoros-handler)
          *dispatch-table*)
 
-(define-easy-handler (authenticate-handler :uri "/phoros-lib/authenticate" :default-request-type :post) ()
+(define-easy-handler
+    (authenticate-handler :uri "/phoros-lib/authenticate"
+                          :default-request-type :post)
+    ()
+  "Check user credentials."
   (with-connection *postgresql-credentials*
     (let* ((user-name (post-parameter "user-name"))
            (user-password (post-parameter "user-password"))
@@ -130,15 +138,16 @@ user password host &key (port 5432) use-ssl)."
            (user-info
             (when presentation-project-id
               (query
-               (:select 'sys-user.user-full-name
-                        'sys-user.user-id
-                        'sys-user-role.user-role
-                        :from 'sys-user-role 'sys-user
-                        :where (:and
-                                (:= 'presentation-project-id presentation-project-id)
-                                (:= 'sys-user-role.user-id 'sys-user.user-id)
-                                (:= 'user-name user-name)
-                                (:= 'user-password user-password)))
+               (:select
+                'sys-user.user-full-name
+                'sys-user.user-id
+                'sys-user-role.user-role
+                :from 'sys-user-role 'sys-user
+                :where (:and
+                        (:= 'presentation-project-id presentation-project-id)
+                        (:= 'sys-user-role.user-id 'sys-user.user-id)
+                        (:= 'user-name user-name)
+                        (:= 'user-password user-password)))
                :row)))
            (user-full-name (first user-info))
            (user-id (second user-info))
@@ -165,8 +174,12 @@ user password host &key (port 5432) use-ssl)."
 (define-easy-handler (test :uri "/phoros-lib/test") ()
   "Authenticated.")
 
-(define-easy-handler (local-data :uri "/phoros-lib/local-data" :default-request-type :post) ()
-  "Receive coordinates, respond with the count nearest json objects containing picture url, calibration parameters, and car position, wrapped in an array."
+(define-easy-handler
+    (local-data :uri "/phoros-lib/local-data" :default-request-type :post)
+    ()
+  "Receive coordinates, respond with the count nearest json objects
+containing picture url, calibration parameters, and car position,
+wrapped in an array."
   (when (session-value 'authenticated-p)
     (let* ((presentation-project-id (session-value 'presentation-project-id))
            (common-table-names (common-table-names presentation-project-id))
@@ -218,7 +231,9 @@ user password host &key (port 5432) use-ssl)."
                       :alists))))))
       (json:encode-json-to-string result))))
 
-(define-easy-handler (store-point :uri "/phoros-lib/store-point" :default-request-type :post) ()
+(define-easy-handler
+    (store-point :uri "/phoros-lib/store-point" :default-request-type :post)
+    ()
   "Receive point sent by user, store it into database."
   (when (session-value 'authenticated-p)
     (let* ((presentation-project-name (session-value 'presentation-project-name))
@@ -239,19 +254,22 @@ user password host &key (port 5432) use-ssl)."
                     longitude-input latitude-input ellipsoid-height-input))
            (user-point-table-name
             (user-point-table-name presentation-project-name)))
-      (assert (not (string-equal user-role "read")) ;that is, "write" or "admin"
-              () "No write permission.")
+      (assert
+       (not (string-equal user-role "read")) ;that is, "write" or "admin"
+       () "No write permission.")
       (with-connection *postgresql-credentials*
         (assert
          (= 1 (execute (:insert-into user-point-table-name :set
                                      'user-id user-id
+                                     'attribute attribute
+                                     'description description
+                                     'numeric-description numeric-description
+                                     'creation-date 'current-timestamp
                                      'coordinates (:st_geomfromewkt point-form)
                                      'stdx-global stdx-global
                                      'stdy-global stdy-global
                                      'stdz-global stdz-global
-                                     'attribute attribute
-                                     'description description
-                                     'numeric-description numeric-description)))
+                                     )))
          () "No point stored.  This should not happen.")))))
 
 (defun common-table-names (presentation-project-id)
@@ -268,7 +286,11 @@ of presentation project with presentation-project-id."
                           (:= 'sys-presentation.measurement-id 'sys-measurement.measurement-id)
                           (:= 'sys-measurement.acquisition-project-id 'sys-acquisition-project.acquisition-project-id)))
                :column))
-    (condition (c) (cl-log:log-message :server "While fetching common-table-names of presentation-project-id ~D: ~A" presentation-project-id c))))
+    (condition (c)
+      (cl-log:log-message
+       :server
+       "While fetching common-table-names of presentation-project-id ~D: ~A"
+       presentation-project-id c))))
 
 (define-easy-handler (points :uri "/phoros-lib/points") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
@@ -280,27 +302,38 @@ of presentation project with presentation-project-id."
                                         (substitute #\Space #\, bbox :count 1)
                                         :from-end t :count 1)
                             ")"))
-              (common-table-names (common-table-names (session-value 'presentation-project-id))))
+              (common-table-names (common-table-names
+                                   (session-value 'presentation-project-id))))
           (with-connection *postgresql-credentials*
             (json:encode-json-alist-to-string
              (acons
               'type '*geometry-collection
-              (acons 'geometries
-                     (mapcar
-                      #'(lambda (x)
-                          (acons 'type '*point
-                                 (acons 'coordinates x nil)))
-                      (loop
-                         for common-table-name in common-table-names
-                         for point-table-name = (make-symbol (concatenate 'string "dat-" common-table-name "-point"))
-                         append 
-                           (query (:select (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                                           (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                                           :from point-table-name
-                                           :where (:&& (:st_transform 'coordinates *standard-coordinates*)
-                                                       (:st_setsrid  (:type box3d-form box3d) *standard-coordinates*))))))
-                     nil)))))
-      (condition (c) (cl-log:log-message :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
+              (acons
+               'geometries
+               (mapcar
+                #'(lambda (x)
+                    (acons 'type '*point
+                           (acons 'coordinates x nil)))
+                (loop
+                   for common-table-name in common-table-names
+                   for point-table-name = (make-symbol
+                                           (concatenate
+                                            'string "dat-"
+                                            common-table-name "-point"))
+                   append 
+                   (query
+                    (:select
+                     (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                     (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                     :from point-table-name
+                     :where (:&&
+                             (:st_transform 'coordinates *standard-coordinates*)
+                             (:st_setsrid  (:type box3d-form box3d)
+                                           *standard-coordinates*))))))
+               nil)))))
+      (condition (c)
+        (cl-log:log-message
+         :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
 
 (define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
@@ -328,13 +361,16 @@ of presentation project with presentation-project-id."
           (send-png stream path-to-file byte-position
                     :bayer-pattern (canonicalize-bayer-pattern bayer-pattern)
                     :color-raiser (canonicalize-color-raiser color-raiser)))
-      (condition (c) (cl-log:log-message :server "While serving image ~S: ~A" (request-uri*) c)))))
+      (condition (c)
+        (cl-log:log-message
+         :server "While serving image ~S: ~A" (request-uri*) c)))))
 
 (pushnew (create-prefix-dispatcher "/phoros-lib/photo" 'photo-handler)
          *dispatch-table*)
 
 ;;; for debugging; this is the multi-file OpenLayers
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/openlayers/" "OpenLayers-2.10/")
+(pushnew (create-folder-dispatcher-and-handler
+          "/phoros-lib/openlayers/" "OpenLayers-2.10/")
          *dispatch-table*)
 
 (pushnew (create-folder-dispatcher-and-handler "/phoros-lib/ol/" "ol/")
@@ -343,10 +379,12 @@ of presentation project with presentation-project-id."
 (pushnew (create-folder-dispatcher-and-handler "/phoros-lib/css/" "css/") ;TODO: merge this style.css into public_html/style.css
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros-lib/public_html/" "public_html/")
+(pushnew (create-folder-dispatcher-and-handler
+          "/phoros-lib/public_html/" "public_html/")
          *dispatch-table*)
 
-(pushnew (create-static-file-dispatcher-and-handler "/favicon.ico" "public_html/favicon.ico")
+(pushnew (create-static-file-dispatcher-and-handler
+          "/favicon.ico" "public_html/favicon.ico")
          *dispatch-table*)
 
 (define-easy-handler (phoros.js :uri "/phoros-lib/phoros.js") ()
@@ -537,7 +575,8 @@ another photo."
              for p in estimated-positions
              do
                (setf (@ i estimated-position-layer)
-                     (new ((@ *open-layers *layer *vector) "Estimated Position")))
+                     (new
+                      ((@ *open-layers *layer *vector) "Estimated Position")))
                ((@ i map add-layer) (@ i estimated-position-layer))
                (chain i estimated-position-layer
                       (add-features
@@ -551,13 +590,16 @@ another photo."
         (debug-info global-position)
         (let ((global-position-etc global-position))
           (setf (chain global-position-etc attribute)
-                (chain (elt (chain point-attributes-select options)
-                            (chain point-attributes-select options selected-index))
+                (chain
+                 (elt (chain point-attributes-select options)
+                      (chain point-attributes-select options selected-index))
                        text))
           (setf (chain global-position-etc description)
                 (chain document (get-element-by-id "point-description") value))
           (setf (chain global-position-etc numeric-description)
-                (chain document (get-element-by-id "point-numeric-description") value))
+                (chain document
+                       (get-element-by-id "point-numeric-description")
+                       value))
           (setf content 
                 ((@ *json* stringify) global-position-etc))     ; TODO: use OpenLayer's JSON.
           (setf photo-request-response
@@ -571,7 +613,9 @@ another photo."
                   (chain global-position-etc numeric-description))
                  (current-numeric-description
                   (1+ (parse-int previous-numeric-description 10))))
-            (setf (chain document (get-element-by-id "point-numeric-description") value)
+            (setf (chain document
+                         (get-element-by-id "point-numeric-description")
+                         value)
                   (if (is-finite current-numeric-description)
                       current-numeric-description
                       previous-numeric-description)))))
@@ -748,27 +792,30 @@ image-index in array images."
                           (create projection geographic
                                   display-projection geographic)))))
         (let* ((survey-layer
-                (new (chain *open-layers *layer
-                            (*vector
-                             "Survey"
-                             (create
-                              :strategies
-                              (array (new
-                                      (chain *open-layers *strategy
-                                             (*bbox* (create :ratio 1.1)))))
-                              :protocol
-                              (new (chain
-                                    *open-layers *protocol
-                                    (*http*
-                                     (create
-                                      :url "/phoros-lib/points"
-                                      :format
-                                      (new
-                                       (chain *open-layers *format
-                                              (*geo-j-s-o-n
-                                               (create
-                                                external-projection geographic
-                                                internal-projection geographic)))))))))))))
+                (new (chain
+                      *open-layers *layer
+                      (*vector
+                       "Survey"
+                       (create
+                        :strategies
+                        (array (new
+                                (chain *open-layers *strategy
+                                       (*bbox* (create :ratio 1.1)))))
+                        :protocol
+                        (new
+                         (chain
+                          *open-layers *protocol
+                          (*http*
+                           (create
+                            :url "/phoros-lib/points"
+                            :format
+                            (new
+                             (chain
+                              *open-layers *format
+                              (*geo-j-s-o-n
+                               (create
+                                external-projection geographic
+                                internal-projection geographic)))))))))))))
                ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
                (osm-layer (new (chain *open-layers *layer (*osm*))))
                (streetmap-overview
@@ -801,7 +848,8 @@ image-index in array images."
            do
            (initialize-image i))))))
 
-(define-easy-handler (view :uri "/phoros-lib/view" :default-request-type :post) ()
+(define-easy-handler
+    (view :uri "/phoros-lib/view" :default-request-type :post) ()
   "Serve the client their main workspace."
   (if
    (session-value 'authenticated-p)
@@ -841,19 +889,21 @@ image-index in array images."
              :onmouseout (ps-inline (show-help)))
        (:div :class "phoros-controls"
              (:button :id "blurb-button"
-                      :type "button" :onclick "self.location.href = \"/phoros-lib/blurb\""
+                      :type "button"
+                      :onclick "self.location.href = \"/phoros-lib/blurb\""
                       :onmouseover (ps-inline (show-help 'blurb-button ))
                       :onmouseout (ps-inline (show-help))
                       "blurb")
              (:button :id "logout-button"
-                      :type "button" :onclick "self.location.href = \"/phoros-lib/logout\""
+                      :type "button"
+                      :onclick "self.location.href = \"/phoros-lib/logout\""
                       :onmouseover (ps-inline (show-help 'logout-button))
                       :onmouseout (ps-inline (show-help))
                       "bye")
              :br
              (:button :id "remove-work-layers-button" :disabled t
-                      :type "button" :onclick (ps (remove-work-layers))
-                      :opnmouseover (ps-inline (show-help 'remove-work-layers-button))
+                      :type "button" :onclick (ps-inline (remove-work-layers))
+                      :onmouseover (ps-inline (show-help 'remove-work-layers-button))
                       :onmouseout (ps-inline (show-help))
                       "start over")
              (:h2 "Next Point")
@@ -876,7 +926,7 @@ image-index in array images."
                    :onmouseout (ps-inline (show-help))
                    (:button :disabled t :id "finish-point-button"
                             :type "button"
-                            :onclick (ps (finish-point))
+                            :onclick (ps-inline (finish-point))
                             "finish point")))
        (:div :id "help-display" :class "smalltext"
              :onmouseover (ps-inline (show-help 'help-display))
