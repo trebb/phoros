@@ -29,6 +29,7 @@ LOGO = public_html/phoros-logo-plain.png
 BACKGROUND_IMAGE = public_html/phoros-logo-background.png
 FAVICON = public_html/favicon.ico
 INDEX_HTML = public_html/index.html
+PHOROS_HELP_HTML = public_html/phoros--help.html
 PUBLIC_CSS = public_html/style.css
 PHOROS_VERSION = $(shell ./phoros --version)
 PHOROS_HELP_OUTPUT = phoros-help.txt
@@ -97,9 +98,13 @@ favicon.png : $(LOGO)
 $(PHOROS_HELP_OUTPUT) : phoros
 	./phoros --help > $@
 
-$(INDEX_HTML) : doc/index.org $(PHOROS_HELP_OUTPUT) $(LOGO)
+$(INDEX_HTML) : doc/index.org $(LOGO)
 	emacs --batch --visit=$< --funcall org-export-as-html-batch \
 	&& mv doc/index.html $@
+
+$(PHOROS_HELP_HTML) : doc/phoros--help.org $(PHOROS_HELP_OUTPUT) $(LOGO)
+	emacs --batch --visit=$< --funcall org-export-as-html-batch \
+	&& mv doc/phoros--help.html $@
 
 $(PUBLIC_CSS) : doc/style.css public_html
 	cp $< $@
@@ -116,7 +121,7 @@ tarball : phoros TimeSteps.history README \
 		| gzip -f \
 		> phoros-$(PHOROS_VERSION)-bin.tar.gz
 
-html : $(INDEX_HTML) $(PUBLIC_CSS) $(FAVICON)
+html : $(INDEX_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
 
 git-tag : phoros
 	git tag -a $(PHOROS_VERSION) -m ""

@@ -45,67 +45,94 @@ A Tool for Photogrammetric Road Survey
 
   The command line interface is used to
 
-  - set up and manage projects,
+  - initialize a fresh PostgreSQL database
+    (=./phoros --create-sys-tables ...=),
 
-  - store camera calibration parameters,
+  - set up and manage acquisition projects
+    (=./phoros --create-acquisition-project ...=),
 
-  - store measurement data (i.e., images and GPS positions),
+  - store camera calibration parameters (=--store-camera-hardware=,
+    =--store-device-stage-of-life=, =--store-camera-calibration= etc.),
 
-  - manage presentation project users,
+  - store measurement data, i.e., images and GPS positions
+    (=./phoros --store-images-and-points ...=),
+
+  - manage presentation projects and presentation project users
+    (=--create-presentation-project=, =--create-user= etc.),
 
   - start Phoros as a presentation server (a web server presenting
-    measurement data to presentation project users).
+    measurement data to presentation project users) by
+    =./phoros --server ...=.
 
-  Below is the output of
   #+BEGIN_SRC sh
   $ ./phoros --help
   #+END_SRC
-
-#+INCLUDE "../phoros-help.txt" example
+  emits a rather comprehensive [[file:phoros--help.org][help message]].
 
 * Web Interface (with screenshots)
 
-  - In the map, points are shown where pictures have been taken.[fn:: Actually,
-    the map should display where the "photographer" has looked rather
-    than where he stood, but this is not yet implemented.]
-    Pointing into an area of interest lets Phoros display a few[fn::
-    The number of images can be specified during server
-    start. Example:  @<code>phoros --server --images=N ... @</code>]
-    relevant images.
+  Once images, calibration data and definitions of users and projects
+  have been stored using the [[Command Line Interface]], Phoros can be
+  started as a web server:
+#+BEGIN_SRC: sh
+$ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
+>          --host=my_server --port=5432 --database=my_projects \
+>          --user=database_admin --password=SeCrEt
+#+END_SRC:
+  A user can than point their browser at Phoros' URL.  Example:
+  =http://localhost:8080/phoros/beautiful-cities= connects to
+  presentation project =beautiful-cities= (and asks for username and
+  password).
 
-    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
-    [[file:map-click.png]]
+** Choose a point from the map
+   In the map, points are shown where pictures have been taken.[fn:: Actually,
+   the map should display where the "photographer" has looked rather
+   than where he stood, but this is not yet implemented.]
+   Pointing into an area of interest lets Phoros display a few[fn::
+   The number of images can be specified during server
+   start. Example:  @<code>phoros --server --images=N ... @</code>]
+   relevant images.
 
-  - After zooming into a first image and selecting a feature of
-    interest, [[http://en.wikipedia.org/wiki/Epipolar_line#Epipolar_line][epipolar lines]] appear in the other images which may be
-    helpful in recognising the selected feature there.
+   #+ATTR_HTML: style="border:2px solid darkgrey"
+   [[file:map-click.png]]
 
-    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
-    [[file:image-click-1.png]]
+** Point into first image
+   After zooming into a first image and selecting a feature of
+   interest, [[http://en.wikipedia.org/wiki/Epipolar_line#Epipolar_line][epipolar lines]] appear in the other images which may be
+   helpful in recognising the selected feature there.
+   
+   #+ATTR_HTML: style="border:2px solid darkgrey"
+   [[file:image-click-1.png]]
+   
+** Point into second image
+   Zooming in and selecting the same feature in another image
+   triggers calculation of the estimated global position.  The
+   estimated position is now shown in all images and in the map.
+   Neither estimated position accuracy nor pointing precision are bounded by pixel
+   size.
+   
+   #+ATTR_HTML: style="border:2px solid darkgrey"
+   [[file:image-click-2.png]]
+   
+** Improve accuracy
+   Zooming in and pointing at the feature in a third image improves
+   accuracy.
+   
+   #+ATTR_HTML: style="border:2px solid darkgrey"
+   [[file:image-click-3.png]]
+   
+   Although it doesn't seem necessary in this example, more images
+   could be used to improve accuracy even further.
+   
+   #+ATTR_HTML: style="border:2px solid darkgrey"
+   [[file:image-view-4.png]]
 
-  - Zooming in and selecting the same feature in another image
-    triggers calculation of the estimated global position.  The
-    estimated position is now shown in all images and in the map
-    (where the initially displayed sequence of points has been
-    switched off to make this more obvious).  Neither estimated
-    position accuracy nor pointing precision are bounded by pixel
-    size.
-
-    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
-    [[file:image-click-2.png]]
-
-  - Zooming in and pointing at the feature in a third image improves
-    accuracy.
-
-    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
-    [[file:image-click-3.png]]
-
-  - Although it doesn't seem necessary in this example, more images
-    could be used to improve accuracy even further.
-
-    #+ATTR_HTML: style="width:90%; border:2px solid darkgrey"
-    [[file:image-view-4.png]]
-
+** Store point
+   Finishing this point means storing it in a dedicated user point table.
+   
+   #+ATTR_HTML: style="border:2px solid darkgrey"
+   [[file:finish-point.png]]
+   
 * Licence
 
   PHOROS -- Photogrammetric Road Survey
@@ -129,8 +156,10 @@ A Tool for Photogrammetric Road Survey
 
 * Download
 
-  - Browse Phoros
-    [[http://git.berlios.de/cgi-bin/gitweb.cgi?p=phoros;a=summary][source code via gitweb]].
+  - Browse Phoros source code via gitweb at
+    [[http://git.berlios.de/cgi-bin/gitweb.cgi?p=phoros;a=summary][Berlios]]
+    or at
+    [[http://github.com/trebb/phoros][Github]].
 
   - Browse source code of [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library, which is needed by Phoros.
 
@@ -140,8 +169,6 @@ A Tool for Photogrammetric Road Survey
     $ cd phoros
     $ git submodule init
     $ git submodule update
-    $ wget http://openlayers.org/download/OpenLayers-2.10.tar.gz
-    $ tar -xzf OpenLayers-2.10.tar.gz
     #+END_SRC
 
     The build process isn't perfect yet.  You'll (probably) need an x86-64 Debian
@@ -151,7 +178,7 @@ A Tool for Photogrammetric Road Survey
 
   - Phoros is implemented using [[http://sbcl.org][Steel Bank Common Lisp]], a Common Lisp implementation.
 
-  - Communication with PostgrSQL is provided by [[http://marijnhaverbeke.nl/postmodern/][Postmodern]].
+  - Communication with [[http://postgresql.org][PostgreSQL]] is provided by [[http://marijnhaverbeke.nl/postmodern/][Postmodern]].
 
   - The presentation server is based on [[http://weitz.de/hunchentoot][Hunchentoot]].
 
@@ -159,7 +186,7 @@ A Tool for Photogrammetric Road Survey
     thanks to the [[http://openlayers.org][OpenLayers]] library, interfaced by [[http://common-lisp.net/project/parenscript/][Parenscript]] and
     [[http://common-lisp.net/project/cl-json/][CL-JSON]].
 
-  - Without Steffen Scheller's photogrammetric library [[http://github.com/trebb/phoml][PhoML]] Phoros'
+  - Without [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s photogrammetric library [[http://github.com/trebb/phoml][PhoML]] Phoros'
     presentation server couldn't do much beyond displaying
     geolocated images. 
 
