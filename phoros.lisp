@@ -234,7 +234,7 @@ wrapped in an array."
 (define-easy-handler
     (store-point :uri "/phoros-lib/store-point" :default-request-type :post)
     ()
-  "Receive point sent by user, store it into database."
+  "Receive point sent by user; store it into database."
   (when (session-value 'authenticated-p)
     (let* ((presentation-project-name (session-value 'presentation-project-name))
            (user-id (session-value 'user-id))
@@ -292,7 +292,82 @@ of presentation project with presentation-project-id."
        "While fetching common-table-names of presentation-project-id ~D: ~A"
        presentation-project-id c))))
 
-(define-easy-handler (points :uri "/phoros-lib/points") (bbox)
+;;(define-easy-handler (points :uri "/phoros-lib/points") (bbox)
+;;  "Send a bunch of GeoJSON-encoded points from inside bbox to client."
+;;  (when (session-value 'authenticated-p)
+;;    (handler-case 
+;;        (let ((box3d-form
+;;               (concatenate 'string "BOX3D("
+;;                            (substitute #\Space #\,
+;;                                        (substitute #\Space #\, bbox :count 1)
+;;                                        :from-end t :count 1)
+;;                            ")"))
+;;              (common-table-names (common-table-names
+;;                                   (session-value 'presentation-project-id))))
+;;          (with-connection *postgresql-credentials*
+;;            (json:encode-json-alist-to-string
+;;             (acons
+;;              'type '*geometry-collection
+;;              (acons
+;;               'geometries
+;;               (mapcar
+;;                #'(lambda (x)
+;;                    (acons 'type '*point
+;;                           (acons 'coordinates x nil)))
+;;                (loop
+;;                   for common-table-name in common-table-names
+;;                   for point-table-name = (make-symbol
+;;                                           (concatenate
+;;                                            'string "dat-"
+;;                                            common-table-name "-point"))
+;;                   append 
+;;                   (query
+;;                    (:select
+;;                     (:st_x (:st_transform 'coordinates *standard-coordinates*))
+;;                     (:st_y (:st_transform 'coordinates *standard-coordinates*))
+;;                     :from point-table-name
+;;                     :where (:&&
+;;                             (:st_transform 'coordinates *standard-coordinates*)
+;;                             (:st_setsrid  (:type box3d-form box3d)
+;;                                           *standard-coordinates*))))))
+;;               nil)))))
+;;      (condition (c)
+;;        (cl-log:log-message
+;;         :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
+
+(defun encode-geojson-to-string (features)
+  "Encode a list of sublists into a GeoJSON FeatureCollection.  Each
+  sublist must start with coordinates x, y, z and a numeric point id,
+  followed by zero or more pieces of extra information.  The extra
+  information goes into an array under GeoJSON Feature property
+  \"strings\"."
+  (with-output-to-string (s)
+    (json:with-object (s)
+      (json:encode-object-member :type :*feature-collection s)
+      (json:as-object-member (:features s) 
+        (json:with-array (s)
+          (mapcar
+           #'(lambda (point-with-properties)
+               (destructuring-bind (x y z id &rest properties) ;TODO: z probably bogus
+                   point-with-properties
+                 (json:as-array-member (s)
+                   (json:with-object (s)
+                     (json:encode-object-member :type :*feature s)
+                     (json:as-object-member (:geometry s)
+                       (json:with-object (s)
+                         (json:encode-object-member :type :*point s)
+                         (json:as-object-member (:coordinates s)
+                           (json:encode-json (list x y z) s))))
+                     (json:encode-object-member :id id s)
+                     (json:as-object-member (:properties s)
+                       (if properties
+                           (json:with-object (s)
+                             (json:as-object-member (:strings s)
+                               (json:encode-json properties s)))
+                           (json:encode-json nil s)))))))
+           features))))))
+
+(define-easy-handler (points :uri "/phoros-lib/points") (bbox) ;TODO: rename to user-points
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (session-value 'authenticated-p)
     (handler-case 
@@ -302,38 +377,34 @@ of presentation project with presentation-project-id."
                                         (substitute #\Space #\, bbox :count 1)
                                         :from-end t :count 1)
                             ")"))
-              (common-table-names (common-table-names
-                                   (session-value 'presentation-project-id))))
-          (with-connection *postgresql-credentials*
-            (json:encode-json-alist-to-string
-             (acons
-              'type '*geometry-collection
-              (acons
-               'geometries
-               (mapcar
-                #'(lambda (x)
-                    (acons 'type '*point
-                           (acons 'coordinates x nil)))
-                (loop
-                   for common-table-name in common-table-names
-                   for point-table-name = (make-symbol
-                                           (concatenate
-                                            'string "dat-"
-                                            common-table-name "-point"))
-                   append 
-                   (query
-                    (:select
-                     (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                     (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                     :from point-table-name
-                     :where (:&&
-                             (:st_transform 'coordinates *standard-coordinates*)
-                             (:st_setsrid  (:type box3d-form box3d)
-                                           *standard-coordinates*))))))
-               nil)))))
+              (common-table-names
+               (common-table-names
+                (session-value 'presentation-project-id))))
+          (encode-geojson-to-string
+           (with-connection *postgresql-credentials*
+             (loop
+                for common-table-name in common-table-names
+                for point-table-name = (make-symbol
+                                        (concatenate
+                                         'string "dat-"
+                                         common-table-name "-point"))
+                append 
+                (query
+                 (:select
+                  (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                  (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                  (:st_z (:st_transform 'coordinates *standard-coordinates*))
+                  'point-id             ;becomes fid on client
+                  :from point-table-name
+                  :where (:&&
+                          (:st_transform 'coordinates *standard-coordinates*)
+                          (:st_setsrid  (:type box3d-form box3d)
+                                        *standard-coordinates*))))))))
       (condition (c)
         (cl-log:log-message
          :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
+
+
 
 (define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
@@ -814,6 +885,7 @@ image-index in array images."
                               *open-layers *format
                               (*geo-j-s-o-n
                                (create
+                                ignore-extra-dims t ;doesn't handle height anyway
                                 external-projection geographic
                                 internal-projection geographic)))))))))))))
                ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
