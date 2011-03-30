@@ -367,17 +367,19 @@ of presentation project with presentation-project-id."
                            (json:encode-json nil s)))))))
            features))))))
 
-(define-easy-handler (points :uri "/phoros-lib/points") (bbox) ;TODO: rename to user-points
+(defun box3d (bbox)
+  "Return a WKT compliant BOX3D string from string bbox."
+  (concatenate 'string "BOX3D("
+               (substitute #\Space #\,
+                           (substitute #\Space #\, bbox :count 1)
+                           :from-end t :count 1)
+               ")"))
+
+(define-easy-handler (points :uri "/phoros-lib/points") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (session-value 'authenticated-p)
     (handler-case 
-        (let ((box3d-form
-               (concatenate 'string "BOX3D("
-                            (substitute #\Space #\,
-                                        (substitute #\Space #\, bbox :count 1)
-                                        :from-end t :count 1)
-                            ")"))
-              (common-table-names
+        (let ((common-table-names
                (common-table-names
                 (session-value 'presentation-project-id))))
           (encode-geojson-to-string
@@ -398,13 +400,38 @@ of presentation project with presentation-project-id."
                   :from point-table-name
                   :where (:&&
                           (:st_transform 'coordinates *standard-coordinates*)
-                          (:st_setsrid  (:type box3d-form box3d)
+                          (:st_setsrid  (:type (box3d bbox) box3d)
                                         *standard-coordinates*))))))))
       (condition (c)
         (cl-log:log-message
          :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
 
-
+(define-easy-handler (user-points :uri "/phoros-lib/user-points") (bbox)
+  "Send a bunch of GeoJSON-encoded points from inside bbox to client."
+  (when (session-value 'authenticated-p)
+    (handler-case 
+        (let ((user-point-table-name
+               (user-point-table-name (session-value 'presentation-project-name))))
+          (encode-geojson-to-string
+           (with-connection *postgresql-credentials*
+             (print(query
+              (:select
+               (:st_x (:st_transform 'coordinates *standard-coordinates*))
+               (:st_y (:st_transform 'coordinates *standard-coordinates*))
+               (:st_z (:st_transform 'coordinates *standard-coordinates*))
+               'user-point-id           ;becomes fid on client
+               'attribute
+               'description
+               'numeric-description
+               'creation-date
+               :from user-point-table-name
+               :where (:&&
+                       (:st_transform 'coordinates *standard-coordinates*)
+                       (:st_setsrid  (:type (box3d bbox) box3d)
+                                     *standard-coordinates*))))))))
+      (condition (c)
+        (cl-log:log-message
+         :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
 
 (define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
@@ -888,6 +915,32 @@ image-index in array images."
                                 ignore-extra-dims t ;doesn't handle height anyway
                                 external-projection geographic
                                 internal-projection geographic)))))))))))))
+               (user-point-layer
+                (new (chain
+                      *open-layers *layer
+                      (*vector
+                       "User Points"
+                       (create
+                        :strategies
+                        (array (new
+                                (chain *open-layers *strategy
+                                       (*bbox* (create :ratio 1.1)))))
+                        :protocol
+                        (new
+                         (chain
+                          *open-layers *protocol
+                          (*http*
+                           (create
+                            :url "/phoros-lib/user-points"
+                            :format
+                            (new
+                             (chain
+                              *open-layers *format
+                              (*geo-j-s-o-n
+                               (create
+                                ignore-extra-dims t ;doesn't handle height anyway
+                                external-projection geographic
+                                internal-projection geographic)))))))))))))
                ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
                (osm-layer (new (chain *open-layers *layer (*osm*))))
                (streetmap-overview
@@ -901,7 +954,7 @@ image-index in array images."
           (chain streetmap (add-control click-streetmap))
           (chain click-streetmap (activate))
           ;;((@ map add-layers) (array osm-layer google survey-layer))
-          (chain streetmap (add-layers (array survey-layer osm-layer)))
+          (chain streetmap (add-layers (array survey-layer osm-layer user-point-layer)))
           (chain streetmap
                  (add-control
                   (new (chain *open-layers *control (*layer-switcher)))))
