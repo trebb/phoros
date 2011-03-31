@@ -657,7 +657,6 @@ another photo."
                 (aref estimated-positions-request-response 1)))
           (setf global-position
                 (aref estimated-positions-request-response 0))
-          (debug-info global-position)
           (setf streetmap-estimated-position-layer
                 (new ((@ *open-layers *layer *vector) "Estimated Position")))
           (chain streetmap-estimated-position-layer
@@ -685,7 +684,6 @@ another photo."
 
       (defun finish-point ()
         "Send current global-position as a user point to the database."
-        (debug-info global-position)
         (let ((global-position-etc global-position))
           (setf (chain global-position-etc attribute)
                 (chain
@@ -706,7 +704,7 @@ another photo."
                          :data content
                          :headers (create "Content-type" "text/plain"
                                           "Content-length" (@ content length))
-                         :success remove-work-layers)))
+                         :success (lambda () (remove-work-layers)))))
           (let* ((previous-numeric-description ;increment if possible
                   (chain global-position-etc numeric-description))
                  (current-numeric-description
@@ -872,6 +870,8 @@ image-index in array images."
               (+ (who-ps-html (:h2 "Help"))
               (getprop help-topics topic))))
       
+      (defvar streetmap)
+      
       (defun init ()
         "Prepare user's playground."
         (unless (== user-role "read")
@@ -889,89 +889,68 @@ image-index in array images."
                     (*map "streetmap"
                           (create projection geographic
                                   display-projection geographic)))))
-        (let* ((survey-layer
-                (new (chain
-                      *open-layers *layer
-                      (*vector
-                       "Survey"
-                       (create
-                        :strategies
-                        (array (new
-                                (chain *open-layers *strategy
-                                       (*bbox* (create :ratio 1.1)))))
-                        :protocol
-                        (new
-                         (chain
-                          *open-layers *protocol
-                          (*http*
-                           (create
-                            :url "/phoros-lib/points"
-                            :format
-                            (new
-                             (chain
-                              *open-layers *format
-                              (*geo-j-s-o-n
-                               (create
-                                ignore-extra-dims t ;doesn't handle height anyway
-                                external-projection geographic
-                                internal-projection geographic)))))))))))))
-               (user-point-layer
-                (new (chain
-                      *open-layers *layer
-                      (*vector
-                       "User Points"
-                       (create
-                        :strategies
-                        (array (new
-                                (chain *open-layers *strategy
-                                       (*bbox* (create :ratio 1.1)))))
-                        :protocol
-                        (new
-                         (chain
-                          *open-layers *protocol
-                          (*http*
-                           (create
-                            :url "/phoros-lib/user-points"
-                            :format
-                            (new
-                             (chain
-                              *open-layers *format
-                              (*geo-j-s-o-n
-                               (create
-                                ignore-extra-dims t ;doesn't handle height anyway
-                                external-projection geographic
-                                internal-projection geographic)))))))))))))
-               ;;(google (new ((@ *open-layers *Layer *google) "Google Streets")))
-               (osm-layer (new (chain *open-layers *layer (*osm*))))
-               (streetmap-overview
-                (new (chain *open-layers *control (*overview-map
-                                                   (create maximized t
-                                                           min-ratio 14
-                                                           max-ratio 16)))))
-               (click-streetmap
-                (new (chain *open-layers *control
-                            (*click (create :trigger request-photos))))))
-          (chain streetmap (add-control click-streetmap))
-          (chain click-streetmap (activate))
-          ;;((@ map add-layers) (array osm-layer google survey-layer))
-          (chain streetmap (add-layers (array survey-layer osm-layer user-point-layer)))
-          (chain streetmap
-                 (add-control
-                  (new (chain *open-layers *control (*layer-switcher)))))
-          (chain streetmap
-                 (add-control
-                  (new (chain *open-layers *control (*mouse-position)))))
-          (chain streetmap (add-control streetmap-overview))
-          (chain streetmap
-                 (zoom-to-extent
-                  (chain (new (chain *open-layers
-                                     (*bounds
-                                      14.32066 51.72693 14.32608 51.72862)))
-                         (transform geographic spherical-mercator)))))
-        (loop
-           for i from 0 to (lisp (1- *number-of-images*))
-           do
-           (initialize-image i))))))
+
+        (defvar bbox-strategy (chain *open-layers *strategy *bbox*))
+        (setf (chain bbox-strategy prototype ratio) 1.1)
+
+        (defvar geojson-format (chain *open-layers *format *geo-j-s-o-n))
+        (setf (chain geojson-format prototype ignore-extra-dims) t) ;doesn't handle height anyway
+        (setf (chain geojson-format prototype external-projection) geographic)
+        (setf (chain geojson-format prototype internal-projection) geographic)
+
+        (defvar http-protocol (chain *open-layers *protocol *http*))
+        (setf (chain http-protocol prototype format) (new geojson-format))
+                                 
+        (defvar survey-layer
+          (new (chain
+                *open-layers *layer
+                (*vector
+                 "Survey"
+                 (create
+                  :strategies (array (new (bbox-strategy)))
+                  :protocol
+                  (new (http-protocol
+                        (create :url "/phoros-lib/points"))))))))
+        (defvar user-point-layer
+          (new (chain
+                *open-layers *layer
+                (*vector
+                 "User Points"
+                 (create
+                  :strategies (array (new bbox-strategy))
+                  :protocol
+                  (new (http-protocol
+                        (create :url "/phoros-lib/user-points"))))))))
+        ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
+        (defvar osm-layer (new (chain *open-layers *layer (*osm*))))
+        (defvar streetmap-overview
+          (new (chain *open-layers *control (*overview-map
+                                             (create maximized t
+                                                     min-ratio 14
+                                                     max-ratio 16)))))
+        (defvar click-streetmap
+          (new (chain *open-layers *control
+                      (*click (create :trigger request-photos)))))
+        (chain streetmap (add-control click-streetmap))
+        (chain click-streetmap (activate))
+        ;;((@ map add-layers) (array osm-layer google survey-layer))
+        (chain streetmap (add-layers (array survey-layer osm-layer user-point-layer)))
+        (chain streetmap
+               (add-control
+                (new (chain *open-layers *control (*layer-switcher)))))
+        (chain streetmap
+               (add-control
+                (new (chain *open-layers *control (*mouse-position)))))
+        (chain streetmap (add-control streetmap-overview))
+        (chain streetmap
+               (zoom-to-extent
+                (chain (new (chain *open-layers
+                                   (*bounds
+                                    14.32066 51.72693 14.32608 51.72862)))
+                       (transform geographic spherical-mercator))))
+      (loop
+         for i from 0 to (lisp (1- *number-of-images*))
+         do (initialize-image i))))))
 
 (define-easy-handler
     (view :uri "/phoros-lib/view" :default-request-type :post) ()
