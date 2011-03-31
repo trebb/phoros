@@ -450,32 +450,44 @@ of presentation project with presentation-project-id."
       (setf debug-info (@ *open-layers *console info))
 
       (setf
-       (@ *open-layers *control *click)
-       ((@ *open-layers *class) 
-        (@ *open-layers *control)
-        (create :default-handler-options
-                (create :single t
-                        :double false
-                        :pixel-tolerance 0
-                        :stop-single false
-                        :stop-double false)
-                :initialize
-                (lambda (options)
-                  (setf 
-                   (@ this handler-options) ((@ *open-layers *util extend)
-                                             (create)
-                                             (@ this default-handler-options)))
-                  ((@ *open-layers *control prototype initialize apply)
-                   this arguments)
-                  (setf (@ this handler)
-                        (new ((@ *open-layers *handler *click) this
-                              (create :click (@ this trigger))
-                              (@ this handler-options))))))))
+       click-control
+       (chain
+        *open-layers
+        (*class
+         (@ *open-layers *control)
+         (create
+          :default-handler-options
+          (create :single t
+                  :double false
+                  :pixel-tolerance 0
+                  :stop-single false
+                  :stop-double false)
+          :initialize
+          (lambda (options)
+            (setf 
+             (@ this handler-options)
+             (chain *open-layers
+                    *util
+                    (extend
+                     (create)
+                     (@ this default-handler-options))))
+            (chain *open-layers
+                   *control
+                   prototype
+                   initialize
+                   (apply this arguments))
+            (setf (@ this handler)
+                  (new (chain *open-layers
+                              *handler
+                              (*click this
+                                      (create
+                                       :click (@ this trigger))
+                                      (@ this handler-options))))))))))
 
-      (setf geographic
-            (new ((@ *open-layers *projection) "EPSG:4326")))
-      (setf spherical-mercator
-            (new ((@ *open-layers *projection) "EPSG:900913")))
+      (defvar geographic
+            (new (chain *open-layers (*projection "EPSG:4326"))))
+      (defvar spherical-mercator
+            (new (chain *open-layers (*projection "EPSG:900913"))))
       (defvar user-role (lisp (string-downcase (session-value 'user-role)))
         "User's permissions")
       (defvar images (array) "Collection of the photos currently shown.")
@@ -784,7 +796,7 @@ image-index in array images."
         (setf (@ (aref images image-index) image-click-action)
               (image-click-action (aref images image-index)))
         (setf (@ (aref images image-index) click)
-              (new ((@ *open-layers *control *click)
+              (new (click-control
                     (create :trigger (@ (aref images image-index)
                                         image-click-action)))))
         ((@ (aref images image-index) map add-control)
@@ -894,8 +906,7 @@ image-index in array images."
                                                      min-ratio 14
                                                      max-ratio 16)))))
         (defvar click-streetmap
-          (new (chain *open-layers *control
-                      (*click (create :trigger request-photos)))))
+          (new (click-control (create :trigger request-photos))))
         (chain streetmap (add-control click-streetmap))
         (chain click-streetmap (activate))
         ;;((@ map add-layers) (array osm-layer google survey-layer))
