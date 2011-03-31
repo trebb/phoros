@@ -292,49 +292,6 @@ of presentation project with presentation-project-id."
        "While fetching common-table-names of presentation-project-id ~D: ~A"
        presentation-project-id c))))
 
-;;(define-easy-handler (points :uri "/phoros-lib/points") (bbox)
-;;  "Send a bunch of GeoJSON-encoded points from inside bbox to client."
-;;  (when (session-value 'authenticated-p)
-;;    (handler-case 
-;;        (let ((box3d-form
-;;               (concatenate 'string "BOX3D("
-;;                            (substitute #\Space #\,
-;;                                        (substitute #\Space #\, bbox :count 1)
-;;                                        :from-end t :count 1)
-;;                            ")"))
-;;              (common-table-names (common-table-names
-;;                                   (session-value 'presentation-project-id))))
-;;          (with-connection *postgresql-credentials*
-;;            (json:encode-json-alist-to-string
-;;             (acons
-;;              'type '*geometry-collection
-;;              (acons
-;;               'geometries
-;;               (mapcar
-;;                #'(lambda (x)
-;;                    (acons 'type '*point
-;;                           (acons 'coordinates x nil)))
-;;                (loop
-;;                   for common-table-name in common-table-names
-;;                   for point-table-name = (make-symbol
-;;                                           (concatenate
-;;                                            'string "dat-"
-;;                                            common-table-name "-point"))
-;;                   append 
-;;                   (query
-;;                    (:select
-;;                     (:st_x (:st_transform 'coordinates *standard-coordinates*))
-;;                     (:st_y (:st_transform 'coordinates *standard-coordinates*))
-;;                     :from point-table-name
-;;                     :where (:&&
-;;                             (:st_transform 'coordinates *standard-coordinates*)
-;;                             (:st_setsrid  (:type box3d-form box3d)
-;;                                           *standard-coordinates*))))))
-;;               nil)))))
-;;      (condition (c)
-;;        (cl-log:log-message
-;;         :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
-
 (defun encode-geojson-to-string (features)
   "Encode a list of sublists into a GeoJSON FeatureCollection.  Each
   sublist must start with coordinates x, y, z and a numeric point id,
@@ -544,7 +501,7 @@ of presentation project with presentation-project-id."
 
       (defun photo-path (photo-parameters)
         "Create from stuff found in photo-parameters a path for use in
-a image url."
+an image url."
         (+ "/phoros-lib/photo/" (@ photo-parameters directory) "/"
            (@ photo-parameters filename) "/"
            (@ photo-parameters byte-position) ".png"))
@@ -586,6 +543,10 @@ a image url."
       (defun disable-element-with-id (id)
         "Grey out HTML element with id=\"id\"."
         (setf (chain document (get-element-by-id id) disabled) t))
+
+      (defun refresh-layer (layer)
+        "Have layer re-request and redraw features."
+        (chain layer (refresh (create :force t))))
 
       (defun present-photos ()
         "Handle the response triggered by request-photos."
@@ -704,7 +665,9 @@ another photo."
                          :data content
                          :headers (create "Content-type" "text/plain"
                                           "Content-length" (@ content length))
-                         :success (lambda () (remove-work-layers)))))
+                         :success (lambda ()
+                                    (refresh-layer user-point-layer)
+                                    (remove-work-layers)))))
           (let* ((previous-numeric-description ;increment if possible
                   (chain global-position-etc numeric-description))
                  (current-numeric-description
@@ -872,6 +835,38 @@ image-index in array images."
       
       (defvar streetmap)
       
+      (defvar bbox-strategy (chain *open-layers *strategy *bbox*))
+      (setf (chain bbox-strategy prototype ratio) 1.1)
+
+      (defvar geojson-format (chain *open-layers *format *geo-j-s-o-n))
+      (setf (chain geojson-format prototype ignore-extra-dims) t) ;doesn't handle height anyway
+      (setf (chain geojson-format prototype external-projection) geographic)
+      (setf (chain geojson-format prototype internal-projection) geographic)
+
+      (defvar http-protocol (chain *open-layers *protocol *http*))
+      (setf (chain http-protocol prototype format) (new geojson-format))
+      
+      (defvar survey-layer
+        (new (chain
+              *open-layers *layer
+              (*vector
+               "Survey"
+               (create
+                :strategies (array (new (bbox-strategy)))
+                :protocol
+                (new (http-protocol
+                      (create :url "/phoros-lib/points"))))))))
+      (defvar user-point-layer
+        (new (chain
+              *open-layers *layer
+              (*vector
+               "User Points"
+               (create
+                :strategies (array (new bbox-strategy))
+                :protocol
+                (new (http-protocol
+                      (create :url "/phoros-lib/user-points"))))))))
+
       (defun init ()
         "Prepare user's playground."
         (unless (== user-role "read")
@@ -890,37 +885,7 @@ image-index in array images."
                           (create projection geographic
                                   display-projection geographic)))))
 
-        (defvar bbox-strategy (chain *open-layers *strategy *bbox*))
-        (setf (chain bbox-strategy prototype ratio) 1.1)
 
-        (defvar geojson-format (chain *open-layers *format *geo-j-s-o-n))
-        (setf (chain geojson-format prototype ignore-extra-dims) t) ;doesn't handle height anyway
-        (setf (chain geojson-format prototype external-projection) geographic)
-        (setf (chain geojson-format prototype internal-projection) geographic)
-
-        (defvar http-protocol (chain *open-layers *protocol *http*))
-        (setf (chain http-protocol prototype format) (new geojson-format))
-                                 
-        (defvar survey-layer
-          (new (chain
-                *open-layers *layer
-                (*vector
-                 "Survey"
-                 (create
-                  :strategies (array (new (bbox-strategy)))
-                  :protocol
-                  (new (http-protocol
-                        (create :url "/phoros-lib/points"))))))))
-        (defvar user-point-layer
-          (new (chain
-                *open-layers *layer
-                (*vector
-                 "User Points"
-                 (create
-                  :strategies (array (new bbox-strategy))
-                  :protocol
-                  (new (http-protocol
-                        (create :url "/phoros-lib/user-points"))))))))
         ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
         (defvar osm-layer (new (chain *open-layers *layer (*osm*))))
         (defvar streetmap-overview
