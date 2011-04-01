@@ -272,6 +272,30 @@ wrapped in an array."
                                      )))
          () "No point stored.  This should not happen.")))))
 
+(define-easy-handler
+    (delete-point :uri "/phoros-lib/delete-point" :default-request-type :post)
+    ()
+  "Delete user point if user is allowed to do so."
+  (when (session-value 'authenticated-p)
+    (let* ((presentation-project-name (session-value 'presentation-project-name))
+           (user-id (session-value 'user-id))
+           (user-role (session-value 'user-role))
+           (user-point-table-name
+            (user-point-table-name presentation-project-name))
+           (data (json:decode-json-from-string (raw-post-data))))
+      (with-connection *postgresql-credentials*
+        (assert
+         (eql 1 (cond ((string-equal user-role "admin")
+                     (execute (:delete-from user-point-table-name
+                                            :where (:= 'user-point-id data))))
+                    ((string-equal user-role "write")
+                     (execute (:delete-from user-point-table-name
+                                            :where (:and
+                                                    (:= 'user-point-id data)
+                                                    (:= 'user-id user-id)))))))
+            () "No point deleted.  This should not happen.")))))
+
+
 (defun common-table-names (presentation-project-id)
   "Return a list of common-table-names of table sets that contain data
 of presentation project with presentation-project-id."
@@ -293,11 +317,11 @@ of presentation project with presentation-project-id."
        presentation-project-id c))))
 
 (defun encode-geojson-to-string (features)
-  "Encode a list of sublists into a GeoJSON FeatureCollection.  Each
-  sublist must start with coordinates x, y, z and a numeric point id,
-  followed by zero or more pieces of extra information.  The extra
-  information goes into an array under GeoJSON Feature property
-  \"strings\"."
+  "Encode a list of property lists into a GeoJSON FeatureCollection.
+Each property list must contain keys for coordinates, :x, :y, :z; and
+for a numeric point :id, followed by zero or more pieces of extra
+information.  The extra information is stored as GeoJSON Feature
+properties."
   (with-output-to-string (s)
     (json:with-object (s)
       (json:encode-object-member :type :*feature-collection s)
@@ -305,7 +329,7 @@ of presentation project with presentation-project-id."
         (json:with-array (s)
           (mapcar
            #'(lambda (point-with-properties)
-               (destructuring-bind (x y z id &rest properties) ;TODO: z probably bogus
+               (destructuring-bind (&key x y z id &allow-other-keys) ;TODO: z probably bogus
                    point-with-properties
                  (json:as-array-member (s)
                    (json:with-object (s)
@@ -317,15 +341,13 @@ of presentation project with presentation-project-id."
                            (json:encode-json (list x y z) s))))
                      (json:encode-object-member :id id s)
                      (json:as-object-member (:properties s)
-                       (if properties
-                           (json:with-object (s)
-                             (json:as-object-member (:strings s)
-                               (json:encode-json properties s)))
-                           (json:encode-json nil s)))))))
+                       (dolist (key '(:x :y :z :id))
+                         (remf point-with-properties key))
+                       (json:encode-json-plist point-with-properties s))))))
            features))))))
 
 (defun box3d (bbox)
-  "Return a WKT compliant BOX3D string from string bbox."
+  "Return a WKT-compliant BOX3D string from string bbox."
   (concatenate 'string "BOX3D("
                (substitute #\Space #\,
                            (substitute #\Space #\, bbox :count 1)
@@ -348,20 +370,28 @@ of presentation project with presentation-project-id."
                                          'string "dat-"
                                          common-table-name "-point"))
                 append 
-                (query
-                 (:select
-                  (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                  (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                  (:st_z (:st_transform 'coordinates *standard-coordinates*))
-                  'point-id             ;becomes fid on client
-                  :from point-table-name
-                  :where (:&&
-                          (:st_transform 'coordinates *standard-coordinates*)
-                          (:st_setsrid  (:type (box3d bbox) box3d)
-                                        *standard-coordinates*))))))))
+                  (query
+                   (:select
+                    (:as
+                     (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                     'x)
+                    (:as
+                     (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                     'y)
+                    (:as
+                     (:st_z (:st_transform 'coordinates *standard-coordinates*))
+                     'z)
+                    (:as 'point-id 'id) ;becomes fid on client
+                    :from point-table-name
+                    :where (:&&
+                            (:st_transform 'coordinates *standard-coordinates*)
+                            (:st_setsrid  (:type (box3d bbox) box3d)
+                                          *standard-coordinates*)))
+                   :plists)))))
       (condition (c)
         (cl-log:log-message
-         :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
+         :server "While fetching points from inside bbox ~S: ~A"
+         bbox c)))))
 
 (define-easy-handler (user-points :uri "/phoros-lib/user-points") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
@@ -371,24 +401,33 @@ of presentation project with presentation-project-id."
                (user-point-table-name (session-value 'presentation-project-name))))
           (encode-geojson-to-string
            (with-connection *postgresql-credentials*
-             (print(query
+             (query
               (:select
-               (:st_x (:st_transform 'coordinates *standard-coordinates*))
-               (:st_y (:st_transform 'coordinates *standard-coordinates*))
-               (:st_z (:st_transform 'coordinates *standard-coordinates*))
-               'user-point-id           ;becomes fid on client
+               (:as
+                (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                'x)
+               (:as
+                (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                'y)
+               (:as
+                (:st_z (:st_transform 'coordinates *standard-coordinates*))
+                'z)
+               (:as 'user-point-id 'id) ;becomes fid on client
                'attribute
                'description
                'numeric-description
-               'creation-date
+               (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
+                    'creation-date)
                :from user-point-table-name
                :where (:&&
                        (:st_transform 'coordinates *standard-coordinates*)
                        (:st_setsrid  (:type (box3d bbox) box3d)
-                                     *standard-coordinates*))))))))
+                                     *standard-coordinates*)))
+              :plists))))
       (condition (c)
         (cl-log:log-message
-         :server "While fetching points from inside bbox ~S: ~A" bbox c)))))
+         :server "While fetching user-points from inside bbox ~S: ~A"
+         bbox c)))))
 
 (define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
@@ -600,6 +639,8 @@ an image url."
         "Draw an epipolar line from response triggered by clicking
 into a (first) photo."
         (enable-element-with-id "remove-work-layers-button")
+        (disable-element-with-id "delete-point-button")
+        (setf (chain document (get-element-by-id "point-creation-date") inner-h-t-m-l) nil) ;TODO: unselect feature in streetmap which in turn should make this line unnecessary
         (let ((epipolar-line ((@ *json* parse)
                               (@ this epipolar-request-response response-text))))
           (chain this epipolar-layer
@@ -671,7 +712,7 @@ another photo."
                        value))
           (setf content 
                 ((@ *json* stringify) global-position-etc))     ; TODO: use OpenLayer's JSON.
-          (setf photo-request-response
+          (setf photo-request-response                          ;TODO: this shouldn't be here
                 ((@ *open-layers *Request *POST*)
                  (create :url "/phoros-lib/store-point"
                          :data content
@@ -691,6 +732,19 @@ another photo."
                       current-numeric-description
                       previous-numeric-description)))))
 
+      (defun delete-point ()
+        (let ((user-point-id (chain current-user-point fid)))
+          (setf content 
+                ((@ *json* stringify) user-point-id))     ; TODO: use OpenLayer's JSON.
+          ((@ *open-layers *Request *POST*)
+           (create :url "/phoros-lib/delete-point"
+                   :data content
+                   :headers (create "Content-type" "text/plain"
+                                    "Content-length" (@ content length))
+                   :success (lambda ()
+                              (refresh-layer user-point-layer)
+                              (setf (chain document (get-element-by-id "point-creation-date") inner-h-t-m-l) nil))))))
+      
       (defun draw-active-point ()
         "Draw an Active Point, i.e. a point used in subsequent
 photogrammetric calculations."
@@ -845,8 +899,7 @@ image-index in array images."
               (+ (who-ps-html (:h2 "Help"))
               (getprop help-topics topic))))
       
-      (defvar streetmap)
-      
+
       (defvar bbox-strategy (chain *open-layers *strategy *bbox*))
       (setf (chain bbox-strategy prototype ratio) 1.1)
 
@@ -868,6 +921,7 @@ image-index in array images."
                 :protocol
                 (new (http-protocol
                       (create :url "/phoros-lib/points"))))))))
+
       (defvar user-point-layer
         (new (chain
               *open-layers *layer
@@ -878,6 +932,23 @@ image-index in array images."
                 :protocol
                 (new (http-protocol
                       (create :url "/phoros-lib/user-points"))))))))
+      
+      (defvar current-user-point
+        "The currently selected user-point.")
+
+      (defun user-point-selected (event)
+        (enable-element-with-id "delete-point-button")
+        (setf current-user-point (chain event feature))
+        (debug-info current-user-point)
+        (setf (chain document (get-element-by-id "point-attribute") value) (chain event feature attributes attribute))
+        (setf (chain document (get-element-by-id "point-description") value) (chain event feature attributes description))
+        (setf (chain document (get-element-by-id "point-numeric-description") value) (chain event feature attributes numeric-description))
+        (setf (chain document (get-element-by-id "point-creation-date") inner-h-t-m-l) (chain event feature attributes creation-date))
+        )
+
+      (defun user-point-unselected (event)
+        (disable-element-with-id "delete-point-button")
+        (setf (chain document (get-element-by-id "point-creation-date") inner-h-t-m-l) nil))
 
       (defun init ()
         "Prepare user's playground."
@@ -897,7 +968,6 @@ image-index in array images."
                           (create projection geographic
                                   display-projection geographic)))))
 
-
         ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
         (defvar osm-layer (new (chain *open-layers *layer (*osm*))))
         (defvar streetmap-overview
@@ -909,6 +979,14 @@ image-index in array images."
           (new (click-control (create :trigger request-photos))))
         (chain streetmap (add-control click-streetmap))
         (chain click-streetmap (activate))
+
+        (defvar select-control
+          (new (chain *open-layers *control (*select-feature user-point-layer))))
+        (chain user-point-layer events (register "featureselected" user-point-layer user-point-selected))
+        (chain user-point-layer events (register "featureunselected" user-point-layer user-point-unselected))
+        (chain streetmap (add-control select-control))
+        (chain select-control (activate))
+
         ;;((@ map add-layers) (array osm-layer google survey-layer))
         (chain streetmap (add-layers (array survey-layer osm-layer user-point-layer)))
         (chain streetmap
@@ -986,7 +1064,7 @@ image-index in array images."
                       :onmouseover (ps-inline (show-help 'remove-work-layers-button))
                       :onmouseout (ps-inline (show-help))
                       "start over")
-             (:h2 "Next Point")
+             (:h2 :id "h2-next-action" "Create Point") ;TODO: change text programmatically
              (:select :id "point-attribute" :disabled t
                       :size 1 :name "point-attribute"
                       :onmouseover (ps-inline (show-help 'point-attribute))
@@ -1001,13 +1079,22 @@ image-index in array images."
                      :type "text" :size 6 :name "point-numeric-description"
                      :onmouseover (ps-inline (show-help 'point-numeric-description))
                      :onmouseout (ps-inline (show-help)))
+             (:code :id "point-creation-date" :disabled t
+                     :type "text" :name "point-creation-date"
+                     :onmouseover (ps-inline (show-help 'point-creation-date))
+                     :onmouseout (ps-inline (show-help)))
              :br
-             (:div :onmouseover (ps-inline (show-help 'finish-point-button))
-                   :onmouseout (ps-inline (show-help))
-                   (:button :disabled t :id "finish-point-button"
-                            :type "button"
-                            :onclick (ps-inline (finish-point))
-                            "finish point")))
+             (:button :disabled t :id "finish-point-button"
+                      :type "button"
+                      :onmouseover (ps-inline (show-help 'finish-point-button))
+                      :onmouseout (ps-inline (show-help))
+                      :onclick (ps-inline (finish-point))
+                      "finish point")
+             (:button :id "delete-point-button" :disabled t
+                      :type "button" :onclick (ps-inline (delete-point))
+                      :onmouseover (ps-inline (show-help 'delete-point-button))
+                      :onmouseout (ps-inline (show-help))
+                      "delete"))
        (:div :id "help-display" :class "smalltext"
              :onmouseover (ps-inline (show-help 'help-display))
              :onmouseout (ps-inline (show-help)))
