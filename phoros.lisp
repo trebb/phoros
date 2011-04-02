@@ -864,42 +864,54 @@ image-index in array images."
       
       (defvar help-topics
         (create
-         no-topic
-         (who-ps-html (:p))
-         user-role
+         :user-role
          (who-ps-html (:p "User role.  \"Read\" can't write anything.  \"Write\" may write user points and delete their own ones. \"Admin\" may write user points and delete points written by others."))
-         presentation-project-name
+         :presentation-project-name
          (who-ps-html (:p "Presentation project name."))
-         finish-point-button
+         :h2-controls
+         (who-ps-html (:p "Next action."))
+         :finish-point-button
          (who-ps-html (:p "Store point with its attribute, description and numeric description into database.  Afterwards, increment the numeric description if possible."))
-         point-attribute
+         :point-attribute
          (who-ps-html (:p "One of a few possible point attributes.")
                       (:p "TODO: currently only the hard-coded ones are available."))
-         point-description
+         :point-description
          (who-ps-html (:p "Optional verbal description of point."))
-         point-numeric-description
+         :point-numeric-description
          (who-ps-html (:p "Optional additional description of point.  Preferrably numeric and if so, automatically incremented after finishing point."))
-         remove-work-layers-button
+         :remove-work-layers-button
          (who-ps-html (:p "Discard the current, unstored point but let the rest of the workspace untouched."))
-         blurb-button
+         :blurb-button
          (who-ps-html (:p "View some info about phoros."))
-         logout-button
+         :logout-button
          (who-ps-html (:p "Finish this session.  Fresh login is required to continue."))
-         streetmap
+         :streetmap
          (who-ps-html (:p "Clicking into the streetmap fetches images which most probably feature the clicked point.")
                       (:p "TODO: This is not quite so.  Currently images taken from points nearest to the clicked one are displayed."))
-         any-image
+         :images
          (who-ps-html (:p "Clicking into an image sets or resets the active point there.  Once a feature is marked by active points in more than one image, the estimated position is calculated."))
-         help-display
-         (who-ps-html (:p "Hints on Phoros' displays and controls is shown here while hovering over the respective elements."))))
+         :help-display
+         (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
 
-      (defun show-help (&optional (topic 'no-topic))
+      (defun add-help-events ()
+        "Add mouse events to DOM elements that initiate display of a
+help message."
+        (for-in (topic help-topics)
+                (setf (chain document (get-element-by-id topic) onmouseover)
+                      ((lambda (x)
+                         (lambda () (show-help x)))
+                       topic))
+                (setf (chain document (get-element-by-id topic) onmouseout) show-help)))
+          
+      (defun show-help (&optional topic)
         "Put text on topic into help-display"
         (setf (chain document (get-element-by-id "help-display") inner-h-t-m-l)
               (+ (who-ps-html (:h2 "Help"))
-              (getprop help-topics topic))))
+                 (let ((help-body (getprop help-topics topic)))
+                   (if (undefined help-body)
+                       ""
+                       help-body)))))
       
-
       (defvar bbox-strategy (chain *open-layers *strategy *bbox*))
       (setf (chain bbox-strategy prototype ratio) 1.1)
 
@@ -939,7 +951,6 @@ image-index in array images."
       (defun user-point-selected (event)
         (enable-element-with-id "delete-point-button")
         (setf current-user-point (chain event feature))
-        (debug-info current-user-point)
         (setf (chain document (get-element-by-id "point-attribute") value) (chain event feature attributes attribute))
         (setf (chain document (get-element-by-id "point-description") value) (chain event feature attributes description))
         (setf (chain document (get-element-by-id "point-numeric-description") value) (chain event feature attributes numeric-description))
@@ -957,6 +968,7 @@ image-index in array images."
           (enable-element-with-id "point-description")
           (enable-element-with-id "point-numeric-description"))
         (setf point-attributes-select (chain document (get-element-by-id "point-attribute")))
+
         (loop for i in '("solitary" "polyline" "polygon") do
              (setf point-attribute-item (chain document (create-element "option")))
              (setf (chain point-attribute-item text) i)
@@ -968,6 +980,7 @@ image-index in array images."
                           (create projection geographic
                                   display-projection geographic)))))
 
+        (add-help-events)
         ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
         (defvar osm-layer (new (chain *open-layers *layer (*osm*))))
         (defvar streetmap-overview
@@ -1021,10 +1034,10 @@ image-index in array images."
                  "Phoros: " (session-value 'presentation-project-name))))
        (if *use-multi-file-openlayers*
            (who:htm
-             (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js")
-             (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
-             ;;(:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we don't seem to use this
-             )
+            (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js")
+            (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
+            ;;(:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we don't seem to use this
+            )
            (who:htm (:script :src "/phoros-lib/ol/OpenLayers.js")))
        (:link :rel "stylesheet" :href "/phoros-lib/css/style.css" :type "text/css")
        (:script :src "/phoros-lib/phoros.js")
@@ -1035,75 +1048,50 @@ image-index in array images."
        (:h1 :id "title"
             "Phoros: " (who:str (session-value 'user-full-name))
             (who:fmt " (~A)" (session-value 'user-name))
-            "with " (:span :onmouseover (ps-inline (show-help 'user-role))
-                           :onmouseout (ps-inline (show-help))
+            "with " (:span :id "user-role"
                            (who:str (session-value 'user-role)))
             "permission on "
-            (:span :onmouseover (ps-inline (show-help 'presentation-project-name))
-                   :onmouseout (ps-inline (show-help))
+            (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name))))
-       (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"
-             :onmouseover (ps-inline (show-help 'streetmap))
-             :onmouseout (ps-inline (show-help)))
+       (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair")
        (:div :class "phoros-controls"
              (:button :id "blurb-button"
                       :type "button"
                       :onclick "self.location.href = \"/phoros-lib/blurb\""
-                      :onmouseover (ps-inline (show-help 'blurb-button ))
-                      :onmouseout (ps-inline (show-help))
                       "blurb")
              (:button :id "logout-button"
                       :type "button"
                       :onclick "self.location.href = \"/phoros-lib/logout\""
-                      :onmouseover (ps-inline (show-help 'logout-button))
-                      :onmouseout (ps-inline (show-help))
                       "bye")
              :br
              (:button :id "remove-work-layers-button" :disabled t
                       :type "button" :onclick (ps-inline (remove-work-layers))
-                      :onmouseover (ps-inline (show-help 'remove-work-layers-button))
-                      :onmouseout (ps-inline (show-help))
                       "start over")
-             (:h2 :id "h2-next-action" "Create Point") ;TODO: change text programmatically
+             (:h2 :id "h2-controls" "Create Point") ;TODO: change text programmatically
              (:select :id "point-attribute" :disabled t
-                      :size 1 :name "point-attribute"
-                      :onmouseover (ps-inline (show-help 'point-attribute))
-                      :onmouseout (ps-inline (show-help)))
+                      :size 1 :name "point-attribute")
              :br
              (:input :id "point-description" :disabled t
-                     :type "text" :size 20 :name "point-description"
-                     :onmouseover (ps-inline (show-help 'point-description))
-                     :onmouseout (ps-inline (show-help)))
+                     :type "text" :size 20 :name "point-description")
              :br
              (:input :id "point-numeric-description" :disabled t
-                     :type "text" :size 6 :name "point-numeric-description"
-                     :onmouseover (ps-inline (show-help 'point-numeric-description))
-                     :onmouseout (ps-inline (show-help)))
+                     :type "text" :size 6 :name "point-numeric-description")
              (:code :id "point-creation-date" :disabled t
-                     :type "text" :name "point-creation-date"
-                     :onmouseover (ps-inline (show-help 'point-creation-date))
-                     :onmouseout (ps-inline (show-help)))
+                     :type "text" :name "point-creation-date")
              :br
              (:button :disabled t :id "finish-point-button"
                       :type "button"
-                      :onmouseover (ps-inline (show-help 'finish-point-button))
-                      :onmouseout (ps-inline (show-help))
                       :onclick (ps-inline (finish-point))
                       "finish point")
              (:button :id "delete-point-button" :disabled t
                       :type "button" :onclick (ps-inline (delete-point))
-                      :onmouseover (ps-inline (show-help 'delete-point-button))
-                      :onmouseout (ps-inline (show-help))
                       "delete"))
-       (:div :id "help-display" :class "smalltext"
-             :onmouseover (ps-inline (show-help 'help-display))
-             :onmouseout (ps-inline (show-help)))
-       (:div :style "clear:both"
+       (:div :id "help-display" :class "smalltext")
+       (:div :id "images" :style "clear:both"
              (loop
                 for i from 0 below *number-of-images* do 
                 (who:htm (:div :id i :class "image" :style "cursor:crosshair"
-                               :onmouseover (ps-inline (show-help 'any-image))
-                               :onmouseout (ps-inline (show-help)))))))))
+                               )))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
     :add-session-id t)))
