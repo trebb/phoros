@@ -556,31 +556,31 @@ properties."
                                        :click (@ this trigger))
                                       (@ this handler-options))))))))))
 
-      (defvar geographic
+      (defvar +geographic+
             (new (chain *open-layers (*projection "EPSG:4326"))))
-      (defvar spherical-mercator
+      (defvar +spherical-mercator+
             (new (chain *open-layers (*projection "EPSG:900913"))))
-      (defvar user-name (lisp (session-value 'user-name))
+      (defvar +user-name+ (lisp (session-value 'user-name))
         "User's (short) name")
-      (defvar user-role (lisp (string-downcase (session-value 'user-role)))
+      (defvar +user-role+ (lisp (string-downcase (session-value 'user-role)))
         "User's permissions")
-      (defvar images (array) "Collection of the photos currently shown.")
-      (defvar streetmap "The streetmap shown to the user.")
-      (defvar streetmap-estimated-position-layer)
-      (defvar point-attributes-select
+      (defvar *images* (array) "Collection of the photos currently shown.")
+      (defvar *streetmap* "The streetmap shown to the user.")
+      (defvar *streetmap-estimated-position-layer*)
+      (defvar *point-attributes-select*
         "The HTML element for selecting user point attributes.")
 
-      (defun write-permission-p (&optional (current-owner user-name))
+      (defun write-permission-p (&optional (current-owner +user-name+))
         "Nil if current user can't edit stuff created by current-owner or, without arguments, new stuff."
-        (or (== user-role "admin")
-            (and (== user-role "write")
-                 (== user-name current-owner))))
+        (or (== +user-role+ "admin")
+            (and (== +user-role+ "write")
+                 (== +user-name+ current-owner))))
       
             (defun *image ()
               "Anything necessary to deal with a photo."
               (setf (getprop this 'map)
                     (new ((getprop *open-layers '*map)
-                          (create projection spherical-mercator
+                          (create projection +spherical-mercator+
                                   all-overlays t)))
                     (getprop this 'dummy) false ;TODO why? (omitting splices map components directly into *image)
                     ))
@@ -603,9 +603,9 @@ an image url."
               (chain map (get-layers-by-name layer-name) length))
 
             (defun some-active-point-p ()
-              "False if no image in images has an Active Point."
+              "False if no image in *images* has an Active Point."
               (loop
-                 for i across images
+                 for i across *images*
                  sum (has-layer-p (getprop i 'map) "Active Point")))
 
             (defun remove-layer (map layer-name)
@@ -614,18 +614,26 @@ an image url."
                 (chain map (get-layers-by-name layer-name) 0 (destroy))))
 
             (defun remove-any-layers (layer-name)
-              "Destroy in all images and in streetmap the layer named layer-name."
+              "Destroy in all *images* and in *streetmap* the layer named layer-name."
               (loop
-                 for i across images do (remove-layer (getprop i 'map) layer-name))
-              (remove-layer streetmap layer-name))
+                 for i across *images* do (remove-layer (getprop i 'map) layer-name))
+              (remove-layer *streetmap* layer-name))
 
-            (defun remove-work-layers ()
-              "Destroy user-generated layers in streetmap and in all images."
+            (defun reset-controls ()
+              "Destroy user-generated layers in *streetmap* and in all *images*."
               (disable-element-with-id "finish-point-button")
+              (disable-element-with-id "delete-point-button")
               (disable-element-with-id "remove-work-layers-button")
+              (setf (inner-html-with-id "h2-controls") "Create Point")
+              (setf (inner-html-with-id "creator") nil)
+              (setf (inner-html-with-id "point-creation-date") nil))
+
+            (defun reset-layers-and-controls ()
+              (debug-info "Yo")
               (remove-any-layers "Epipolar Line")
               (remove-any-layers "Active Point")
               (remove-any-layers "Estimated Position")
+              (reset-controls)
               (setf pristine-images-p t))
 
             (defun enable-element-with-id (id)
@@ -654,7 +662,7 @@ an image url."
                                        (@ photo-request-response response-text))))
                 (loop
                    for p across photo-parameters
-                   for i across images
+                   for i across *images*
                    do
                    (setf (getprop i 'photo-parameters) p)
                    ((getprop i 'show-photo)))
@@ -662,19 +670,19 @@ an image url."
                 ))
 
             (defun request-photos (event)
-              "Handle the response to a click into streetmap; fetch photo data."
+              "Handle the response to a click into *streetmap*; fetch photo data."
               (disable-element-with-id "finish-point-button")
               (disable-element-with-id "remove-work-layers-button")
               (remove-any-layers "Estimated Position")
               (let ((lonlat
-                     ((@ ((@ streetmap get-lon-lat-from-pixel) (@ event xy)) transform)
-                      spherical-mercator ; why?
-                      geographic)))
+                     ((@ ((@ *streetmap* get-lon-lat-from-pixel) (@ event xy)) transform)
+                      +spherical-mercator+ ; why?
+                      +geographic+)))
                 (setf content
                       ((@ *json* stringify)
                        (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
                                :latitude (@ lonlat lat)
-                               :zoom ((@ streetmap get-zoom))
+                               :zoom ((@ *streetmap* get-zoom))
                                :count (lisp *number-of-images*))))
                 (setf photo-request-response
                       ((@ *open-layers *Request *POST*)
@@ -688,8 +696,8 @@ an image url."
               "Draw an epipolar line from response triggered by clicking
 into a (first) photo."
               (enable-element-with-id "remove-work-layers-button")
-              (disable-element-with-id "delete-point-button")
-              (setf (inner-html-with-id "point-creation-date") nil) ;TODO: unselect feature in streetmap which in turn should make this line unnecessary
+              ;;(disable-element-with-id "delete-point-button")
+              ;;(setf (inner-html-with-id "point-creation-date") nil) ;TODO: unselect feature in streetmap which in turn should make this line unnecessary
               (let ((epipolar-line ((@ *json* parse)
                                     (@ this epipolar-request-response response-text))))
                 (chain this epipolar-layer
@@ -702,7 +710,7 @@ into a (first) photo."
                                              (@ x :m) (@ x :n)))))))))))))
             ;; either *line-string or *multi-point are usable
       
-            (defvar global-position "Coordinates of the current estimated position")
+            (defvar *global-position* "Coordinates of the current estimated position")
 
             (defun draw-estimated-positions ()
               "Draw into streetmap and into all images points at Estimated
@@ -710,7 +718,10 @@ Position.  Estimated Position is the point returned so far from
 photogrammetric calculations that are triggered by clicking into
 another photo."
               (when (write-permission-p)
-                (setf (chain document (get-element-by-id "finish-point-button") onclick) finish-point)
+                (setf (chain document
+                             (get-element-by-id "finish-point-button")
+                             onclick)
+                      finish-point)
                 (enable-element-with-id "finish-point-button"))
               (let* ((estimated-positions-request-response
                       ((@ *json* parse)
@@ -719,20 +730,20 @@ another photo."
                                 'response-text)))
                      (estimated-positions
                       (aref estimated-positions-request-response 1)))
-                (setf global-position
+                (setf *global-position*
                       (aref estimated-positions-request-response 0))
-                (setf streetmap-estimated-position-layer
+                (setf *streetmap-estimated-position-layer*
                       (new ((@ *open-layers *layer *vector) "Estimated Position")))
-                (chain streetmap-estimated-position-layer
+                (chain *streetmap-estimated-position-layer*
                        (add-features
                         (new ((@ *open-layers *feature *vector)
                               ((@ (new ((@ *open-layers *geometry *point)
-                                        (getprop global-position 'longitude)
-                                        (getprop global-position 'latitude)))
-                                  transform) geographic spherical-mercator)))))
-                ((@ streetmap add-layer) streetmap-estimated-position-layer)
+                                        (getprop *global-position* 'longitude)
+                                        (getprop *global-position* 'latitude)))
+                                  transform) +geographic+ +spherical-mercator+)))))
+                ((@ *streetmap* add-layer) *streetmap-estimated-position-layer*)
                 (loop
-                   for i in images
+                   for i in *images*
                    for p in estimated-positions
                    do
                    (setf (@ i estimated-position-layer)
@@ -746,13 +757,39 @@ another photo."
                                        (getprop p 'm)
                                        (getprop p 'n))))))))))
 
+            ;;(defun draw-user-point ()
+            ;;  "Draw current user point into all images."
+            ;;  (let* ((estimated-positions-request-response
+            ;;          ((@ *json* parse)
+            ;;           (getprop this
+            ;;                    'estimated-positions-request-response
+            ;;                    'response-text)))
+            ;;         (user-point-positions
+            ;;          (aref estimated-positions-request-response 1)))
+            ;;    (setf *global-position*
+            ;;          (aref estimated-positions-request-response 0))
+            ;;    (loop
+            ;;       for i in *images*
+            ;;       for p in user-point-positions
+            ;;       do
+            ;;       (setf (@ i estimated-position-layer)
+            ;;             (new
+            ;;              ((@ *open-layers *layer *vector) "User Point")))
+            ;;       ((@ i map add-layer) (@ i estimated-position-layer))
+            ;;       (chain i estimated-position-layer
+            ;;              (add-features
+            ;;               (new ((@ *open-layers *feature *vector)
+            ;;                     (new ((@ *open-layers *geometry *point)
+            ;;                           (getprop p 'm)
+            ;;                           (getprop p 'n))))))))))
+
             (defun finish-point ()
-              "Send current global-position as a user point to the database."
-              (let ((global-position-etc global-position))
+              "Send current *global-position* as a user point to the database."
+              (let ((global-position-etc *global-position*))
                 (setf (chain global-position-etc attribute)
                       (chain
-                       (elt (chain point-attributes-select options)
-                            (chain point-attributes-select options selected-index))
+                       (elt (chain *point-attributes-select* options)
+                            (chain *point-attributes-select* options selected-index))
                        text))
                 (setf (chain global-position-etc description)
                       (value-with-id "point-description"))
@@ -766,8 +803,8 @@ another photo."
                          :headers (create "Content-type" "text/plain"
                                           "Content-length" (@ content length))
                          :success (lambda ()
-                                    (refresh-layer user-point-layer)
-                                    (remove-work-layers))))
+                                    (refresh-layer *user-point-layer*)
+                                    (reset-layers-and-controls))))
                 (let* ((previous-numeric-description ;increment if possible
                         (chain global-position-etc numeric-description))
                        (current-numeric-description
@@ -780,11 +817,11 @@ another photo."
             (defun update-point ()
               "Send changes to currently selected user point to database."
               (let* ((point-data
-                      (create user-point-id (chain current-user-point fid)
+                      (create user-point-id (chain *current-user-point* fid)
                               attribute
                               (chain
-                               (elt (chain point-attributes-select options)
-                                    (chain point-attributes-select options selected-index))
+                               (elt (chain *point-attributes-select* options)
+                                    (chain *point-attributes-select* options selected-index))
                                text)
                               description
                               (value-with-id "point-description")
@@ -798,12 +835,12 @@ another photo."
                          :headers (create "Content-type" "text/plain"
                                           "Content-length" (@ content length))
                          :success (lambda ()
-                                    (refresh-layer user-point-layer)
-                                    (setf (inner-html-with-id "point-creation-date") nil))))))
+                                    (refresh-layer *user-point-layer*)
+                                    (reset-layers-and-controls))))))
 
             (defun delete-point ()
               "Purge currently selected user point from database."
-              (let ((user-point-id (chain current-user-point fid)))
+              (let ((user-point-id (chain *current-user-point* fid)))
                 (setf content 
                       ((@ *json* stringify) user-point-id)) ; TODO: use OpenLayer's JSON.
                 ((@ *open-layers *Request *POST*)
@@ -812,8 +849,8 @@ another photo."
                          :headers (create "Content-type" "text/plain"
                                           "Content-length" (@ content length))
                          :success (lambda ()
-                                    (refresh-layer user-point-layer)
-                                    (setf (inner-html-with-id "point-creation-date") nil))))))
+                                    (refresh-layer *user-point-layer*)
+                                    (reset-layers-and-controls))))))
       
             (defun draw-active-point ()
               "Draw an Active Point, i.e. a point used in subsequent
@@ -824,6 +861,8 @@ photogrammetric calculations."
                             (new ((@ *open-layers *geometry *point)
                                   (getprop this 'photo-parameters 'm)
                                   (getprop this 'photo-parameters 'n))))))))
+            (defvar *pristine-images-p* t
+              "T if none of the current images has been clicked into yet.")
       
             (defun image-click-action (clicked-image)
               (lambda (event)
@@ -838,17 +877,18 @@ photogrammetric calculations."
                         (@ photo-parameters n) (@ lonlat lat))
                   (remove-layer (getprop clicked-image 'map) "Active Point")
                   (remove-any-layers "Epipolar Line")
-                  (setf pristine-images-p (not (some-active-point-p)))
+                  (setf *pristine-images-p* (not (some-active-point-p)))
                   (setf (@ clicked-image active-point-layer)
                         (new ((@ *open-layers *layer *vector) "Active Point")))
                   ((@ clicked-image map add-layer)
                    (@ clicked-image active-point-layer))
                   ((getprop clicked-image 'draw-active-point))
                   (if
-                   pristine-images-p
+                   *pristine-images-p*
                    (progn
+                     (reset-controls)
                      (loop
-                        for i across images do
+                        for i across *images* do
                         (unless (== i clicked-image)
                           (setf
                            (@ i epipolar-layer) (new ((@ *open-layers *layer *vector)
@@ -871,13 +911,13 @@ photogrammetric calculations."
                      (remove-any-layers "Estimated Position")
                      (let* ((active-pointed-photo-parameters
                              (loop
-                                for i across images
+                                for i across *images*
                                 when (has-layer-p (getprop i 'map) "Active Point")
                                 collect (getprop i 'photo-parameters)))
                             (content
                              ((@ *json* stringify)
                               (list active-pointed-photo-parameters
-                                    (chain images
+                                    (chain *images*
                                            (map #'(lambda (x)
                                                     (getprop
                                                      x 'photo-parameters))))))))
@@ -915,24 +955,24 @@ photogrammetric calculations."
 
             (defun initialize-image (image-index)
               "Create an image usable for displaying photos at position
-image-index in array images."
-              (setf (aref images image-index) (new *image))
-              (setf (@ (aref images image-index) image-click-action)
-                    (image-click-action (aref images image-index)))
-              (setf (@ (aref images image-index) click)
+image-index in array *images*."
+              (setf (aref *images* image-index) (new *image))
+              (setf (@ (aref *images* image-index) image-click-action)
+                    (image-click-action (aref *images* image-index)))
+              (setf (@ (aref *images* image-index) click)
                     (new (click-control
-                          (create :trigger (@ (aref images image-index)
+                          (create :trigger (@ (aref *images* image-index)
                                               image-click-action)))))
-              ((@ (aref images image-index) map add-control)
-               (@ (aref images image-index) click))
-              ((@ (aref images image-index) click activate))
-              ((@ (aref images image-index) map add-control)
+              ((@ (aref *images* image-index) map add-control)
+               (@ (aref *images* image-index) click))
+              ((@ (aref *images* image-index) click activate))
+              ((@ (aref *images* image-index) map add-control)
                (new ((@ *open-layers *control *mouse-position))))
-              ((@ (aref images image-index) map add-control)
+              ((@ (aref *images* image-index) map add-control)
                (new ((@ *open-layers *control *layer-switcher))))
-              ((@ (aref images image-index) map render) (+ image-index "")))        
+              ((@ (aref *images* image-index) map render) (+ image-index "")))        
       
-            (defvar help-topics
+            (defvar *help-topics*
               (create
                :user-role
                (who-ps-html (:p "User role.  \"Read\" can't write anything.  \"Write\" may write user points and delete their own ones. \"Admin\" may write user points and delete points written by others."))
@@ -972,7 +1012,7 @@ image-index in array images."
             (defun add-help-events ()
               "Add mouse events to DOM elements that initiate display of a
 help message."
-              (for-in (topic help-topics)
+              (for-in (topic *help-topics*)
                       (setf (chain document (get-element-by-id topic) onmouseover)
                             ((lambda (x)
                                (lambda () (show-help x)))
@@ -983,49 +1023,49 @@ help message."
               "Put text on topic into help-display"
               (setf (inner-html-with-id "help-display")
                     (+ (who-ps-html (:h2 "Help"))
-                       (let ((help-body (getprop help-topics topic)))
+                       (let ((help-body (getprop *help-topics* topic)))
                          (if (undefined help-body)
                              ""
                              help-body)))))
       
-            (defvar bbox-strategy (chain *open-layers *strategy *bbox*))
-            (setf (chain bbox-strategy prototype ratio) 1.1)
+            (defvar *bbox-strategy* (chain *open-layers *strategy *bbox*))
+            (setf (chain *bbox-strategy* prototype ratio) 1.1)
 
-            (defvar geojson-format (chain *open-layers *format *geo-j-s-o-n))
-            (setf (chain geojson-format prototype ignore-extra-dims) t) ;doesn't handle height anyway
-            (setf (chain geojson-format prototype external-projection) geographic)
-            (setf (chain geojson-format prototype internal-projection) geographic)
+            (defvar *geojson-format* (chain *open-layers *format *geo-j-s-o-n))
+            (setf (chain *geojson-format* prototype ignore-extra-dims) t) ;doesn't handle height anyway
+            (setf (chain *geojson-format* prototype external-projection) +geographic+)
+            (setf (chain *geojson-format* prototype internal-projection) +geographic+)
 
-            (defvar http-protocol (chain *open-layers *protocol *http*))
-            (setf (chain http-protocol prototype format) (new geojson-format))
+            (defvar *http-protocol* (chain *open-layers *protocol *http*))
+            (setf (chain *http-protocol* prototype format) (new *geojson-format*))
       
-            (defvar survey-layer
+            (defvar *survey-layer*
               (new (chain
                     *open-layers *layer
                     (*vector
                      "Survey"
                      (create
-                      :strategies (array (new (bbox-strategy)))
+                      :strategies (array (new (*bbox-strategy*)))
                       :protocol
-                      (new (http-protocol
+                      (new (*http-protocol*
                             (create :url "/phoros-lib/points"))))))))
 
-            (defvar user-point-layer
+            (defvar *user-point-layer*
               (new (chain
                     *open-layers *layer
                     (*vector
                      "User Points"
                      (create
-                      :strategies (array (new bbox-strategy))
+                      :strategies (array (new *bbox-strategy*))
                       :protocol
-                      (new (http-protocol
+                      (new (*http-protocol*
                             (create :url "/phoros-lib/user-points"))))))))
       
-            (defvar current-user-point
+            (defvar *current-user-point*
               "The currently selected user-point.")
 
             (defun user-point-selected (event)
-              (setf current-user-point (chain event feature))
+              (setf *current-user-point* (chain event feature))
               (if (write-permission-p (chain event feature attributes user-name))
                   (progn
                     (setf (chain document (get-element-by-id "finish-point-button") onclick) update-point)
@@ -1042,14 +1082,7 @@ help message."
               (setf (value-with-id "point-attribute") (chain event feature attributes attribute))
               (setf (value-with-id "point-description") (chain event feature attributes description))
               (setf (value-with-id "point-numeric-description") (chain event feature attributes numeric-description))
-              (setf (inner-html-with-id "point-creation-date") (chain event feature attributes creation-date))
-              )
-
-            (defun user-point-unselected (event)
-              (disable-element-with-id "delete-point-button")
-              (setf (inner-html-with-id "point-creation-date") nil)
-              (setf (inner-html-with-id "creator") nil)
-              (setf (inner-html-with-id "h2-controls") "Create Point"))
+              (setf (inner-html-with-id "point-creation-date") (chain event feature attributes creation-date)))
 
             (defun init ()
               "Prepare user's playground."
@@ -1058,54 +1091,54 @@ help message."
                 (enable-element-with-id "point-description")
                 (enable-element-with-id "point-numeric-description")
                 (setf (inner-html-with-id "h2-controls") "Create Point"))
-              (setf point-attributes-select (chain document (get-element-by-id "point-attribute")))
+              (setf *point-attributes-select* (chain document (get-element-by-id "point-attribute")))
 
               (loop for i in '("solitary" "polyline" "polygon") do
                    (setf point-attribute-item (chain document (create-element "option")))
                    (setf (chain point-attribute-item text) i)
-                   (chain point-attributes-select (add point-attribute-item null))) ;TODO: input of user-defined attributes
-              (setf streetmap
+                   (chain *point-attributes-select* (add point-attribute-item null))) ;TODO: input of user-defined attributes
+              (setf *streetmap*
                     (new (chain
                           *open-layers
                           (*map "streetmap"
-                                (create projection geographic
-                                        display-projection geographic)))))
+                                (create projection +geographic+
+                                        display-projection +geographic+)))))
 
               (add-help-events)
               ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
-              (defvar osm-layer (new (chain *open-layers *layer (*osm*))))
-              (defvar streetmap-overview
+              (defvar *osm-layer* (new (chain *open-layers *layer (*osm*))))
+              (defvar *streetmap-overview*
                 (new (chain *open-layers *control (*overview-map
                                                    (create maximized t
                                                            min-ratio 14
                                                            max-ratio 16)))))
-              (defvar click-streetmap
+              (defvar *click-streetmap*
                 (new (click-control (create :trigger request-photos))))
-              (chain streetmap (add-control click-streetmap))
-              (chain click-streetmap (activate))
+              (chain *streetmap* (add-control *click-streetmap*))
+              (chain *click-streetmap* (activate))
 
-              (defvar select-control
-                (new (chain *open-layers *control (*select-feature user-point-layer))))
-              (chain user-point-layer events (register "featureselected" user-point-layer user-point-selected))
-              (chain user-point-layer events (register "featureunselected" user-point-layer user-point-unselected))
-              (chain streetmap (add-control select-control))
-              (chain select-control (activate))
+              (defvar *select-control*
+                (new (chain *open-layers *control (*select-feature *user-point-layer*))))
+              (chain *user-point-layer* events (register "featureselected" *user-point-layer* user-point-selected))
+              (chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-layers-and-controls))
+              (chain *streetmap* (add-control *select-control*))
+              (chain *select-control* (activate))
 
-              ;;((@ map add-layers) (array osm-layer google survey-layer))
-              (chain streetmap (add-layers (array survey-layer osm-layer user-point-layer)))
-              (chain streetmap
+              ;;((@ map add-layers) (array *osm-layer* google *survey-layer*))
+              (chain *streetmap* (add-layers (array *survey-layer* *osm-layer* *user-point-layer*)))
+              (chain *streetmap*
                      (add-control
                       (new (chain *open-layers *control (*layer-switcher)))))
-              (chain streetmap
+              (chain *streetmap*
                      (add-control
                       (new (chain *open-layers *control (*mouse-position)))))
-              (chain streetmap (add-control streetmap-overview))
-              (chain streetmap
+              (chain *streetmap* (add-control *streetmap-overview*))
+              (chain *streetmap*
                      (zoom-to-extent
                       (chain (new (chain *open-layers
                                          (*bounds
                                           14.32066 51.72693 14.32608 51.72862)))
-                             (transform geographic spherical-mercator))))
+                             (transform +geographic+ +spherical-mercator+))))
               (loop
                  for i from 0 to (lisp (1- *number-of-images*))
                  do (initialize-image i))))))
@@ -1156,7 +1189,7 @@ help message."
                       "bye")
              :br
              (:button :id "remove-work-layers-button" :disabled t
-                      :type "button" :onclick (ps-inline (remove-work-layers))
+                      :type "button" :onclick (ps-inline (reset-layers-and-controls))
                       "start over")
              (:h2 (:span :id "h2-controls") (:span :id "creator"))
              (:small (:code :id "point-creation-date"))
@@ -1190,16 +1223,20 @@ help message."
 JSON encoded epipolar-lines."
   (when (session-value 'authenticated-p)
     (let* ((data (json:decode-json-from-string (raw-post-data))))
-      (json:encode-json-to-string (photogrammetry :epipolar-line (first data) (second data))))))
+      (json:encode-json-to-string
+       (photogrammetry :epipolar-line (first data) (second data))))))
 
-(define-easy-handler (estimated-positions :uri "/phoros-lib/estimated-positions") ()
+(define-easy-handler
+    (estimated-positions :uri "/phoros-lib/estimated-positions")
+    ()
   "Receive a two-part JSON vector comprising (1) a vector containing
-sets of picture-parameters including clicked points stored in :m, :n;
-and (2) a vector containing sets of picture-parameters; respond with
-a JSON encoded two-part vector comprising (1) a point in global
-coordinates; and (2) a vector of image coordinates (m, n) for the
-global point that correspond to the images from the received second
-vector.  TODO: report error on bad data (ex: points too far apart)."
+sets of picture-parameters including clicked (\"active\") points
+stored in :m, :n; and (2) a vector containing sets of
+picture-parameters; respond with a JSON encoded two-part vector
+comprising (1) a point in global coordinates; and (2) a vector of
+image coordinates (m, n) for the global point that correspond to the
+images from the received second vector.  TODO: report error on bad
+data (ex: points too far apart)."
   ;; TODO: global-point-for-display should probably contain a proj string in order to make sense of the (cartesian) standard deviations.
   (when (session-value 'authenticated-p)
     (let* ((data (json:decode-json-from-string (raw-post-data)))
@@ -1228,6 +1265,51 @@ vector.  TODO: report error on bad data (ex: points too far apart)."
                collect (photogrammetry :reprojection i global-point-cartesian))))
       (json:encode-json-to-string
         (list global-point-for-display image-coordinates)))))
+
+;;(define-easy-handler
+;;    (user-point-positions :uri "/phoros-lib/user-point-positions")
+;;    ()
+;;  "Receive a two-part JSON vector comprising (1) a user-point-id and
+;;\(2) a vector containing sets of picture-parameters; respond with a
+;;JSON encoded vector of image coordinates (m, n) for the global
+;;coordinates of the user point with user-point-id that correspond to
+;;the images from the received image vector."
+;;  ;; TODO: global-point-for-display should probably contain a proj string in order to make sense of the (cartesian) standard deviations.
+;;  (when (session-value 'authenticated-p)
+;;    (let* ((data (json:decode-json-from-string (raw-post-data)))
+;;           (user-point-id (first data))
+;;           (destination-photo-parameters (second data))
+;;           (cartesian-system (cdr (assoc :cartesian-system (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
+;;           (global-point-geographic
+;;            (with-connection *postgresql-credentials*
+;;              (query
+;;               (:select
+;;                (:as
+;;                 (:st_x (:st_transform 'coordinates *standard-coordinates*))
+;;                 'x-global)
+;;                (:as
+;;                 (:st_y (:st_transform 'coordinates *standard-coordinates*))
+;;                 'y-global)
+;;                (:as
+;;                 (:st_z (:st_transform 'coordinates *standard-coordinates*))
+;;                 'z-global)
+;;                :from user-point-table-name
+;;                :where (:= 'user-point-id user-point-id))
+;;               :list)))
+;;           (global-point-cartesian
+;;            (pairlis '(:x-global :y-global :z-global)
+;;                     (proj:cs2cs
+;;                      (list
+;;                       (proj:degrees-to-radians (first global-point-geographic))
+;;                       (proj:degrees-to-radians (second global-point-geographic))
+;;                       (third global-point-geographic))
+;;                      :destination-cs cartesian-system)))
+;;           (image-coordinates
+;;            (loop
+;;               for i in destination-photo-parameters
+;;               collect (photogrammetry :reprojection i global-point-cartesian))))
+;;      (json:encode-json-to-string
+;;       (list global-point-for-display image-coordinates)))))
 
 (define-easy-handler (multi-position-intersection :uri "/phoros-lib/intersection") ()
   "Receive vector of sets of picture parameters, respond with stuff."
