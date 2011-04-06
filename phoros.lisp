@@ -106,14 +106,18 @@ session."
                         :where (:= 'presentation-project-name presentation-project-name))
                :single))))
       (cond
-        ((null presentation-project-id) "No such project.")
+        ((null presentation-project-id) "No such project.") ;TODO: send appropriate http error code
         ((and (equal (session-value 'presentation-project-name) presentation-project-name)
               (session-value 'authenticated-p))
          (redirect "/phoros-lib/view" :add-session-id t))
         (t
          (progn
-           (setf (session-value 'presentation-project-name) presentation-project-name
-                 (session-value 'presentation-project-id) presentation-project-id)
+           (setf (session-value 'presentation-project-name)
+                 presentation-project-name)
+           (setf (session-value 'presentation-project-id)
+                 presentation-project-id)
+           (setf (session-value 'presentation-project-bbox)
+                 (presentation-project-bbox presentation-project-id))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
                     :action "/phoros-lib/authenticate"
@@ -170,9 +174,6 @@ session."
 
 (pushnew (create-regex-dispatcher "/logout" 'logout-handler)
          *dispatch-table*)
-
-(define-easy-handler (test :uri "/phoros-lib/test") ()
-  "Authenticated.")
 
 (define-easy-handler
     (local-data :uri "/phoros-lib/local-data" :default-request-type :post)
@@ -390,40 +391,79 @@ properties."
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (session-value 'authenticated-p)
     (handler-case 
-        (let ((common-table-names
+        (let* ((presentation-project-id (session-value 'presentation-project-id))
                (common-table-names
-                (session-value 'presentation-project-id))))
+                (common-table-names presentation-project-id)))
           (encode-geojson-to-string
            (with-connection *postgresql-credentials*
-             (loop
-                for common-table-name in common-table-names
-                for point-table-name = (make-symbol
-                                        (concatenate
-                                         'string "dat-"
-                                         common-table-name "-point"))
-                append 
-                  (query
-                   (:select
-                    (:as
-                     (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                     'x)
-                    (:as
-                     (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                     'y)
-                    (:as
-                     (:st_z (:st_transform 'coordinates *standard-coordinates*))
-                     'z)
-                    (:as 'point-id 'id) ;becomes fid on client
-                    :from point-table-name
-                    :where (:&&
-                            (:st_transform 'coordinates *standard-coordinates*)
-                            (:st_setsrid  (:type (box3d bbox) box3d)
-                                          *standard-coordinates*)))
-                   :plists)))))
+             (query
+              (sql-compile
+               (append
+                '(:union)
+                (loop
+                   for common-table-name in common-table-names
+                   for aggregate-view-name
+                   = (aggregate-view-name common-table-name)
+                   collect
+                   `(:select
+                     (:as
+                      (:st_x
+                       (:st_transform 'coordinates ,*standard-coordinates*))
+                      'x)
+                     (:as
+                      (:st_y
+                       (:st_transform 'coordinates ,*standard-coordinates*))
+                      'y)
+                     (:as
+                      (:st_z
+                       (:st_transform 'coordinates ,*standard-coordinates*))
+                      'z)
+                     (:as 'point-id 'id) ;becomes fid on client
+                     :from ',aggregate-view-name
+                     :natural :left-join 'sys-presentation
+                     :where
+                     (:and
+                      (:= 'presentation-project-id ,presentation-project-id)
+                      (:&&
+                       (:st_transform 'coordinates ,*standard-coordinates*)
+                       (:st_setsrid  (:type ,(box3d bbox) box3d)
+                                     ,*standard-coordinates*)))))))
+              :plists))))
       (condition (c)
         (cl-log:log-message
          :server "While fetching points from inside bbox ~S: ~A"
          bbox c)))))
+
+(defun presentation-project-bbox (presentation-project-id)
+  "Return bounding box of the entire presentation-project as a string
+  \"x1,y1,x2,y2\"."
+  (let* ((common-table-names
+          (common-table-names presentation-project-id)))
+    (with-connection *postgresql-credentials*
+      (substitute
+       #\, #\Space
+       (string-trim
+        "BOX()"
+        (query
+         (sql-compile
+          `(:select
+            (:st_extent (:st_transform 'coordinates ,*standard-coordinates*))
+                    :from
+                    (:as (:union
+                          ,@(loop
+                               for common-table-name in common-table-names
+                               for aggregate-view-name
+                               = (aggregate-view-name common-table-name)
+                               collect
+                               `(:select
+                                 'coordinates
+                                 :from ',aggregate-view-name
+                                 :natural :left-join 'sys-presentation
+                                 :where
+                                 (:= 'presentation-project-id
+                                     ,presentation-project-id))))
+                         all-coordinates)))
+         :single!))))))
 
 (define-easy-handler (user-points :uri "/phoros-lib/user-points") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
@@ -564,10 +604,13 @@ properties."
         "User's (short) name")
       (defvar +user-role+ (lisp (string-downcase (session-value 'user-role)))
         "User's permissions")
+      (defvar +presentation-project-bbox+ (lisp (session-value 'presentation-project-bbox))
+        "Bounding box of the entire presentation project.")
       (defvar *images* (array) "Collection of the photos currently shown.")
-      (defvar *streetmap* "The streetmap shown to the user.")
+      (defvar *streetmap* undefined
+        "The streetmap shown to the user.")
       (defvar *streetmap-estimated-position-layer*)
-      (defvar *point-attributes-select*
+      (defvar *point-attributes-select* undefined
         "The HTML element for selecting user point attributes.")
 
       (defun write-permission-p (&optional (current-owner +user-name+))
@@ -637,8 +680,12 @@ an image url."
         (remove-any-layers "Active Point")
         (remove-any-layers "Estimated Position")
         (remove-any-layers "User Point")
+        (unless (= undefined *current-user-point*)
+          (debug-info *current-user-point*)
+          (chain *user-points-select-control* (unselect *current-user-point*)))
         (reset-controls)
-        (setf pristine-images-p t))
+        (setf pristine-images-p t)
+        )
 
       (defun enable-element-with-id (id)
         "Activate HTML element with id=\"id\"."
@@ -902,8 +949,10 @@ photogrammetric calculations."
              (progn
                (reset-controls)
                (remove-any-layers "User Point") ;from images
-               (setf (chain *current-user-point* render-intent) "default")
-               (chain *user-point-layer* (redraw))
+               (debug-info *current-user-point*)
+               (unless (= undefined *current-user-point*)
+                 (debug-info *current-user-point*)
+                 (chain *user-points-select-control* (unselect *current-user-point*)))
                (loop
                   for i across *images* do
                   (unless (== i clicked-image)
@@ -965,10 +1014,11 @@ photogrammetric calculations."
                         .5)))           ; coordinates shown
                (new ((@ *open-layers *size) 512 256))
                (create))))
-        ((getprop this 'map 'zoom-to-extent)
-         (new ((@ *open-layers *bounds) -.5 -.5 
-               (1+ (getprop this 'photo-parameters 'sensor-width-pix))
-               (1+ (getprop this 'photo-parameters 'sensor-height-pix)))))) ; in coordinates shown
+        (chain this map
+               (zoom-to-extent
+                (new ((@ *open-layers *bounds) -.5 -.5 
+                      (1+ (getprop this 'photo-parameters 'sensor-width-pix))
+                      (1+ (getprop this 'photo-parameters 'sensor-height-pix))))))) ; in coordinates shown
 
       (defun initialize-image (image-index)
         "Create an image usable for displaying photos at position
@@ -1078,11 +1128,15 @@ help message."
                 (new (*http-protocol*
                       (create :url "/phoros-lib/user-points"))))))))
       
-      (defvar *current-user-point*
+      (defvar *current-user-point* undefined
         "The currently selected user-point.")
 
       (defun user-point-selected (event)
         (setf *current-user-point* (chain event feature))
+        (remove-any-layers "Active Point")
+        (remove-any-layers "Epipolar Line")
+        (remove-any-layers "Estimated Position")
+        (remove-any-layers "User Point")
         (if (write-permission-p (chain event feature attributes user-name))
             (progn
               (setf (chain document (get-element-by-id "finish-point-button") onclick) update-point)
@@ -1099,8 +1153,6 @@ help message."
         (setf (value-with-id "point-description") (chain event feature attributes description))
         (setf (value-with-id "point-numeric-description") (chain event feature attributes numeric-description))
         (setf (inner-html-with-id "point-creation-date") (chain event feature attributes creation-date))
-
-
         (setf content
               ((@ *json* stringify)
                (array (chain event feature fid)
@@ -1114,7 +1166,18 @@ help message."
                        :headers (create "Content-type" "text/plain"
                                         "Content-length" (@ content length))
                        :success draw-user-point))))
-              
+
+      (defvar *user-points-select-control*
+        (new (chain *open-layers *control (*select-feature *user-point-layer*))))
+      ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
+      (defvar *osm-layer* (new (chain *open-layers *layer (*osm*))))
+      (defvar *streetmap-overview*
+        (new (chain *open-layers *control (*overview-map
+                                           (create maximized t
+                                                   min-ratio 14
+                                                   max-ratio 16)))))
+      (defvar *click-streetmap*
+        (new (click-control (create :trigger request-photos))))
 
       (defun init ()
         "Prepare user's playground."
@@ -1134,30 +1197,27 @@ help message."
                     *open-layers
                     (*map "streetmap"
                           (create projection +geographic+
-                                  display-projection +geographic+)))))
+                                  display-projection +geographic+
+                                  restricted-extent
+                                  (chain (new (chain *open-layers
+                                                     (*bounds
+                                                      14 51 15 52)))
+                                         (transform +geographic+ +spherical-mercator+))
+                                  )))))
 
         (add-help-events)
-        ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
-        (defvar *osm-layer* (new (chain *open-layers *layer (*osm*))))
-        (defvar *streetmap-overview*
-          (new (chain *open-layers *control (*overview-map
-                                             (create maximized t
-                                                     min-ratio 14
-                                                     max-ratio 16)))))
-        (defvar *click-streetmap*
-          (new (click-control (create :trigger request-photos))))
         (chain *streetmap* (add-control *click-streetmap*))
         (chain *click-streetmap* (activate))
 
-        (defvar *select-control*
-          (new (chain *open-layers *control (*select-feature *user-point-layer*))))
         (chain *user-point-layer* events (register "featureselected" *user-point-layer* user-point-selected))
-        (chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-layers-and-controls))
-        (chain *streetmap* (add-control *select-control*))
-        (chain *select-control* (activate))
+        (chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-controls))
+        (chain *streetmap* (add-control *user-points-select-control*))
+        (chain *user-points-select-control* (activate))
 
-        ;;((@ map add-layers) (array *osm-layer* google *survey-layer*))
-        (chain *streetmap* (add-layers (array *survey-layer* *osm-layer* *user-point-layer*)))
+        (chain *streetmap* (add-layer *osm-layer*))
+        ;;(chain *streetmap* (add-layer *google*))
+        (chain *streetmap* (add-layer *survey-layer*))
+        (chain *streetmap* (add-layer *user-point-layer*))
         (chain *streetmap*
                (add-control
                 (new (chain *open-layers *control (*layer-switcher)))))
@@ -1168,8 +1228,9 @@ help message."
         (chain *streetmap*
                (zoom-to-extent
                 (chain (new (chain *open-layers
-                                   (*bounds
-                                    14.32066 51.72693 14.32608 51.72862)))
+                                   *bounds
+                                   (from-string
+                                    +presentation-project-bbox+)))
                        (transform +geographic+ +spherical-mercator+))))
         (loop
            for i from 0 to (lisp (1- *number-of-images*))
