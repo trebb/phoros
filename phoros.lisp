@@ -55,6 +55,9 @@
 (defparameter *number-of-images* 4
   "Number of photos shown to the HTTP client.")
 
+(defparameter *number-of-features-per-layer* 500
+  "What we think a browser can swallow.")
+
 (defun check-db (db-credentials)
   "Check postgresql connection.  Return t if successful; show error on
 *error-output* otherwise.  db-credentials is a list like so: (database
@@ -349,12 +352,13 @@ of presentation project with presentation-project-id."
        "While fetching common-table-names of presentation-project-id ~D: ~A"
        presentation-project-id c))))
 
-(defun encode-geojson-to-string (features)
+(defun encode-geojson-to-string (features &rest junk-keys)
   "Encode a list of property lists into a GeoJSON FeatureCollection.
 Each property list must contain keys for coordinates, :x, :y, :z; and
 for a numeric point :id, followed by zero or more pieces of extra
 information.  The extra information is stored as GeoJSON Feature
-properties."
+properties.  Exclude property list elements with keys that are in
+junk-keys."
   (with-output-to-string (s)
     (json:with-object (s)
       (json:encode-object-member :type :*feature-collection s)
@@ -362,6 +366,8 @@ properties."
         (json:with-array (s)
           (mapcar
            #'(lambda (point-with-properties)
+               (dolist (junk-key junk-keys)
+                 (remf point-with-properties junk-key))
                (destructuring-bind (&key x y z id &allow-other-keys) ;TODO: z probably bogus
                    point-with-properties
                  (json:as-array-member (s)
@@ -398,37 +404,42 @@ properties."
            (with-connection *postgresql-credentials*
              (query
               (sql-compile
-               (append
-                '(:union)
-                (loop
-                   for common-table-name in common-table-names
-                   for aggregate-view-name
-                   = (aggregate-view-name common-table-name)
-                   collect
-                   `(:select
-                     (:as
-                      (:st_x
-                       (:st_transform 'coordinates ,*standard-coordinates*))
-                      'x)
-                     (:as
-                      (:st_y
-                       (:st_transform 'coordinates ,*standard-coordinates*))
-                      'y)
-                     (:as
-                      (:st_z
-                       (:st_transform 'coordinates ,*standard-coordinates*))
-                      'z)
-                     (:as 'point-id 'id) ;becomes fid on client
-                     :from ',aggregate-view-name
-                     :natural :left-join 'sys-presentation
-                     :where
-                     (:and
-                      (:= 'presentation-project-id ,presentation-project-id)
-                      (:&&
-                       (:st_transform 'coordinates ,*standard-coordinates*)
-                       (:st_setsrid  (:type ,(box3d bbox) box3d)
-                                     ,*standard-coordinates*)))))))
-              :plists))))
+               `(:limit
+                 (:order-by
+                  (:union
+                   ,@(loop
+                        for common-table-name in common-table-names
+                        for aggregate-view-name
+                        = (aggregate-view-name common-table-name)
+                        collect
+                        `(:select
+                          (:as
+                           (:st_x
+                            (:st_transform 'coordinates ,*standard-coordinates*))
+                           x)
+                          (:as
+                           (:st_y
+                            (:st_transform 'coordinates ,*standard-coordinates*))
+                           y)
+                          (:as
+                           (:st_z
+                            (:st_transform 'coordinates ,*standard-coordinates*))
+                           z)
+                          (:as 'point-id 'id) ;becomes fid on client
+                          (:as (:random) random)
+                          :from ',aggregate-view-name
+                          :natural :left-join 'sys-presentation
+                          :where
+                          (:and
+                           (:= 'presentation-project-id ,presentation-project-id)
+                           (:&&
+                            (:st_transform 'coordinates ,*standard-coordinates*)
+                            (:st_setsrid  (:type ,(box3d bbox) box3d)
+                                          ,*standard-coordinates*))))))
+                  random)
+                 ,*number-of-features-per-layer*))
+              :plists))
+           :random))
       (condition (c)
         (cl-log:log-message
          :server "While fetching points from inside bbox ~S: ~A"
@@ -474,28 +485,32 @@ properties."
           (encode-geojson-to-string
            (with-connection *postgresql-credentials*
              (query
-              (:select
-               (:as
-                (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                'x)
-               (:as
-                (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                'y)
-               (:as
-                (:st_z (:st_transform 'coordinates *standard-coordinates*))
-                'z)
-               (:as 'user-point-id 'id) ;becomes fid on client
-               'attribute
-               'description
-               'numeric-description
-               'user-name
-               (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
-                    'creation-date)
-               :from user-point-table-name :natural :left-join 'sys-user
-               :where (:&&
-                       (:st_transform 'coordinates *standard-coordinates*)
-                       (:st_setsrid  (:type (box3d bbox) box3d)
-                                     *standard-coordinates*)))
+              (:limit
+               (:order-by
+                (:select
+                 (:as
+                  (:st_x (:st_transform 'coordinates *standard-coordinates*))
+                  'x)
+                 (:as
+                  (:st_y (:st_transform 'coordinates *standard-coordinates*))
+                  'y)
+                 (:as
+                  (:st_z (:st_transform 'coordinates *standard-coordinates*))
+                  'z)
+                 (:as 'user-point-id 'id) ;becomes fid on client
+                 'attribute
+                 'description
+                 'numeric-description
+                 'user-name
+                 (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
+                      'creation-date)
+                 :from user-point-table-name :natural :left-join 'sys-user
+                 :where (:&&
+                         (:st_transform 'coordinates *standard-coordinates*)
+                         (:st_setsrid  (:type (box3d bbox) box3d)
+                                       *standard-coordinates*)))
+                (:random))
+               *number-of-features-per-layer*)
               :plists))))
       (condition (c)
         (cl-log:log-message
@@ -1096,7 +1111,8 @@ help message."
                        help-body)))))
       
       (defvar *bbox-strategy* (chain *open-layers *strategy *bbox*))
-      (setf (chain *bbox-strategy* prototype ratio) 1.1)
+      (setf (chain *bbox-strategy* prototype ratio) 1.5)
+      (setf (chain *bbox-strategy* prototype res-factor) 1.5)
 
       (defvar *geojson-format* (chain *open-layers *format *geo-j-s-o-n))
       (setf (chain *geojson-format* prototype ignore-extra-dims) t) ;doesn't handle height anyway
