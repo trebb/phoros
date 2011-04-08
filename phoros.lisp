@@ -932,27 +932,33 @@ another photo."
             (chain *streetmap-estimated-position-layer*
                    (add-features feature))
             ((@ *streetmap* add-layer) *streetmap-estimated-position-layer*))
-          (loop
-             for i in *images*
-             for p in estimated-positions
-             do
-             (when i     ;otherwise a photogrammetry error has occured
-               (setf (@ i estimated-position-layer)
-                     (new
-                      ((@ *open-layers *layer *vector) "Estimated Position")))
-               (let* ((point
+          (let ((estimated-position-style
+                 (create stroke-color (chain *open-layers *feature *vector
+                                             style "temporary" stroke-color)
+                         point-radius 9
+                         fill-opacity 0)))
+            (loop
+               for i in *images*
+               for p in estimated-positions
+               do
+               (when i   ;otherwise a photogrammetry error has occured
+                 (setf (@ i estimated-position-layer)
                        (new
-                        (chain *open-layers *geometry (*point
-                                                       (getprop p 'm)
-                                                       (getprop p 'n)))))
-                      (feature
-                       (new
-                        (chain *open-layers *feature (*vector point)))))
-                 (setf (chain feature render-intent) "temporary")
-                 (chain i map
-                        (add-layer (@ i estimated-position-layer)))
-                 (chain i estimated-position-layer
-                        (add-features feature)))))))
+                        ((@ *open-layers *layer *vector) "Estimated Position")))
+                 (setf (chain i estimated-position-layer style)
+                       estimated-position-style)
+                 (let* ((point
+                         (new
+                          (chain *open-layers *geometry (*point
+                                                         (getprop p 'm)
+                                                         (getprop p 'n)))))
+                        (feature
+                         (new
+                          (chain *open-layers *feature (*vector point)))))
+                   (chain i map
+                          (add-layer (@ i estimated-position-layer)))
+                   (chain i estimated-position-layer
+                          (add-features feature))))))))
 
       (defun draw-user-point ()
         "Draw currently selected user point into all images."
