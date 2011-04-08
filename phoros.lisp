@@ -670,12 +670,15 @@ help message."
         (new (chain *open-layers (*projection "EPSG:4326"))))
       (defvar +spherical-mercator+
         (new (chain *open-layers (*projection "EPSG:900913"))))
+
       (defvar +user-name+ (lisp (session-value 'user-name))
         "User's (short) name")
       (defvar +user-role+ (lisp (string-downcase (session-value 'user-role)))
         "User's permissions")
+
       (defvar +presentation-project-bbox+ (lisp (session-value 'presentation-project-bbox))
         "Bounding box of the entire presentation project.")
+
       (defvar *images* (array) "Collection of the photos currently shown.")
       (defvar *streetmap* undefined
         "The streetmap shown to the user.")
@@ -689,6 +692,8 @@ help message."
       (defvar *bbox-strategy* (chain *open-layers *strategy *bbox*))
       (setf (chain *bbox-strategy* prototype ratio) 1.5)
       (setf (chain *bbox-strategy* prototype res-factor) 1.5)
+
+      (defvar *json-parser* (new (chain *open-layers *format *json*)))
 
       (defvar *geojson-format* (chain *open-layers *format *geo-j-s-o-n))
       (setf (chain *geojson-format* prototype ignore-extra-dims) t) ;doesn't handle height anyway
@@ -807,7 +812,6 @@ an image url."
         (remove-any-layers "User Point")
         (when (and (!= undefined *current-user-point*)
                    (chain *current-user-point* layer))
-          (debug-info *current-user-point*)
           (chain *user-points-select-control* (unselect *current-user-point*)))
         (reset-controls)
         (setf *pristine-images-p* t)
@@ -831,8 +835,9 @@ an image url."
 
       (defun present-photos ()
         "Handle the response triggered by request-photos."
-        (let ((photo-parameters ((@ *json* parse)
-                                 (@ photo-request-response response-text))))
+        (let ((photo-parameters
+               (chain *json-parser*
+                      (read (@ photo-request-response response-text)))))
           (loop
              for p across photo-parameters
              for i across *images*
@@ -852,11 +857,12 @@ an image url."
                  +spherical-mercator+   ; why?
                  +geographic+))
                (content
-                ((@ *json* stringify)
-                 (create :longitude (@ lonlat lon) ; TODO: use OpenLayer's JSON.
-                         :latitude (@ lonlat lat)
-                         :zoom ((@ *streetmap* get-zoom))
-                         :count (lisp *number-of-images*)))))
+                (chain *json-parser*
+                       (write
+                        (create :longitude (@ lonlat lon)
+                                :latitude (@ lonlat lat)
+                                :zoom ((@ *streetmap* get-zoom))
+                                :count (lisp *number-of-images*))))))
           (setf photo-request-response
                 ((@ *open-layers *Request *POST*)
                  (create :url "/phoros-lib/local-data"
@@ -871,8 +877,10 @@ into a (first) photo."
         (enable-element-with-id "remove-work-layers-button")
         ;;(disable-element-with-id "delete-point-button")
         ;;(setf (inner-html-with-id "point-creation-date") nil) ;TODO: unselect feature in streetmap which in turn should make this line unnecessary
-        (let* ((epipolar-line ((@ *json* parse)
-                              (@ this epipolar-request-response response-text)))
+        (let* ((epipolar-line
+                (chain *json-parser*
+                       (read
+                        (@ this epipolar-request-response response-text))))
                (points
                 (chain epipolar-line
                        (map (lambda (x)
@@ -903,10 +911,11 @@ another photo."
                 finish-point)
           (enable-element-with-id "finish-point-button"))
         (let* ((estimated-positions-request-response
-                ((@ *json* parse)
-                 (getprop this
-                          'estimated-positions-request-response
-                          'response-text)))
+                (chain *json-parser*
+                       (read
+                        (getprop this
+                                 'estimated-positions-request-response
+                                 'response-text))))
                (estimated-positions
                 (aref estimated-positions-request-response 1)))
           (setf *global-position*
@@ -948,9 +957,10 @@ another photo."
       (defun draw-user-point ()
         "Draw currently selected user point into all images."
         (let* ((user-point-in-images
-                ((@ *json* parse)
-                 (getprop *user-point-in-images-response*
-                          'response-text))))
+                (chain *json-parser*
+                       (read
+                        (getprop *user-point-in-images-response*
+                                 'response-text)))))
           (loop
              for i in *images*
              for p in user-point-in-images
@@ -981,7 +991,8 @@ another photo."
           (setf (chain global-position-etc numeric-description)
                 (value-with-id "point-numeric-description"))
           (let ((content 
-                 ((@ *json* stringify) global-position-etc))) ; TODO: use OpenLayer's JSON.
+                 (chain *json-parser*
+                        (write global-position-etc))))
             ((@ *open-layers *Request *POST*)
              (create :url "/phoros-lib/store-point"
                      :data content
@@ -1013,7 +1024,8 @@ another photo."
                         numeric-description
                         (value-with-id "point-numeric-description")))
                (content 
-                ((@ *json* stringify) point-data))) ; TODO: use OpenLayer's JSON.
+                (chain *json-parser*
+                       (write point-data))))
           ((@ *open-layers *Request *POST*)
            (create :url "/phoros-lib/update-point"
                    :data content
@@ -1027,7 +1039,8 @@ another photo."
         "Purge currently selected user point from database."
         (let ((user-point-id (chain *current-user-point* fid)))
           (setf content 
-                ((@ *json* stringify) user-point-id)) ; TODO: use OpenLayer's JSON.
+                (chain *json-parser*
+                       (write user-point-id)))
           ((@ *open-layers *Request *POST*)
            (create :url "/phoros-lib/delete-point"
                    :data content
@@ -1071,10 +1084,8 @@ photogrammetric calculations."
              (progn
                (reset-controls)
                (remove-any-layers "User Point") ;from images
-               (debug-info *current-user-point*)
                (when (and (!= undefined *current-user-point*)
                           (chain *current-user-point* layer))
-                 (debug-info *current-user-point*)
                  (chain *user-points-select-control* (unselect *current-user-point*)))
                (loop
                   for i across *images* do
@@ -1082,9 +1093,10 @@ photogrammetric calculations."
                     (setf
                      (@ i epipolar-layer) (new ((@ *open-layers *layer *vector)
                                                 "Epipolar Line"))
-                     content ((@ *json* stringify)
-                              (append (array photo-parameters)
-                                      (@ i photo-parameters)))
+                     content (chain *json-parser*
+                                    (write
+                                     (append (array photo-parameters)
+                                             (@ i photo-parameters))))
                      (@ i epipolar-request-response)
                      ((@ *open-layers *Request *POST*)
                       (create :url "/phoros-lib/epipolar-line"
@@ -1104,12 +1116,13 @@ photogrammetric calculations."
                           when (has-layer-p (getprop i 'map) "Active Point")
                           collect (getprop i 'photo-parameters)))
                       (content
-                       ((@ *json* stringify)
-                        (list active-pointed-photo-parameters
-                              (chain *images*
-                                     (map #'(lambda (x)
-                                              (getprop
-                                               x 'photo-parameters))))))))
+                       (chain *json-parser*
+                              (write
+                               (list active-pointed-photo-parameters
+                                     (chain *images*
+                                            (map #'(lambda (x)
+                                                     (getprop
+                                                      x 'photo-parameters)))))))))
                  (setf (@ clicked-image estimated-positions-request-response)
                        ((@ *open-layers *Request *POST*)
                         (create :url "/phoros-lib/estimated-positions"
@@ -1185,11 +1198,12 @@ image-index in array *images*."
         (setf (value-with-id "point-numeric-description") (chain event feature attributes numeric-description))
         (setf (inner-html-with-id "point-creation-date") (chain event feature attributes creation-date))
         (setf content
-              ((@ *json* stringify)
-               (array (chain event feature fid)
-                      (loop
-                         for i across *images*
-                         collect (chain i photo-parameters)))))
+              (chain *json-parser*
+                     (write
+                      (array (chain event feature fid)
+                             (loop
+                                for i across *images*
+                                collect (chain i photo-parameters))))))
         (setf *user-point-in-images-response*
               ((@ *open-layers *Request *POST*)
                (create :url "/phoros-lib/user-point-positions"
