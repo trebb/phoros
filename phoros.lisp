@@ -576,6 +576,10 @@ junk-keys."
        
       (setf debug-info (@ *open-layers *console info))
 
+      (defmacro inner-html-with-id (id)
+        "innerHTML of element with id=\"id\"."
+        `(chain document (get-element-by-id ,id) inner-h-t-m-l))
+
       (defvar *help-topics*
         (create
          :user-role
@@ -607,21 +611,48 @@ junk-keys."
          (who-ps-html (:p "Finish this session.  Fresh login is required to continue."))
          :streetmap
          (who-ps-html (:p "Clicking into the streetmap fetches images which most probably feature the clicked point.")
-                      (:p "TODO: This is not quite so.  Currently images taken from points nearest to the clicked one are displayed."))
-         :images
-         (who-ps-html (:p "Clicking into an image sets or resets the active point there.  Once a feature is marked by active points in more than one image, the estimated position is calculated."))
+                      (:p "TODO: This is not quite so.  Currently images taken from points nearest to the clicked one are displayed.")
+                      (:p "To pan the map, drag the mouse.  To zoom, spin the mouse wheel or hold shift down whilst dragging a box."))
+         :image
+         (who-ps-html (:p "Clicking into an image sets or resets the active point there.  Once a feature is marked by active points in more than one image, the estimated position is calculated.")
+                      (:p "To pan an image, drag the mouse.  To zoom, spin the mouse wheel or hold shift down whilst dragging a box."))
+         ol-Control-Pan-West-Item-Inactive
+         (who-ps-html (:p "Move viewport left."))
+         ol-Control-Pan-East-Item-Inactive
+         (who-ps-html (:p "Move viewport right."))
+         ol-Control-Pan-North-Item-Inactive
+         (who-ps-html (:p "Move viewport up."))
+         ol-Control-Pan-South-Item-Inactive
+         (who-ps-html (:p "Move viewport down."))
+         ol-Control-Zoom-In-Item-Inactive
+         (who-ps-html (:p "Zoom in."))
+         ol-Control-Zoom-Out-Item-Inactive
+         (who-ps-html (:p "Zoom out."))
+         ol-Control-Zoom-To-Max-Extent-Item-Inactive
+         (who-ps-html (:p "Zoom out completely; restore the original view."))
+         :image-layer-switcher
+         (who-ps-html (:p "Toggle display of image."))
          :help-display
          (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
+
+      (defun add-help-topic (topic element)
+        "Add mouse events to DOM element that initiate display of a
+help message."
+        (when element
+          (setf (@ element onmouseover)
+                ((lambda (x)
+                   (lambda () (show-help x)))
+                 topic))
+          (setf (@ element onmouseout) show-help)))
 
       (defun add-help-events ()
         "Add mouse events to DOM elements that initiate display of a
 help message."
-        (for-in (topic *help-topics*)
-                (setf (chain document (get-element-by-id topic) onmouseover)
-                      ((lambda (x)
-                         (lambda () (show-help x)))
-                       topic))
-                (setf (chain document (get-element-by-id topic) onmouseout) show-help)))
+        (for-in
+         (topic *help-topics*)
+         (add-help-topic topic (chain document (get-element-by-id topic)))
+         (dolist (element (chain document (get-elements-by-class-name topic)))
+           (add-help-topic topic element))))
           
       (defun show-help (&optional topic)
         "Put text on topic into help-display"
@@ -709,8 +740,8 @@ help message."
               (*vector
                "Survey"
                (create
-                :strategies (array (new (*bbox-strategy*)))
-                :protocol
+                strategies (array (new (*bbox-strategy*)))
+                protocol
                 (new (*http-protocol*
                       (create :url "/phoros-lib/points"))))))))
 
@@ -720,8 +751,8 @@ help message."
               (*vector
                "User Points"
                (create
-                :strategies (array (new *bbox-strategy*))
-                :protocol
+                strategies (array (new *bbox-strategy*))
+                protocol
                 (new (*http-protocol*
                       (create :url "/phoros-lib/user-points"))))))))
       
@@ -754,9 +785,12 @@ help message."
         (setf (getprop this 'map)
               (new ((getprop *open-layers '*map)
                     (create projection +spherical-mercator+
-                            all-overlays t)))
-              (getprop this 'dummy) false ;TODO why? (omitting splices map components directly into *image)
-              ))
+                            all-overlays t
+                            controls (array (new (chain *open-layers
+                                                        *control
+                                                        (*navigation))))))))
+        (setf (getprop this 'dummy) false) ;TODO why? (omitting splices map components directly into *image)
+              )
 
       (setf (getprop *image 'prototype 'show-photo) show-photo)
       (setf (getprop *image 'prototype 'draw-epipolar-line) draw-epipolar-line)
@@ -791,10 +825,6 @@ an image url."
         (loop
            for i across *images* do (remove-layer (getprop i 'map) layer-name))
         (remove-layer *streetmap* layer-name))
-
-      (defmacro inner-html-with-id (id)
-        "innerHTML of element with id=\"id\"."
-        `(chain document (get-element-by-id ,id) inner-h-t-m-l))
 
       (defun reset-controls ()
         "Destroy user-generated layers in *streetmap* and in all *images*."
@@ -928,10 +958,13 @@ another photo."
                            transform) +geographic+ +spherical-mercator+)))))
             (setf (chain feature render-intent) "temporary")
             (setf *streetmap-estimated-position-layer*
-                  (new ((@ *open-layers *layer *vector) "Estimated Position")))
+                  (new (chain *open-layers
+                              *layer
+                              (*vector "Estimated Position"
+                                       (create display-in-layer-switcher nil)))))
             (chain *streetmap-estimated-position-layer*
                    (add-features feature))
-            ((@ *streetmap* add-layer) *streetmap-estimated-position-layer*))
+            (chain *streetmap* (add-layer *streetmap-estimated-position-layer*)))
           (let ((estimated-position-style
                  (create stroke-color (chain *open-layers *feature *vector
                                              style "temporary" stroke-color)
@@ -944,7 +977,9 @@ another photo."
                (when i   ;otherwise a photogrammetry error has occured
                  (setf (@ i estimated-position-layer)
                        (new
-                        ((@ *open-layers *layer *vector) "Estimated Position")))
+                        (chain *open-layers *layer
+                               (*vector "Estimated Position"
+                                        (create display-in-layer-switcher nil)))))
                  (setf (chain i estimated-position-layer style)
                        estimated-position-style)
                  (let* ((point
@@ -971,18 +1006,21 @@ another photo."
              for i in *images*
              for p in user-point-in-images
              do
-               (when i   ;otherwise a photogrammetry error has occured
-                 (setf (@ i user-point-layer)
-                       (new (chain *open-layers *layer (*vector "User Point"))))
-                 (let* ((point
-                         (new (chain *open-layers *geometry (*point
-                                                             (getprop p 'm)
-                                                             (getprop p 'n)))))
-                        (feature
-                         (new (chain *open-layers *feature (*vector point)))))
-                   (setf (chain feature render-intent) "select")
-                   (chain i map (add-layer (@ i user-point-layer)))
-                   (chain i user-point-layer (add-features feature)))))))
+             (when i     ;otherwise a photogrammetry error has occured
+               (setf (@ i user-point-layer)
+                     (new (chain *open-layers
+                                 *layer
+                                 (*vector "User Point"
+                                          (create display-in-layer-switcher nil)))))
+               (let* ((point
+                       (new (chain *open-layers *geometry (*point
+                                                           (getprop p 'm)
+                                                           (getprop p 'n)))))
+                      (feature
+                       (new (chain *open-layers *feature (*vector point)))))
+                 (setf (chain feature render-intent) "select")
+                 (chain i map (add-layer (@ i user-point-layer)))
+                 (chain i user-point-layer (add-features feature)))))))
 
       (defun finish-point ()
         "Send current *global-position* as a user point to the database."
@@ -1081,7 +1119,10 @@ photogrammetric calculations."
             (remove-any-layers "Epipolar Line")
             (setf *pristine-images-p* (not (some-active-point-p)))
             (setf (@ clicked-image active-point-layer)
-                  (new ((@ *open-layers *layer *vector) "Active Point")))
+                  (new (chain *open-layers
+                              *layer
+                              (*vector "Active Point"
+                                       (create display-in-layer-switcher nil)))))
             ((@ clicked-image map add-layer)
              (@ clicked-image active-point-layer))
             ((getprop clicked-image 'draw-active-point))
@@ -1097,8 +1138,11 @@ photogrammetric calculations."
                   for i across *images* do
                   (unless (== i clicked-image)
                     (setf
-                     (@ i epipolar-layer) (new ((@ *open-layers *layer *vector)
-                                                "Epipolar Line"))
+                     (@ i epipolar-layer)
+                     (new (chain *open-layers
+                                 *layer
+                                 (*vector "Epipolar Line"
+                                          (create display-in-layer-switcher nil))))
                      content (chain *json-parser*
                                     (write
                                      (append (array photo-parameters)
@@ -1172,14 +1216,72 @@ image-index in array *images*."
               (new (*click-control*
                     (create :trigger (@ (aref *images* image-index)
                                         image-click-action)))))
-        ((@ (aref *images* image-index) map add-control)
-         (@ (aref *images* image-index) click))
-        ((@ (aref *images* image-index) click activate))
-        ((@ (aref *images* image-index) map add-control)
-         (new ((@ *open-layers *control *mouse-position))))
-        ((@ (aref *images* image-index) map add-control)
-         (new ((@ *open-layers *control *layer-switcher))))
-        ((@ (aref *images* image-index) map render) (+ image-index "")))        
+        (chain (aref *images* image-index)
+               map
+               (add-control
+                (@ (aref *images* image-index) click)))
+        (chain (aref *images* image-index) click (activate))
+        ;;(chain (aref *images* image-index)
+        ;;       map
+        ;;       (add-control
+        ;;        (new (chain *open-layers
+        ;;                    *control
+        ;;                    (*mouse-position
+        ;;                     (create
+        ;;                      div (chain
+        ;;                           document
+        ;;                           (get-element-by-id
+        ;;                            (+ "image-" image-index "-zoom")))))))))
+        (chain (aref *images* image-index)
+               map
+               (add-control
+                (new (chain *open-layers
+                            *control
+                            (*layer-switcher
+                             (create
+                              div (chain
+                                   document
+                                   (get-element-by-id
+                                    (+ "image-" image-index "-layer-switcher")))
+                              rounded-corner nil))))))
+        (let ((pan-west-control
+               (new (chain *open-layers *control (*pan "West"))))
+              (pan-east-control
+               (new (chain *open-layers *control (*pan "East"))))
+              (pan-north-control
+               (new (chain *open-layers *control (*pan "North"))))
+              (pan-south-control
+               (new (chain *open-layers *control (*pan "South"))))
+              (zoom-in-control
+               (new (chain *open-layers *control (*zoom-in))))
+              (zoom-out-control
+               (new (chain *open-layers *control (*zoom-out))))
+              (zoom-to-max-extent-control
+               (new (chain *open-layers *control (*zoom-to-max-extent))))
+              (pan-zoom-panel
+               (new (chain *open-layers
+                           *control
+                           (*panel
+                            (create div
+                                    (chain
+                                     document
+                                     (get-element-by-id
+                                      (+ "image-" image-index "-zoom")))))))))
+          (chain (aref *images* image-index)
+                 map
+                 (add-control pan-zoom-panel))
+          (chain pan-zoom-panel (add-controls (array pan-west-control
+                                                     pan-north-control
+                                                     pan-south-control
+                                                     pan-east-control
+                                                     zoom-in-control
+                                                     zoom-to-max-extent-control
+                                                     zoom-out-control))))
+        (chain (aref *images* image-index)
+               map
+               (render (chain document
+                              (get-element-by-id
+                               (+ "image-" image-index))))))
       
       (defun user-point-selected (event)
         (setf *current-user-point* (chain event feature))
@@ -1244,12 +1346,11 @@ image-index in array *images*."
                                          (transform +geographic+ +spherical-mercator+))
                                   )))))
 
-        (add-help-events)
         (chain *streetmap* (add-control *click-streetmap*))
         (chain *click-streetmap* (activate))
 
         (chain *user-point-layer* events (register "featureselected" *user-point-layer* user-point-selected))
-        ;(chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-controls))
+        (chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-controls))
         (chain *streetmap* (add-control *user-points-select-control*))
         (chain *user-points-select-control* (activate))
 
@@ -1259,7 +1360,9 @@ image-index in array *images*."
         (chain *streetmap* (add-layer *user-point-layer*))
         (chain *streetmap*
                (add-control
-                (new (chain *open-layers *control (*layer-switcher)))))
+                (new (chain *open-layers
+                            *control
+                            (*layer-switcher (create rounded-corner nil))))))
         (chain *streetmap*
                (add-control
                 (new (chain *open-layers *control (*mouse-position)))))
@@ -1273,7 +1376,8 @@ image-index in array *images*."
                        (transform +geographic+ +spherical-mercator+))))
         (loop
            for i from 0 to (lisp (1- *number-of-images*))
-           do (initialize-image i))))))
+           do (initialize-image i))
+        (add-help-events)))))
 
 (define-easy-handler
     (view :uri "/phoros-lib/view" :default-request-type :post) ()
@@ -1344,8 +1448,12 @@ image-index in array *images*."
        (:div :id "images" :style "clear:both"
              (loop
                 for i from 0 below *number-of-images* do 
-                (who:htm (:div :id i :class "image" :style "cursor:crosshair"
-                               )))))))
+                (who:htm (:div :class "controlled-image"
+                               (:div :id (format nil "image-~S-controls" i :class "image-controls")
+                                     (:div :id (format nil "image-~S-zoom" i) :class "image-zoom")
+                                     (:div :id (format nil "image-~S-layer-switcher" i) :class "image-layer-switcher"))
+                               :br
+                               (:div :id (format nil "image-~S" i) :class "image" :style "cursor:crosshair"))))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
     :add-session-id t)))
