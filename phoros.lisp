@@ -1243,15 +1243,15 @@ image-index in array *images*."
                                    document
                                    (get-element-by-id
                                     (+ "image-" image-index "-layer-switcher")))
-                              rounded-corner nil))))))
+                              ))))))
         (let ((pan-west-control
                (new (chain *open-layers *control (*pan "West"))))
-              (pan-east-control
-               (new (chain *open-layers *control (*pan "East"))))
               (pan-north-control
                (new (chain *open-layers *control (*pan "North"))))
               (pan-south-control
                (new (chain *open-layers *control (*pan "South"))))
+              (pan-east-control
+               (new (chain *open-layers *control (*pan "East"))))
               (zoom-in-control
                (new (chain *open-layers *control (*zoom-in))))
               (zoom-out-control
@@ -1267,16 +1267,14 @@ image-index in array *images*."
                                      document
                                      (get-element-by-id
                                       (+ "image-" image-index "-zoom")))))))))
-          (chain (aref *images* image-index)
-                 map
-                 (add-control pan-zoom-panel))
+          (chain (aref *images* image-index) map (add-control pan-zoom-panel))
           (chain pan-zoom-panel (add-controls (array pan-west-control
                                                      pan-north-control
                                                      pan-south-control
                                                      pan-east-control
                                                      zoom-in-control
-                                                     zoom-to-max-extent-control
-                                                     zoom-out-control))))
+                                                     zoom-out-control
+                                                     zoom-to-max-extent-control))))
         (chain (aref *images* image-index)
                map
                (render (chain document
@@ -1449,10 +1447,9 @@ image-index in array *images*."
              (loop
                 for i from 0 below *number-of-images* do 
                 (who:htm (:div :class "controlled-image"
-                               (:div :id (format nil "image-~S-controls" i :class "image-controls")
+                               (:div :id (format nil "image-~S-controls" i) :class "image-controls"
                                      (:div :id (format nil "image-~S-zoom" i) :class "image-zoom")
                                      (:div :id (format nil "image-~S-layer-switcher" i) :class "image-layer-switcher"))
-                               :br
                                (:div :id (format nil "image-~S" i) :class "image" :style "cursor:crosshair"))))))))
    (redirect
     (concatenate 'string "/phoros/" (session-value 'presentation-project-name))

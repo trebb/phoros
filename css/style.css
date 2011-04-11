@@ -100,30 +100,30 @@ input {
     margin-left: 1em;
 }
 .smallmap {
-    float:left;
+    float: left;
     width: 512px;
     height: 256px;
     border: 1px solid #ccc;
 }
 .image-controls {
     width: 100%;
-    height: 50px;
-    border: 1px solid #ccc;
+    height: 18px;
+    background-color: darkblue;
 }
 .image-zoom {
-    height:18px;
-    width:126px;
-    float:left;
+    height: 18px;
+    width: 126px;
+    float: left;
 }
 .image-layer-switcher {
     height: 18px;
     float: left;
 }
-.dataLbl, .baseLbl {
+.dataLbl, .baseLbl {            /*of layer-switcher*/
     display: none;
 }
-.image-layer-switcher span {
-    display: none;              /*layer name*/
+.image-layer-switcher span {    /*layer name*/
+    display: none; 
 }
 .image {
     background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
@@ -131,51 +131,51 @@ input {
     background-repeat: no-repeat;
     width: 300px;
     height: 256px;
-    border-top: 1px solid #ccc;
 }
 .controlled-image {
     float: left;
     border: 1px solid #ccc;
+    margin: 1px;
 }
 .olControlPanWestItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/west-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/west-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
 .olControlPanEastItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/east-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/east-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
 .olControlPanNorthItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/north-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/north-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
 .olControlPanSouthItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/south-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/south-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
 .olControlZoomInItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-plus-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-plus-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
 .olControlZoomOutItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-minus-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-minus-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
 .olControlZoomToMaxExtentItemInactive {
-    background:url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-world-mini.png) no-repeat;
-    float:left;
-    height:18px;
-    width:18px;
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-world-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
 }
