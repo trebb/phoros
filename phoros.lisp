@@ -629,9 +629,13 @@ junk-keys."
          ol-Control-Zoom-Out-Item-Inactive
          (who-ps-html (:p "Zoom out."))
          ol-Control-Zoom-To-Max-Extent-Item-Inactive
-         (who-ps-html (:p "Zoom out completely; restore the original view."))
+         (who-ps-html (:p "Zoom out completely, restoring the original view."))
          :image-layer-switcher
          (who-ps-html (:p "Toggle display of image."))
+         :streetmap-layer-switcher
+         (who-ps-html (:p "Toggle visibility of data layers, or choose a background streetmap. (TODO: currently only one \"choice\")"))
+         :streetmap-overview
+         (who-ps-html (:p "Click to re-center streetmap, or drag the red rectangle."))
          :help-display
          (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
 
@@ -766,11 +770,11 @@ help message."
         (new (chain *open-layers *control (*select-feature *user-point-layer*))))
       ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
       (defvar *osm-layer* (new (chain *open-layers *layer (*osm*))))
-      (defvar *streetmap-overview*
-        (new (chain *open-layers *control (*overview-map
-                                           (create maximized t
-                                                   min-ratio 14
-                                                   max-ratio 16)))))
+      ;;(defvar *streetmap-overview*
+      ;;  (new (chain *open-layers *control (*overview-map
+      ;;                                     (create maximized t
+      ;;                                             min-ratio 14
+      ;;                                             max-ratio 16)))))
       (defvar *click-streetmap*
         (new (*click-control* (create :trigger request-photos))))
 
@@ -1243,7 +1247,7 @@ image-index in array *images*."
                                    document
                                    (get-element-by-id
                                     (+ "image-" image-index "-layer-switcher")))
-                              ))))))
+                              rounded-corner nil))))))
         (let ((pan-west-control
                (new (chain *open-layers *control (*pan "West"))))
               (pan-north-control
@@ -1337,41 +1341,103 @@ image-index in array *images*."
                     (*map "streetmap"
                           (create projection +geographic+
                                   display-projection +geographic+
-                                  restricted-extent
-                                  (chain (new (chain *open-layers
-                                                     (*bounds
-                                                      14 51 15 52)))
-                                         (transform +geographic+ +spherical-mercator+))
+                                  controls (array (new (chain *open-layers
+                                                              *control
+                                                              (*navigation)))
+                                                  (new (chain *open-layers
+                                                              *control
+                                                              (*attribution))))
+                                  ;;restricted-extent
+                                  ;;(chain (new (chain *open-layers
+                                  ;;                   *bounds
+                                  ;;                   (from-string +presentation-project-bbox+)))
+                                  ;;       (transform +geographic+ +spherical-mercator+))
                                   )))))
 
-        (chain *streetmap* (add-control *click-streetmap*))
-        (chain *click-streetmap* (activate))
 
-        (chain *user-point-layer* events (register "featureselected" *user-point-layer* user-point-selected))
-        (chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-controls))
-        (chain *streetmap* (add-control *user-points-select-control*))
-        (chain *user-points-select-control* (activate))
-
-        (chain *streetmap* (add-layer *osm-layer*))
-        ;;(chain *streetmap* (add-layer *google*))
-        (chain *streetmap* (add-layer *survey-layer*))
-        (chain *streetmap* (add-layer *user-point-layer*))
         (chain *streetmap*
                (add-control
                 (new (chain *open-layers
                             *control
-                            (*layer-switcher (create rounded-corner nil))))))
-        (chain *streetmap*
-               (add-control
-                (new (chain *open-layers *control (*mouse-position)))))
-        (chain *streetmap* (add-control *streetmap-overview*))
-        (chain *streetmap*
-               (zoom-to-extent
-                (chain (new (chain *open-layers
-                                   *bounds
-                                   (from-string
-                                    +presentation-project-bbox+)))
-                       (transform +geographic+ +spherical-mercator+))))
+                            (*layer-switcher
+                             (create
+                              div (chain
+                                   document
+                                   (get-element-by-id
+                                    "streetmap-layer-switcher"))
+                              rounded-corner nil))))))
+        (let ((pan-west-control
+               (new (chain *open-layers *control (*pan "West"))))
+              (pan-north-control
+               (new (chain *open-layers *control (*pan "North"))))
+              (pan-south-control
+               (new (chain *open-layers *control (*pan "South"))))
+              (pan-east-control
+               (new (chain *open-layers *control (*pan "East"))))
+              (zoom-in-control
+               (new (chain *open-layers *control (*zoom-in))))
+              (zoom-out-control
+               (new (chain *open-layers *control (*zoom-out))))
+              (zoom-to-max-extent-control
+               (new (chain *open-layers *control (*zoom-to-max-extent))))
+              (pan-zoom-panel
+               (new (chain *open-layers
+                           *control
+                           (*panel
+                            (create div
+                                    (chain
+                                     document
+                                     (get-element-by-id
+                                      "streetmap-zoom")))))))
+              (overview-map
+               (new (chain *open-layers
+                            *control
+                            (*overview-map
+                             (create
+                              ;;size (new (chain *open-layers
+                              ;;                 (*size 160 80)))
+                              min-ratio 14
+                              max-ratio 16
+                              div (chain document
+                                         (get-element-by-id
+                                          "streetmap-overview"))
+                              ))))))
+          (chain *streetmap* (add-control pan-zoom-panel))
+          (chain pan-zoom-panel (add-controls (array pan-west-control
+                                                     pan-north-control
+                                                     pan-south-control
+                                                     pan-east-control
+                                                     zoom-in-control
+                                                     zoom-out-control
+                                                     zoom-to-max-extent-control)))
+
+
+          (chain *streetmap* (add-control *click-streetmap*))
+          (chain *click-streetmap* (activate))
+
+          (chain *user-point-layer* events (register "featureselected" *user-point-layer* user-point-selected))
+          (chain *user-point-layer* events (register "featureunselected" *user-point-layer* reset-controls))
+          (chain *streetmap* (add-control *user-points-select-control*))
+          (chain *user-points-select-control* (activate))
+          
+          (chain *streetmap* (add-layer *osm-layer*))
+          ;;(chain *streetmap* (add-layer *google*))
+          (chain *streetmap* (add-layer *survey-layer*))
+          (chain *streetmap* (add-layer *user-point-layer*))
+          (setf (chain overview-map element)
+                (chain document (get-element-by-id
+                                 "streetmap-overview-element")))
+          (chain *streetmap*
+                 (add-control
+                  (new (chain *open-layers *control (*mouse-position)))))
+          (chain *streetmap* (add-control overview-map))
+          (chain *streetmap*
+                 (zoom-to-extent
+                  (chain (new (chain *open-layers
+                                     *bounds
+                                     (from-string
+                                      +presentation-project-bbox+)))
+                         (transform +geographic+ +spherical-mercator+)))))
         (loop
            for i from 0 to (lisp (1- *number-of-images*))
            do (initialize-image i))
@@ -1411,7 +1477,13 @@ image-index in array *images*."
             "permission on "
             (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name))))
-       (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair")
+       (:div :class "controlled-streetmap"
+             (:div :id "streetmap-controls" :class "streetmap-controls"
+                   (:div :class "streetmap-zoom-and-layer-switcher"
+                         (:div :id "streetmap-layer-switcher" :class "streetmap-layer-switcher")
+                         (:div :id "streetmap-zoom" :class "streetmap-zoom"))
+                   (:div :id "streetmap-overview" :class "streetmap-overview"))
+             (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"))
        (:div :class "phoros-controls"
              (:button :id "blurb-button"
                       :type "button"

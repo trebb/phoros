@@ -103,12 +103,45 @@ input {
     float: left;
     width: 512px;
     height: 256px;
-    border: 1px solid #ccc;
+    border: 1px solid #00008B;
+}
+.controlled-streetmap {
+    float: left;
+    margin: 1px;
+}
+.streetmap-controls {
+    width: 100%;
+    height: 110px;
+    background-color: #00008B;
+}
+.streetmap-zoom {
+    height: 18px;
+    width: 126px;
+}
+.streetmap-layer-switcher {
+    height: 92px;
+}
+.streetmap-layer-switcher span {    /*layer name*/
+    color: white; 
+}
+.streetmap-zoom-and-layer-switcher {
+    width: 126px;
+    height: 110px;
+    float: left;
+}
+.streetmap-overview {
+    width: 200px;
+    height: 110px;
+    float: right;
+}
+.olControlOverviewMapElement {
+    height: 90;
+    width: 172;
 }
 .image-controls {
     width: 100%;
     height: 18px;
-    background-color: darkblue;
+    background-color: #00008B;
 }
 .image-zoom {
     height: 18px;
@@ -134,7 +167,7 @@ input {
 }
 .controlled-image {
     float: left;
-    border: 1px solid #ccc;
+    border: 1px solid #00008B;
     margin: 1px;
 }
 .olControlPanWestItemInactive {
