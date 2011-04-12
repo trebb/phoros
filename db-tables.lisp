@@ -528,7 +528,7 @@ are used by all projects.  The database should probably be empty."
    (trigger-time
     :writer (setf trigger-time)
     :col-type double-precision
-    :documentation "UNIX time, i.e. seconds from 1970.  Values before 1980-01-06T00:00:00Z are considered invalid.")
+    :documentation "Time in seconds from 1900.  Values before 1980-01-06T00:00:00Z are considered invalid.")
    (roll
     :col-type double-precision)
    (pitch
@@ -615,7 +615,7 @@ are used by all projects.  The database should probably be empty."
    (trigger-time
     :initarg :trigger-time
     :accessor trigger-time
-    :documentation "UNIX time, i.e. seconds from 1970-01-01.")
+    :documentation "Time in seconds from 1900-01-01.")
    (fake-trigger-time-p
     :accessor fake-trigger-time-p
     :initform nil
