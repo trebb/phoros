@@ -634,6 +634,8 @@ junk-keys."
          (who-ps-html (:p "Zoom out completely, restoring the original view."))
          :image-layer-switcher
          (who-ps-html (:p "Toggle display of image."))
+         :image-trigger-time
+         (who-ps-html (:p "Time this image was taken."))
          :streetmap-layer-switcher
          (who-ps-html (:p "Toggle visibility of data layers, or choose a background streetmap. (TODO: currently only one \"choice\")"))
          :streetmap-overview
@@ -704,6 +706,8 @@ help message."
                                         :click (@ this trigger))
                                        (@ this handler-options))))))))))
 
+      (defvar +unix-epoch+ (lisp *unix-epoch*)
+        "Seconds between Lisp epoch and UNIX epoch.")
       (defvar +geographic+
         (new (chain *open-layers (*projection "EPSG:4326"))))
       (defvar +spherical-mercator+
@@ -1189,14 +1193,23 @@ photogrammetric calculations."
                                                   'draw-estimated-positions)
                                 :scope clicked-image)))))))))
 
+      (defun iso-time-string (lisp-time)
+        "Return Lisp universal time formatted as ISO time string"
+        (let* ((unix-time (- lisp-time +unix-epoch+))
+               (js-date (new (*date (* 1000 unix-time)))))
+          (chain *open-layers *date (to-i-s-o-string js-date))))
+
       (defun show-photo ()
         "Show the photo described in this object's photo-parameters."
         (loop
            repeat ((getprop this 'map 'get-num-layers))
            do ((getprop this 'map 'layers 0 'destroy)))
         ((getprop this 'map 'add-layer)
-         (new ((@ *open-layers *layer *image)
-               "Photo"
+         (new (chain
+               *open-layers
+               *layer
+               (*image
+                "Photo"
                (photo-path (getprop this 'photo-parameters))
                (new ((@ *open-layers *bounds) -.5 -.5
                      (+ (getprop this 'photo-parameters 'sensor-width-pix)
@@ -1204,13 +1217,19 @@ photogrammetric calculations."
                      (+ (getprop this 'photo-parameters 'sensor-height-pix)
                         .5)))           ; coordinates shown
                (new ((@ *open-layers *size) 512 256))
-               (create))))
-        (chain this map (zoom-to-max-extent)))
+               (create)))))
+        (chain this map (zoom-to-max-extent))
+        (setf (chain this trigger-time-div inner-h-t-m-l)
+              (iso-time-string (getprop this 'photo-parameters 'trigger-time))))
 
       (defun initialize-image (image-index)
         "Create an image usable for displaying photos at position
 image-index in array *images*."
         (setf (aref *images* image-index) (new *image))
+        (setf (@ (aref *images* image-index) trigger-time-div)
+              (chain
+               document
+               (get-element-by-id (+ "image-" image-index "-trigger-time"))))
         (setf (@ (aref *images* image-index) image-click-action)
               (image-click-action (aref *images* image-index)))
         (setf (@ (aref *images* image-index) click)
@@ -1533,7 +1552,9 @@ image-index in array *images*."
                              (:div :id (format nil "image-~S-zoom" i)
                                    :class "image-zoom")
                              (:div :id (format nil "image-~S-layer-switcher" i)
-                                   :class "image-layer-switcher"))
+                                   :class "image-layer-switcher")
+                             (:div :id (format nil "image-~S-trigger-time" i)
+                                   :class "image-trigger-time"))
                        (:div :id (format nil "image-~S" i)
                              :class "image" :style "cursor:crosshair"))))))))
    (redirect
