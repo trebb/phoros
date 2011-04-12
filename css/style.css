@@ -3,7 +3,8 @@
  * From Blueprint reset.css
  * http://blueprintcss.googlecode.com
  */
-html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td {margin:0;padding:0;border:0;font-weight:inherit;font-style:inherit;font-size:100%;font-family:inherit;vertical-align:baseline;}
+html, body, div, span, object, iframe, h1, h2, h3, h4, h5, h6, p, blockquote, pre, a, abbr, acronym, address, code, del, dfn, em, img, q, dl, dt, dd, fieldset, form, label, legend, table, caption, tbody, tfoot, thead, tr, th, td {margin:0;padding:0;border
+:0;font-weight:inherit;font-style:inherit;font-size:100%;font-family:inherit;vertical-align:baseline;}
 body {line-height:1.5;}
 table {border-collapse:separate;border-spacing:0;}
 caption, th, td {text-align:left;font-weight:normal;}
@@ -132,11 +133,8 @@ input {
 .streetmap-overview {
     width: 200px;
     height: 110px;
-    float: right;
-}
-.olControlOverviewMapElement {
-    height: 90;
-    width: 172;
+    margin-left: 5px;
+    float: left;
 }
 .image-controls {
     width: 100%;
@@ -207,6 +205,12 @@ input {
     width: 18px;
 }
 .olControlZoomToMaxExtentItemInactive {
+    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-world-mini.png) no-repeat;
+    float: left;
+    height: 18px;
+    width: 18px;
+}
+.streetmapZoomToMaxExtentItemInactive {
     background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-world-mini.png) no-repeat;
     float: left;
     height: 18px;
