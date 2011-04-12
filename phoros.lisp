@@ -638,7 +638,7 @@ junk-keys."
          (who-ps-html (:p "Toggle visibility of data layers, or choose a background streetmap. (TODO: currently only one \"choice\")"))
          :streetmap-overview
          (who-ps-html (:p "Click to re-center streetmap, or drag the red rectangle."))
-         :help-display
+         :h2-help
          (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
 
       (defun add-help-topic (topic element)
@@ -663,11 +663,10 @@ help message."
       (defun show-help (&optional topic)
         "Put text on topic into help-display"
         (setf (inner-html-with-id "help-display")
-              (+ (who-ps-html (:h2 "Help"))
-                 (let ((help-body (getprop *help-topics* topic)))
-                   (if (undefined help-body)
-                       ""
-                       help-body)))))
+              (let ((help-body (getprop *help-topics* topic)))
+                (if (undefined help-body)
+                    ""
+                    help-body))))
       
       (defvar *click-control*
         (chain
@@ -1513,7 +1512,9 @@ image-index in array *images*."
              (:button :id "delete-point-button" :disabled t
                       :type "button" :onclick (ps-inline (delete-point))
                       "delete"))
-       (:div :id "help-display" :class "smalltext")
+       (:div :class "smalltext"
+             (:h2 :id "h2-help" "Help")
+             (:div :id "help-display"))
        (:div :id "images" :style "clear:both"
              (loop
                 for i from 0 below *number-of-images* do 
