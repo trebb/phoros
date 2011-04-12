@@ -638,6 +638,8 @@ junk-keys."
          (who-ps-html (:p "Toggle visibility of data layers, or choose a background streetmap. (TODO: currently only one \"choice\")"))
          :streetmap-overview
          (who-ps-html (:p "Click to re-center streetmap, or drag the red rectangle."))
+         :streetmap-mouse-position
+         (who-ps-html (:p "Position in geographic coordinates when cursor is in streetmap."))
          :h2-help
          (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
 
@@ -1396,7 +1398,15 @@ image-index in array *images*."
                               max-ratio 16
                               div (chain document
                                          (get-element-by-id
-                                          "streetmap-overview"))))))))
+                                          "streetmap-overview")))))))
+              (mouse-position-control
+               (new (chain *open-layers
+                           *control
+                           (*mouse-position
+                            (create div (chain document
+                                               (get-element-by-id
+                                                "streetmap-mouse-position"))
+                                    empty-string "longitude, latitude"))))))
           (chain *streetmap* (add-control pan-zoom-panel))
           (chain pan-zoom-panel
                  (add-controls (array pan-west-control
@@ -1406,8 +1416,6 @@ image-index in array *images*."
                                       zoom-in-control
                                       zoom-out-control
                                       zoom-to-max-extent-control)))
-
-
           (chain *streetmap* (add-control *click-streetmap*))
           (chain *click-streetmap* (activate))
 
@@ -1429,12 +1437,10 @@ image-index in array *images*."
           (setf (chain overview-map element)
                 (chain document (get-element-by-id
                                  "streetmap-overview-element")))
-          (chain *streetmap*
-                 (add-control
-                  (new (chain *open-layers *control (*mouse-position)))))
           (chain *streetmap* (add-control overview-map))
           (chain *streetmap*
-                 (zoom-to-extent +presentation-project-bounds+)))
+                 (zoom-to-extent +presentation-project-bounds+))
+          (chain *streetmap* (add-control mouse-position-control)))
         (loop
            for i from 0 to (lisp (1- *number-of-images*))
            do (initialize-image i))
@@ -1480,7 +1486,9 @@ image-index in array *images*."
                          (:div :id "streetmap-layer-switcher"
                                :class "streetmap-layer-switcher")
                          (:div :id "streetmap-zoom" :class "streetmap-zoom"))
-                   (:div :id "streetmap-overview" :class "streetmap-overview"))
+                   (:div :id "streetmap-overview" :class "streetmap-overview")
+                   (:div :id "streetmap-empty-space" :class "streetmap-empty-space")
+                   (:div :id "streetmap-mouse-position" :class "streetmap-mouse-position"))
              (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"))
        (:div :class "phoros-controls"
              (:button :id "blurb-button"

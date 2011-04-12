@@ -125,6 +125,17 @@ input {
 .streetmap-layer-switcher span {    /*layer name*/
     color: white; 
 }
+.streetmap-empty-space {
+    height: 92px;
+    width: 1px;
+}
+.streetmap-mouse-position {
+    font: 1em 'andale mono', 'lucida console', monospace;
+    color: white; 
+    float: right;
+    height: 18px;
+    margin-right: 5px;
+}
 .streetmap-zoom-and-layer-switcher {
     width: 126px;
     height: 110px;
