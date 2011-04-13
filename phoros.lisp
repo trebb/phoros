@@ -604,7 +604,7 @@ junk-keys."
          :creator
          (who-ps-html (:p "Creator of current point.  Will be updated when you change this point."))
          :remove-work-layers-button
-         (who-ps-html (:p "Discard the current, unstored point but let the rest of the workspace untouched."))
+         (who-ps-html (:p "Discard the current, unstored point and zoom out all images. Keep the rest of the workspace untouched."))
          :blurb-button
          (who-ps-html (:p "View some info about phoros."))
          :logout-button
@@ -632,6 +632,10 @@ junk-keys."
          (who-ps-html (:p "Zoom to the extent of presentation project."))
          ol-Control-Zoom-To-Max-Extent-Item-Inactive
          (who-ps-html (:p "Zoom out completely, restoring the original view."))
+         :zoom-images-to-max-extent
+         (who-ps-html (:p "Zoom all images out completely, restoring the original view."))
+         :auto-zoom
+         (who-ps-html (:p "Check this to automatically zoom into images once they get an estimated position."))
          :image-layer-switcher
          (who-ps-html (:p "Toggle display of image."))
          :image-trigger-time
@@ -641,7 +645,7 @@ junk-keys."
          :streetmap-overview
          (who-ps-html (:p "Click to re-center streetmap, or drag the red rectangle."))
          :streetmap-mouse-position
-         (who-ps-html (:p "Position in geographic coordinates when cursor is in streetmap."))
+         (who-ps-html (:p "Cursor position in geographic coordinates when cursor is in streetmap."))
          :h2-help
          (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
 
@@ -856,7 +860,7 @@ an image url."
           (chain *user-points-select-control* (unselect *current-user-point*)))
         (reset-controls)
         (setf *pristine-images-p* t)
-        )
+        (zoom-images-to-max-extent))
 
       (defun enable-element-with-id (id)
         "Activate HTML element with id=\"id\"."
@@ -869,6 +873,10 @@ an image url."
       (defmacro value-with-id (id)
         "Value of element with id=\"id\"."
         `(chain document (get-element-by-id ,id) value))
+
+      (defmacro checkbox-status-with-id (id)
+        "Whether checkbox with id=\"id\" is checked or not."
+        `(chain document (get-element-by-id ,id) checked))
 
       (defun refresh-layer (layer)
         "Have layer re-request and redraw features."
@@ -989,6 +997,10 @@ another photo."
                         (chain *open-layers *layer
                                (*vector "Estimated Position"
                                         (create display-in-layer-switcher nil)))))
+                 (setf (chain i estimated-position-lonlat)
+                       (new (chain *open-layers (*lon-lat
+                                                 (getprop p 'm)
+                                                 (getprop p 'n)))))
                  (setf (chain i estimated-position-layer style)
                        estimated-position-style)
                  (let* ((point
@@ -1002,7 +1014,8 @@ another photo."
                    (chain i map
                           (add-layer (@ i estimated-position-layer)))
                    (chain i estimated-position-layer
-                          (add-features feature))))))))
+                          (add-features feature)))))))
+        (zoom-images-to-point))
 
       (defun draw-user-point ()
         "Draw currently selected user point into all images."
@@ -1221,6 +1234,27 @@ photogrammetric calculations."
         (chain this map (zoom-to-max-extent))
         (setf (chain this trigger-time-div inner-h-t-m-l)
               (iso-time-string (getprop this 'photo-parameters 'trigger-time))))
+
+      (defun zoom-images-to-max-extent ()
+        "Zoom out all images."
+        (loop for i across *images* do (chain i map (zoom-to-max-extent))))
+
+      (defun zoom-images-to-point ()
+        "For images that have an Active Point or an Estimated
+Position, zoom in and recenter."
+        (loop for i across *images* do
+             (let ((point-lonlat
+                    (cond
+                      ((has-layer-p (chain i map) "Active Point")
+                       (new (chain *open-layers (*lon-lat
+                                                 (chain i photo-parameters m)
+                                                 (chain i photo-parameters n)))))
+                      ((has-layer-p (chain i map) "Estimated Position")
+                       (chain i estimated-position-lonlat))
+                      (t false))))
+               (when (and point-lonlat
+                          (checkbox-status-with-id "zoom-to-point-p"))
+                 (chain i map (set-center point-lonlat 4 nil t))))))
 
       (defun initialize-image (image-index)
         "Create an image usable for displaying photos at position
@@ -1506,10 +1540,11 @@ image-index in array *images*."
                                :class "streetmap-layer-switcher")
                          (:div :id "streetmap-zoom" :class "streetmap-zoom"))
                    (:div :id "streetmap-overview" :class "streetmap-overview")
-                   (:div :id "streetmap-empty-space" :class "streetmap-empty-space")
+                   (:div :id "streetmap-vertical-strut" :class "streetmap-vertical-strut")
                    (:div :id "streetmap-mouse-position" :class "streetmap-mouse-position"))
              (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"))
        (:div :class "phoros-controls"
+             (:div :class "phoros-controls-vertical-strut")
              (:button :id "blurb-button"
                       :type "button"
                       :onclick "self.location.href = \"/phoros-lib/blurb\""
@@ -1519,18 +1554,15 @@ image-index in array *images*."
                       :onclick "self.location.href = \"/phoros-lib/logout\""
                       "bye")
              :br
-             (:button :id "remove-work-layers-button" :disabled t
-                      :type "button" :onclick (ps-inline (reset-layers-and-controls))
-                      "start over")
              (:h2 (:span :id "h2-controls") (:span :id "creator"))
              (:small (:code :id "point-creation-date"))
              :br
              (:select :id "point-attribute" :disabled t
                       :size 1 :name "point-attribute")
-             (:input :id "point-numeric-description" :disabled t
+             (:input :id "point-numeric-description" :class "vanilla-input ":disabled t
                      :type "text" :size 6 :name "point-numeric-description")
              :br
-             (:input :id "point-description" :disabled t
+             (:input :id "point-description" :class "vanilla-input" :disabled t
                      :type "text" :size 20 :name "point-description")
              :br
              (:button :disabled t :id "finish-point-button"
@@ -1538,7 +1570,16 @@ image-index in array *images*."
                       "finish")
              (:button :id "delete-point-button" :disabled t
                       :type "button" :onclick (ps-inline (delete-point))
-                      "delete"))
+                      "delete")
+             (:div :class "image-main-controls"
+                   (:div :id "auto-zoom"
+                         (:input :id "zoom-to-point-p" :class "tight-input"
+                                 :type "checkbox" :checked t "auto zoom"))
+                   (:div :id "zoom-images-to-max-extent"
+                         :onclick (ps-inline (zoom-images-to-max-extent)))
+                   (:div :id "remove-work-layers-button" :disabled t
+                         :onclick (ps-inline (reset-layers-and-controls))
+                         "start over")))
        (:div :class "smalltext"
              (:h2 :id "h2-help" "Help")
              (:div :id "help-display"))

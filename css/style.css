@@ -80,15 +80,27 @@ button, select {
     padding: 1px;
     margin: 3px;
 }
-input {
+.vanilla-input {
     padding: 1px;
     margin: 3px;
+}
+.tight-input {
+    padding: 0px;
+    margin: 0px;
 }
 .phoros-controls {
     float: left;
     text-align:left;
     margin-left: 1em;
     margin-right: 1em;
+    margin-top: 1px;
+    margin-bottom: 1px;
+    height: 368px;
+}
+.phoros-controls-vertical-strut {
+    height: 350px;
+    width: 1px;
+    float: right;
 }
 .smalltext {
     float: left;
@@ -123,9 +135,13 @@ input {
     height: 92px;
 }
 .streetmap-layer-switcher span {    /*layer name*/
+    cursor: pointer;
     color: white; 
 }
-.streetmap-empty-space {
+.dataLayersDiv {
+    cursor: pointer;            /*TODO: doesn't work*/
+}
+.streetmap-vertical-strut {
     height: 92px;
     width: 1px;
 }
@@ -147,6 +163,48 @@ input {
     margin-left: 5px;
     float: left;
 }
+.image-main-controls {
+    height: 18px;
+    background-color: #00008B;
+    clear: right;
+    float: left;
+}
+#remove-work-layers-button {
+    color: #00008B;
+    cursor: pointer;
+    font-size: smaller;
+    font-weight: bold;
+    background-color: white;
+    float: left;
+    height: 12px;
+    padding-left: 3px;
+    padding-right: 3px;
+    padding-bottom: 1px;
+    margin-top: 3px;
+    margin-bottom: 3px;
+    margin-left: 10px;
+    margin-right: 5px;
+}
+#auto-zoom {
+    font-size: smaller;
+    color: white;
+    float: left;
+    padding-top: 3px;
+    margin-left: 5px;
+    margin-right: 10px;
+}
+#zoom-to-point-p {
+    cursor: pointer;
+}
+#zoom-images-to-max-extent {
+    background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
+    cursor: pointer;
+    float: left;
+    height: 18px;
+    width: 18px;
+    margin-left: 10px;
+    margin-right: 10px;
+}    
 .image-controls {
     width: 100%;
     height: 18px;
@@ -158,6 +216,7 @@ input {
     float: left;
 }
 .image-layer-switcher {
+    cursor: pointer;            /*TODO: doesn't work*/
     height: 18px;
     float: left;
 }
@@ -190,48 +249,56 @@ input {
 }
 .olControlPanWestItemInactive {
     background: url(/phoros-lib/ol/img/west-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanEastItemInactive {
     background: url(/phoros-lib/ol/img/east-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanNorthItemInactive {
     background: url(/phoros-lib/ol/img/north-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanSouthItemInactive {
     background: url(/phoros-lib/ol/img/south-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomInItemInactive {
     background: url(/phoros-lib/ol/img/zoom-plus-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomOutItemInactive {
     background: url(/phoros-lib/ol/img/zoom-minus-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomToMaxExtentItemInactive {
     background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .streetmapZoomToMaxExtentItemInactive {
     background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
+    cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
