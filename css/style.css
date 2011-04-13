@@ -189,49 +189,49 @@ input {
     margin: 1px;
 }
 .olControlPanWestItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/west-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/west-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanEastItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/east-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/east-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanNorthItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/north-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/north-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanSouthItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/south-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/south-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomInItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-plus-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/zoom-plus-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomOutItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-minus-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/zoom-minus-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomToMaxExtentItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-world-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
 }
 .streetmapZoomToMaxExtentItemInactive {
-    background: url(http://dev.openlayers.org/releases/OpenLayers-2.10/img/zoom-world-mini.png) no-repeat;
+    background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
     float: left;
     height: 18px;
     width: 18px;
