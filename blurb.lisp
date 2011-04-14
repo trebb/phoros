@@ -29,35 +29,51 @@
        (:body 
         (:h1 :id "title" "Phoros: A Tool for Photogrammetric Road Survey")
         (:button :type "button"
-                 :onclick "self.location.href = \"/phoros-lib/view\"" "back to Phoros")
+                 :onclick (ps-inline (chain self (close))) "close")
         (:p "This is "
             (:a :href "http://phoros.berlios.de"
                 (:img :src "/phoros-lib/public_html/phoros-logo-plain.png"
-                      :height 30 :style "vertical-align:middle" :alt "Phoros"))
+                      :height 30 :style "vertical-align:middle"
+                      :alt "Phoros"))
             (who:fmt "Phoros version ~A," (phoros-version))
             " a means for photogrammetric road survey written by"
-            (:a :href "mailto:Bert Burgemeister <trebbu@googlemail.com>" "Bert Burgemeister."))
+            (:a :href "mailto:Bert Burgemeister <trebbu@googlemail.com>"
+                "Bert Burgemeister."))
         (:p "Its photogrammetric workhorse is "
             (:a :href "mailto:Steffen.Scheller.home@gmail.com" "Steffen Scheller's")
             (who:fmt " library PhoML (version ~A)." (phoml:get-version-number)))
         (:a :style "float:left" :href "http://en.wikipedia.org/wiki/Common_Lisp"
-            (:img :src "http://www.lisperati.com/lisplogo_128.png" :alt "Common Lisp"))
+            (:img :src "http://www.lisperati.com/lisplogo_128.png"
+                  :alt "Common Lisp"))
         (:p (who:fmt
              "Phoros is implemented using Steel Bank Common Lisp (version ~A)"
              (lisp-implementation-version))
             ", an implementation of Common Lisp."
             (:a :href "http://www.sbcl.org"
                 (:img :src "http://www.sbcl.org/sbclbutton.png"
-                      :height 30 :style "vertical-align:middle" :alt "SBCL")))
+                      :height 30 :style "vertical-align:middle"
+                      :alt "SBCL")))
         (:p "You are communicating with "
-            (:a :href "http://weitz.de/hunchentoot" (:img :src "http://www.htg1.de/hunchentoot/hunchentoot11.png" :height 30 :style "vertical-align:middle" :alt "Hunchentoot"))
+            (:a :href "http://weitz.de/hunchentoot"
+                (:img :src "http://www.htg1.de/hunchentoot/hunchentoot11.png"
+                      :height 30 :style "vertical-align:middle"
+                      :alt "Hunchentoot"))
             ", a Common Lisp web server.")
         (:p "Most of the client code running in your browser is or uses"
-            (:a :href "http://openlayers.org" (:img :src "http://www.openlayers.org/images/OpenLayers.trac.png" :height 30 :style "vertical-align:middle" :alt "OpenLayers"))
+            (:a :href "http://openlayers.org"
+                (:img :src "http://www.openlayers.org/images/OpenLayers.trac.png"
+                      :height 30 :style "vertical-align:middle"
+                      :alt "OpenLayers"))
             "OpenLayers.")
         (:p "Phoros stores data in a"
-            (:a :href "http://postgresql.org" (:img :src "http://www.postgresql.org/files/community/propaganda/32x32_1.gif" :height 30 :style "vertical-align:middle" :alt "PostgreSQL"))
+            (:a :href "http://postgresql.org"
+                (:img :src "http://www.postgresql.org/files/community/propaganda/32x32_1.gif"
+                      :height 30 :style "vertical-align:middle"
+                      :alt "PostgreSQL"))
              "PostgreSQL database that is spatially enabled by "
-            (:a :href "http://postgis.refractions.net" (:img :src "http://postgis.refractions.net/download/logo_suite/stock_text/stock_text_180.gif" :height 30 :style "vertical-align:middle" :alt "PostGIS"))
+            (:a :href "http://postgis.refractions.net"
+                (:img :src "http://postgis.refractions.net/download/logo_suite/stock_text/stock_text_180.gif"
+                      :height 30 :style "vertical-align:middle"
+                      :alt "PostGIS"))
             "."
             ))))))

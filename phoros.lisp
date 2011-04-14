@@ -593,7 +593,8 @@ junk-keys."
             ;;(:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we don't seem to use this
             )
            (who:htm (:script :src "/phoros-lib/ol/OpenLayers.js")))
-       (:link :rel "stylesheet" :href "/phoros-lib/css/style.css" :type "text/css")
+       (:link :rel "stylesheet"
+              :href "/phoros-lib/css/style.css" :type "text/css")
        (:script :src "/phoros-lib/phoros.js")
        ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
        )
@@ -614,14 +615,18 @@ junk-keys."
                                :class "streetmap-layer-switcher")
                          (:div :id "streetmap-zoom" :class "streetmap-zoom"))
                    (:div :id "streetmap-overview" :class "streetmap-overview")
-                   (:div :id "streetmap-vertical-strut" :class "streetmap-vertical-strut")
-                   (:div :id "streetmap-mouse-position" :class "streetmap-mouse-position"))
+                   (:div :id "streetmap-vertical-strut"
+                         :class "streetmap-vertical-strut")
+                   (:div :id "streetmap-mouse-position"
+                         :class "streetmap-mouse-position"))
              (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"))
        (:div :class "phoros-controls"
              (:div :class "phoros-controls-vertical-strut")
              (:button :id "blurb-button"
                       :type "button"
-                      :onclick "self.location.href = \"/phoros-lib/blurb\""
+                      :onclick (ps-inline
+                                (chain window
+                                       (open "/phoros-lib/blurb" "About Phoros")))
                       "blurb")
              (:button :id "logout-button"
                       :type "button"
@@ -633,10 +638,12 @@ junk-keys."
              :br
              (:select :id "point-attribute" :disabled t
                       :size 1 :name "point-attribute")
-             (:input :id "point-numeric-description" :class "vanilla-input ":disabled t
+             (:input :id "point-numeric-description" :class "vanilla-input "
+                     :disabled t
                      :type "text" :size 6 :name "point-numeric-description")
              :br
-             (:input :id "point-description" :class "vanilla-input" :disabled t
+             (:input :id "point-description" :class "vanilla-input"
+                     :disabled t
                      :type "text" :size 20 :name "point-description")
              :br
              (:button :disabled t :id "finish-point-button"
