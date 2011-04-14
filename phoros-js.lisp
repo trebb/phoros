@@ -219,7 +219,7 @@ help message."
                   strategies (array (new (*bbox-strategy*)))
                   protocol
                   (new (*http-protocol*
-                        (create :url "/phoros-lib/points")))
+                        (create :url "/phoros-lib/points.json")))
                   style survey-layer-style
                   ))))))
 
@@ -232,7 +232,7 @@ help message."
                 strategies (array (new *bbox-strategy*))
                 protocol
                 (new (*http-protocol*
-                      (create :url "/phoros-lib/user-points"))))))))
+                      (create :url "/phoros-lib/user-points.json"))))))))
 
       (defvar *pristine-images-p* t
         "T if none of the current images has been clicked into yet.")

@@ -189,6 +189,7 @@ session."
 containing picture url, calibration parameters, and car position,
 wrapped in an array."
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (let* ((presentation-project-id (session-value 'presentation-project-id))
            (common-table-names (common-table-names presentation-project-id))
            (data (json:decode-json-from-string (raw-post-data)))
@@ -397,9 +398,10 @@ junk-keys."
                            :from-end t :count 1)
                ")"))
 
-(define-easy-handler (points :uri "/phoros-lib/points") (bbox)
+(define-easy-handler (points :uri "/phoros-lib/points.json") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (handler-case 
         (let* ((presentation-project-id (session-value 'presentation-project-id))
                (common-table-names
@@ -480,9 +482,10 @@ junk-keys."
                          all-coordinates)))
          :single!))))))
 
-(define-easy-handler (user-points :uri "/phoros-lib/user-points") (bbox)
+(define-easy-handler (user-points :uri "/phoros-lib/user-points.json") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (handler-case 
         (let ((user-point-table-name
                (user-point-table-name (session-value 'presentation-project-name))))
@@ -652,6 +655,10 @@ junk-keys."
              (:button :id "delete-point-button" :disabled t
                       :type "button" :onclick (ps-inline (delete-point))
                       "delete")
+             :br
+             (:button :id "download-user-points-button"
+                      :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json?bbox=-90,-180,90,180\""
+                      "download user points")
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
