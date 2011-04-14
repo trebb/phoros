@@ -75,8 +75,12 @@ user password host &key (port 5432) use-ssl)."
   (declare (ignore acceptor))
   "phoros-session")
 
-(defun start-server (&key (server-port 8080) (common-root "/"))
-  (setf *phoros-server* (make-instance 'hunchentoot:acceptor :port server-port))
+(defun start-server (&key (server-port 8080) address (common-root "/"))
+  "Start the presentation project server which listens on server-port
+at address. Address defaults to all addresses of the local machine."
+  (setf *phoros-server*
+        (make-instance 'hunchentoot:acceptor
+                       :port server-port :address address))
   (setf *session-max-time* (* 3600 24))
   (setf *common-root* common-root)
   (setf *show-lisp-errors-p* (logbitp 16 *verbose*))

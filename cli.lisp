@@ -18,6 +18,8 @@
 
 ;;;; The UNIX command line interface
 
+;; TODO: options that have a function as their :action seem to mask earlier options.  Fix or document.
+
 (in-package :phoros)
 
 (defparameter *cli-main-options*
@@ -241,6 +243,8 @@
 (defparameter *cli-start-server-options*
   '(("server" :action #'server-action
      :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>")
+    ("address" :type string
+     :documentation "Address (of local machine) server is to listen to.  Default is listening to all available addresses.")
     ("server-port" :type integer :initial-value 8080
      :documentation "Port the presentation server listens on.")
     (("common-root" #\r) :type string :initial-value "/"
@@ -925,16 +929,18 @@ projects."
   (declare (ignore rest))
   (destructuring-bind (&key host port database (user "") (password "") use-ssl
                             log-dir
-                            server-port common-root
+                            server-port address common-root
                             &allow-other-keys)
       (process-command-line-options *cli-options* *command-line-arguments*)
     (launch-logger log-dir)
     (setf *postgresql-credentials*
           (list database user password host :port port
                 :use-ssl (s-sql:from-sql-name use-ssl)))
-    (start-server :server-port server-port :common-root common-root)
+    (print *command-line-arguments*) (terpri)
+    (start-server :server-port server-port :address address
+                  :common-root common-root)
     (cl-log:log-message
      :server
-     "HTTP server listens on port ~D.  Database is ~A on ~A:~D.  Files are searched for in ~A."
-     server-port database host port common-root)
+     "HTTP server listens on port ~D of ~:[all available addresses~;address ~:*~A~].  Database is ~A on ~A:~D.  Files are searched for in ~A."
+     server-port address database host port common-root)
     (loop (sleep 10))))
