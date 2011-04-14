@@ -390,7 +390,7 @@ the key argument, or the whole dotted string."
     (otherwise
      (format
       *standard-output*
-      "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  Photogrammetry version ~A~&"
+      "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  PhoML version ~A~&"
       (handler-bind ((warning #'ignore-warnings))
         (asdf:system-description (asdf:find-system :phoros)))
       (handler-bind ((warning #'ignore-warnings))
