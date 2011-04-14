@@ -40,6 +40,8 @@
          (who-ps-html (:p "Store point with its attribute, description and numeric description into database.  Afterwards, increment the numeric description if possible."))
          :delete-point-button
          (who-ps-html (:p "Delete current point."))
+         :download-user-points-button
+         (who-ps-html (:p "Download all user points as GeoJSON-fomatted text file."))
          :point-attribute
          (who-ps-html (:p "One of a few possible point attributes.")
                       (:p "TODO: currently only the hard-coded ones are available."))
