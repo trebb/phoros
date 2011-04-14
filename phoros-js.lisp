@@ -203,15 +203,25 @@ help message."
       (setf (chain *http-protocol* prototype format) (new *geojson-format*))
 
       (defvar *survey-layer*
-        (new (chain
-              *open-layers *layer
-              (*vector
-               "Survey"
-               (create
-                strategies (array (new (*bbox-strategy*)))
-                protocol
-                (new (*http-protocol*
-                      (create :url "/phoros-lib/points"))))))))
+        (let ((survey-layer-style
+               (create stroke-color (chain *open-layers *feature *vector
+                                           style "default" stroke-color)
+                       fill-color "#FFFFFF"
+                       stroke-width 1
+                       point-radius 2
+                       fill-opacity .2
+                       graphic-name "square")))
+          (new (chain
+                *open-layers *layer
+                (*vector
+                 "Survey"
+                 (create
+                  strategies (array (new (*bbox-strategy*)))
+                  protocol
+                  (new (*http-protocol*
+                        (create :url "/phoros-lib/points")))
+                  style survey-layer-style
+                  ))))))
 
       (defvar *user-point-layer*
         (new (chain
