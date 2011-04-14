@@ -936,7 +936,6 @@ projects."
     (setf *postgresql-credentials*
           (list database user password host :port port
                 :use-ssl (s-sql:from-sql-name use-ssl)))
-    (print *command-line-arguments*) (terpri)
     (start-server :server-port server-port :address address
                   :common-root common-root)
     (cl-log:log-message
