@@ -187,7 +187,7 @@ help message."
       (defvar *point-attributes-select* undefined
         "The HTML element for selecting user point attributes.")
 
-      (defvar *global-position*
+      (defvar *global-position* undefined
         "Coordinates of the current estimated position")
 
       (defvar *bbox-strategy* (chain *open-layers *strategy *bbox*))
