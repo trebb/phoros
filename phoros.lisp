@@ -483,45 +483,52 @@ junk-keys."
          :single!))))))
 
 (define-easy-handler (user-points :uri "/phoros-lib/user-points.json") (bbox)
-  "Send a bunch of GeoJSON-encoded points from inside bbox to client."
+  "Send *number-of-features-per-layer* randomly chosen GeoJSON-encoded
+points from inside bbox to client.  If there is no bbox parameter,
+send all points."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
     (handler-case 
-        (let ((user-point-table-name
-               (user-point-table-name (session-value 'presentation-project-name))))
+        (let ((bounding-box (or bbox "-180,-90,180,90"))
+              (limit (if bbox *number-of-features-per-layer* :null))
+              (order-criterion (if bbox '(:random) 'id))
+              (user-point-table-name
+               (user-point-table-name (session-value
+                                       'presentation-project-name))))
           (encode-geojson-to-string
            (with-connection *postgresql-credentials*
              (query
-              (:limit
-               (:order-by
-                (:select
-                 (:as
-                  (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                  'x)
-                 (:as
-                  (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                  'y)
-                 (:as
-                  (:st_z (:st_transform 'coordinates *standard-coordinates*))
-                  'z)
-                 (:as 'user-point-id 'id) ;becomes fid on client
-                 'attribute
-                 'description
-                 'numeric-description
-                 'user-name
-                 (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
-                      'creation-date)
-                 :from user-point-table-name :natural :left-join 'sys-user
-                 :where (:&&
-                         (:st_transform 'coordinates *standard-coordinates*)
-                         (:st_setsrid  (:type (box3d bbox) box3d)
-                                       *standard-coordinates*)))
-                (:random))
-               *number-of-features-per-layer*)
+              (s-sql:sql-compile
+               `(:limit
+                 (:order-by
+                  (:select
+                   (:as
+                    (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
+                    'x)
+                   (:as
+                    (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
+                    'y)
+                   (:as
+                    (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
+                    'z)
+                   (:as 'user-point-id 'id) ;becomes fid on client
+                   'attribute
+                   'description
+                   'numeric-description
+                   'user-name
+                   (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
+                        'creation-date)
+                   :from ,user-point-table-name :natural :left-join 'sys-user
+                   :where (:&&
+                           (:st_transform 'coordinates ,*standard-coordinates*)
+                           (:st_setsrid  (:type ,(box3d bounding-box) box3d)
+                                         ,*standard-coordinates*)))
+                  ,order-criterion)
+                 ,limit))
               :plists))))
       (condition (c)
         (cl-log:log-message
-         :server "While fetching user-points from inside bbox ~S: ~A"
+         :server "While fetching user-points~@[ from inside bbox ~S~]: ~A"
          bbox c)))))
 
 (define-easy-handler photo-handler
@@ -657,8 +664,8 @@ junk-keys."
                       "delete")
              :br
              (:button :id "download-user-points-button"
-                      :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json?bbox=-90,-180,90,180\""
-                      "download user points")
+                      :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json\""
+                      "download user points") ;TODO: offer other formats and maype projections
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
