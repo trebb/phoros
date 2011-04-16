@@ -23,7 +23,8 @@
 (cl-log:defcategory :server)
 (cl-log:defcategory :orphan)
 (cl-log:defcategory :error)
-(cl-log:defcategory :warning (or :warning :error))
+(cl-log:defcategory :info)              ;emitted by hunchentoot
+(cl-log:defcategory :warning (or :info :warning :error))
 (cl-log:defcategory :db (or :db-sys :db-dat :warning :error))
 (cl-log:defcategory :debug (or :debug :db-sys :db-dat :server :orphan :warning :error))
 
@@ -35,6 +36,12 @@
     (setf (cl-log:log-manager)
           (make-instance 'cl-log:log-manager
                          :message-class 'cl-log:formatted-message))
+
+    (cl-log:start-messenger
+     'cl-log:text-file-messenger 
+     :name :access
+     :filename (make-pathname :directory log-dir :name "access" :type "log")
+     :category :access)
 
     (cl-log:start-messenger
      'cl-log:text-file-messenger 
@@ -66,14 +73,45 @@
      :stream *error-output*
      :category :debug)))
 
-
 (defmethod cl-log:format-message ((self cl-log:formatted-message))
-  (format nil "~A ~A ~?~&"
-          (timestring (cl-log:timestamp-universal-time
-                       (cl-log:message-timestamp self)))
-          (cl-log:message-category self)
-          (cl-log:message-description self)
-          (cl-log:message-arguments self)))
+  (if (eq (cl-log:message-category self) :access)
+      (destructuring-bind (remote-addr*
+                           header-in*
+                           authorization
+                           ;;iso-time
+                           request-method*
+                           script-name*
+                           query-string*
+                           server-protocol*
+                           return-code
+                           content
+                           content-length
+                           referer
+                           user-agent)
+          (cl-log:message-arguments self)                  
+        (format nil
+                "~:[-~@[ (~A)~]~;~:*~A~@[ (~A)~]~] ~:[-~;~:*~A~] [~A] \"~A ~A~@[?~A~] ~
+                      ~A\" ~A ~:[~*-~;~D~] \"~:[-~;~:*~A~]\" \"~:[-~;~:*~A~]\"~%"
+                remote-addr*
+                header-in*
+                authorization
+                (timestring (cl-log:timestamp-universal-time
+                             (cl-log:message-timestamp self)))
+                request-method*
+                script-name*
+                query-string*
+                server-protocol*
+                return-code
+                content
+                content-length
+                referer
+                user-agent))
+      (format nil "~A ~A ~?~&"
+              (timestring (cl-log:timestamp-universal-time
+                           (cl-log:message-timestamp self)))
+              (cl-log:message-category self)
+              (cl-log:message-description self)
+              (cl-log:message-arguments self))))
 
 (defun timestring (time)
   "ISO 8601 representation of time."
@@ -84,3 +122,26 @@
       (format
        nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D~@[~0F~]Z"
        year month date hour minute second remainder))))
+
+(defun log-http-access (&key return-code content content-length)
+  "Log HTTP access.  Use as :access-logger in a hunchentoot:accessor."
+  (cl-log:log-message :access nil
+                      (remote-addr*)
+                      (header-in* :x-forwarded-for)
+                      (authorization)
+                      ;;(iso-time)
+                      (request-method*)
+                      (script-name*)
+                      (query-string*)
+                      (server-protocol*)
+                      return-code
+                      content
+                      content-length
+                      (referer)
+                      (user-agent)))
+
+(defun log-hunchentoot-message (severity format-string &rest args)
+  "Log hunchentoot messages.  Use as :message-logger in a
+hunchentoot:accessor.  For severity, hunchentoot uses :info, :warning,
+and :error."
+  (cl-log:log-message severity "~?" format-string args))

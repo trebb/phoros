@@ -80,15 +80,16 @@ user password host &key (port 5432) use-ssl)."
 at address. Address defaults to all addresses of the local machine."
   (setf *phoros-server*
         (make-instance 'hunchentoot:acceptor
-                       :port server-port :address address))
+                       :port server-port
+                       :address address
+                       :access-logger #'log-http-access
+                       :message-logger #'log-hunchentoot-message))
   (setf *session-max-time* (* 3600 24))
   (setf *common-root* common-root)
   (setf *show-lisp-errors-p* (logbitp 16 *verbose*))
   (setf *ps-print-pretty* (logbitp 15 *verbose*))
   (setf *use-multi-file-openlayers* (logbitp 14 *verbose*))
   ;; Doesn't seem to exist(setf *show-lisp-backtraces-p* t)  ;TODO: tie this to --debug option
-  (setf *message-log-pathname* "hunchentoot-messages.log") ;TODO: try using cl-log
-  (setf *access-log-pathname* "hunchentoot-access.log") ;TODO: try using cl-log
   (check-db *postgresql-credentials*)
   (with-connection *postgresql-credentials*
     (assert-phoros-db-major-version))
