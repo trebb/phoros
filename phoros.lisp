@@ -118,7 +118,8 @@ session."
                         :where (:= 'presentation-project-name presentation-project-name))
                :single))))
       (cond
-        ((null presentation-project-id) "No such project.") ;TODO: send appropriate http error code
+        ((null presentation-project-id)
+         (setf (return-code*) +http-not-found+))
         ((and (equal (session-value 'presentation-project-name) presentation-project-name)
               (session-value 'authenticated-p))
          (redirect "/phoros-lib/view" :add-session-id t))
@@ -784,21 +785,23 @@ the images from the received image vector."
                 :where (:= 'user-point-id user-point-id))
                :list)))
            (global-point-cartesian
-            (pairlis '(:x-global :y-global :z-global)
-                     (proj:cs2cs
-                      (list
-                       (proj:degrees-to-radians (first global-point-geographic))
-                       (proj:degrees-to-radians (second global-point-geographic))
-                       (third global-point-geographic))
-                      :destination-cs cartesian-system)))
+            (ignore-errors ;in case no destination-photo-parameters have been sent
+              (pairlis '(:x-global :y-global :z-global)
+                       (proj:cs2cs
+                        (list
+                         (proj:degrees-to-radians (first global-point-geographic))
+                         (proj:degrees-to-radians (second global-point-geographic))
+                         (third global-point-geographic))
+                        :destination-cs cartesian-system))))
            (image-coordinates
             (loop
                for i in destination-photo-parameters
                collect
-                 (ignore-errors
-                   (photogrammetry :reprojection i global-point-cartesian)))))
-      (json:encode-json-to-string
-       image-coordinates))))
+               (ignore-errors
+                 (photogrammetry :reprojection i global-point-cartesian)))))
+      (if image-coordinates
+          (json:encode-json-to-string image-coordinates)
+          (setf (return-code*) +http-no-content+)))))
 
 (define-easy-handler (multi-position-intersection :uri "/phoros-lib/intersection") ()
   "Receive vector of sets of picture parameters, respond with stuff."
