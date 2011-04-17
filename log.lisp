@@ -18,15 +18,15 @@
 
 (in-package :phoros)
 
+(cl-log:defcategory :access)
 (cl-log:defcategory :db-sys)
 (cl-log:defcategory :db-dat)
-(cl-log:defcategory :server)
+(cl-log:defcategory :db (or :db-sys :db-dat))
 (cl-log:defcategory :orphan)
+(cl-log:defcategory :info (or :info :db :orphan))
+(cl-log:defcategory :warning)
 (cl-log:defcategory :error)
-(cl-log:defcategory :info)              ;emitted by hunchentoot
-(cl-log:defcategory :warning (or :info :warning :error))
-(cl-log:defcategory :db (or :db-sys :db-dat :warning :error))
-(cl-log:defcategory :debug (or :debug :db-sys :db-dat :server :orphan :warning :error))
+(cl-log:defcategory :debug (or :debug :db :info :warning :error))
 
 (defun launch-logger (&optional (log-dir ""))
   "Start logging facility.  Create log-dir if necessary."
@@ -44,28 +44,40 @@
      :category :access)
 
     (cl-log:start-messenger
+     'cl-log:text-file-messenger
+     :name :db
+     :filename (make-pathname :directory log-dir :name "db" :type "log")
+     :category :db)
+
+    (cl-log:start-messenger
      'cl-log:text-file-messenger 
      :name :orphan
-     :filename (make-pathname :directory log-dir :name "orphans" :type "log")
+     :filename (make-pathname :directory log-dir :name "orphan" :type "log")
      :category :orphan)
+
+    (cl-log:start-messenger
+     'cl-log:text-file-messenger 
+     :name :info
+     :filename (make-pathname :directory log-dir :name "info" :type "log")
+     :category :info)
+
+    (cl-log:start-messenger
+     'cl-log:text-file-messenger 
+     :name :warning
+     :filename (make-pathname :directory log-dir :name "warning" :type "log")
+     :category :warning)
+
+    (cl-log:start-messenger
+     'cl-log:text-file-messenger 
+     :name :error
+     :filename (make-pathname :directory log-dir :name "error" :type "log")
+     :category :error)
 
     (cl-log:start-messenger
      'cl-log:text-file-messenger 
      :name :debug
      :filename (make-pathname :directory log-dir :name "debug" :type "log")
      :category :debug)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :warning
-     :filename (make-pathname :directory log-dir :name "warnings" :type "log")
-     :category :warning)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger
-     :name :db
-     :filename (make-pathname :directory log-dir :name "phoros" :type "log")
-     :category :db)
 
     (cl-log:start-messenger
      'cl-log:text-stream-messenger

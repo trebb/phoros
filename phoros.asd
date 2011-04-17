@@ -59,4 +59,5 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :drakma
                :command-line-arguments
                :cl-utilities
-               :cl-log))
+               :cl-log
+               :trivial-backtrace))

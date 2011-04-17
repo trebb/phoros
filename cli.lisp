@@ -305,17 +305,20 @@
 
 (defun main ()
   "The UNIX command line entry point."
-;;  (handler-bind ((serious-condition (lambda (c)
-;;                                      (declare (ignore c))
-;;                                      (sb-debug:backtrace))))
-  #+sbcl (sb-ext:disable-debugger)
-  (handler-case
-      (progn
-        (cffi:use-foreign-library phoml)
-        (compute-and-process-command-line-options *cli-options*))
-    (serious-condition (c)
-      (cl-log:log-message :warning "Fatal: ~A" c)
-      (format *error-output* "~A~&" c))))
+  (handler-bind
+      ((serious-condition
+        (lambda (c)
+          (cl-log:log-message
+           :error "~A ~:[~;[Backtrace follows]~&~A~]~&"
+           c
+           *log-lisp-backtraces-p*
+           (trivial-backtrace:print-backtrace c :output nil))
+          ;;(format *error-output* "~A~&" c)
+          #+sbcl (sb-ext:quit :unix-status 1)))
+       (warning
+        (lambda (c) (cl-log:log-message :warning "~A" c))))
+    (cffi:use-foreign-library phoml)
+    (compute-and-process-command-line-options *cli-options*)))
 
 (defun ignore-warnings (c) (declare (ignore c)) (muffle-warning))
 
@@ -442,7 +445,7 @@ the key argument, or the whole dotted string."
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
         (nuke-all-tables))
       (cl-log:log-message
-       :db "Nuked database ~A at ~A:~D.  Back to square one!"
+       :db-sys "Nuked database ~A at ~A:~D.  Back to square one!"
        database host port))))
 
 (defun create-sys-tables-action (&rest rest)
@@ -939,7 +942,7 @@ projects."
     (start-server :server-port server-port :address address
                   :common-root common-root)
     (cl-log:log-message
-     :server
+     :info
      "HTTP server listens on port ~D of ~:[all available addresses~;address ~:*~A~].  Database is ~A on ~A:~D.  Files are searched for in ~A."
      server-port address database host port common-root)
     (loop (sleep 10))))

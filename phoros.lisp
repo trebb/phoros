@@ -86,10 +86,14 @@ at address. Address defaults to all addresses of the local machine."
                        :message-logger #'log-hunchentoot-message))
   (setf *session-max-time* (* 3600 24))
   (setf *common-root* common-root)
+  ;;; TODO: the following should perhaps be done somewhere in cli.lisp
   (setf *show-lisp-errors-p* (logbitp 16 *verbose*))
   (setf *ps-print-pretty* (logbitp 15 *verbose*))
   (setf *use-multi-file-openlayers* (logbitp 14 *verbose*))
-  ;; Doesn't seem to exist(setf *show-lisp-backtraces-p* t)  ;TODO: tie this to --debug option
+  ;; obeyed by both hunchentoot and Phoros' own logging:
+  (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 *verbose*))
+  ;;(setf *show-lisp-backtraces-p* (logbitp 12 *verbose*))  ;doesn't seem to exist
+
   (check-db *postgresql-credentials*)
   (with-connection *postgresql-credentials*
     (assert-phoros-db-major-version))
@@ -354,7 +358,7 @@ of presentation project with presentation-project-id."
                :column))
     (condition (c)
       (cl-log:log-message
-       :server
+       :error
        "While fetching common-table-names of presentation-project-id ~D: ~A"
        presentation-project-id c))))
 
@@ -449,7 +453,7 @@ junk-keys."
            :random))
       (condition (c)
         (cl-log:log-message
-         :server "While fetching points from inside bbox ~S: ~A"
+         :error "While fetching points from inside bbox ~S: ~A"
          bbox c)))))
 
 (defun presentation-project-bbox (presentation-project-id)
@@ -529,7 +533,7 @@ send all points."
               :plists))))
       (condition (c)
         (cl-log:log-message
-         :server "While fetching user-points~@[ from inside bbox ~S~]: ~A"
+         :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
          bbox c)))))
 
 (define-easy-handler photo-handler
@@ -560,7 +564,7 @@ send all points."
                     :color-raiser (canonicalize-color-raiser color-raiser)))
       (condition (c)
         (cl-log:log-message
-         :server "While serving image ~S: ~A" (request-uri*) c)))))
+         :error "While serving image ~S: ~A" (request-uri*) c)))))
 
 (pushnew (create-prefix-dispatcher "/phoros-lib/photo" 'photo-handler)
          *dispatch-table*)
