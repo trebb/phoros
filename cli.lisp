@@ -34,7 +34,7 @@
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'check-db-action
-     :documentation "Check database connection and exit.")
+     :documentation "Check connection to databases (including auxiliary if applicable) and exit.")
     ("check-dependencies" :action #'check-dependencies-action
      :documentation "Check presence of dependencies on local system and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action
@@ -55,6 +55,20 @@
      :documentation "Database user's password.")
     ("use-ssl" :type string :initial-value "no"
      :documentation "Use SSL in database connection. [yes|no|try]")))
+
+(defparameter *cli-aux-db-connection-options*
+  '(("aux-host" :type string
+     :documentation "Database server.  (default: same as --host)")
+    ("aux-port" :type integer
+     :documentation "Port on database server.  (default: same as --port)")
+    ("aux-database" :type string
+     :documentation "Name of database.  (defaul: same as --database)")
+    ("aux-user" :type string
+     :documentation "Database user.  (default: same as --user)")
+    ("aux-password" :type string
+     :documentation "Database user's password.  (default: same as --password)")
+    ("aux-use-ssl" :type string
+     :documentation "Use SSL in database connection. [yes|no|try]  (default: same as --use-ssl)")))
 
 (defparameter *cli-get-image-options*
   '(("get-image" :action #'get-image-action
@@ -245,7 +259,7 @@
      :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>")
     ("address" :type string
      :documentation "Address (of local machine) server is to listen to.  Default is listening to all available addresses.")
-    ("server-port" :type integer :initial-value 8080
+    ("http-port" :type integer :initial-value 8080
      :documentation "Port the presentation server listens on.")
     (("common-root" #\r) :type string :initial-value "/"
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
@@ -292,7 +306,8 @@
      :documentation "List the specified user with their presentation projects, or all users if no user is given.")))
 
 (defparameter *cli-options*
-  (append *cli-main-options* *cli-db-connection-options*
+  (append *cli-main-options*
+          *cli-db-connection-options* *cli-aux-db-connection-options*
           *cli-get-image-options*
           *cli-camera-hardware-options* *cli-lens-options*
           *cli-generic-device-options* *cli-device-stage-of-life-options*
@@ -323,8 +338,9 @@
 (defun ignore-warnings (c) (declare (ignore c)) (muffle-warning))
 
 (defmacro with-cli-options ((&rest options) &body body)
-  "Evaluate body with options bound to the values or the respective
-command line arguments."
+  "Evaluate body with options bound to the values of the respective
+command line arguments.  Elements of options may be either symbols or
+lists shaped like (symbol default)."
   `(destructuring-bind (&key ,@options &allow-other-keys)
        (cli-remaining-options)
      ,@body)) 
@@ -361,6 +377,8 @@ according to the --verbose option given."
     (show-option-help *cli-main-options*)
     (show-help-headline "Database Connection (necessary for most operations)")
     (show-option-help *cli-db-connection-options*)
+    (show-help-headline "Auxiliary Database Connection (with --server)")
+    (show-option-help *cli-aux-db-connection-options*)
     (show-help-headline "Examine .pictures File")
     (show-option-help *cli-get-image-options*)
     (show-help-headline
@@ -438,9 +456,18 @@ the key argument, or the whole dotted string."
 (defun check-db-action (&rest rest)
   "Say `OK´ if database is accessible."
   (declare (ignore rest))
-  (with-cli-options (host port database (user "") (password "") use-ssl)
-    (when (check-db (list database user password host :port port
-                          :use-ssl (s-sql:from-sql-name use-ssl)))
+  (with-cli-options (host (aux-host host) port (aux-port port)
+                          database (aux-database database)
+                          (user "") (aux-user user)
+                          (password "") (aux-password password)
+                          use-ssl (aux-use-ssl use-ssl))
+    (when (and
+           (check-db (list database user password host
+                           :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl)))
+           (check-db (list aux-database aux-user aux-password aux-host
+                           :port aux-port
+                           :use-ssl (s-sql:from-sql-name aux-use-ssl))))
       (format *error-output* "~&OK~%"))))
 
 (defun check-dependencies-action (&rest rest)
@@ -925,17 +952,27 @@ projects."
 (defun server-action (&rest rest)
   "Start the HTTP server."
   (declare (ignore rest))
-  (with-cli-options (host port database (user "") (password "") use-ssl
-                          log-dir
-                          server-port address common-root)
+  (with-cli-options  (host (aux-host host) port (aux-port port)
+                           database (aux-database database)
+                           (user "") (aux-user user)
+                           (password "") (aux-password password)
+                           use-ssl (aux-use-ssl use-ssl)
+                           log-dir
+                           http-port address common-root)
     (launch-logger log-dir)
     (setf *postgresql-credentials*
           (list database user password host :port port
                 :use-ssl (s-sql:from-sql-name use-ssl)))
-    (start-server :server-port server-port :address address
+    (setf *postgresql-aux-credentials*
+          (list aux-database aux-user aux-password aux-host :port aux-port
+                :use-ssl (s-sql:from-sql-name aux-use-ssl)))
+    (start-server :http-port http-port :address address
                   :common-root common-root)
     (cl-log:log-message
      :info
-     "HTTP server listens on port ~D of ~:[all available addresses~;address ~:*~A~].  Database is ~A on ~A:~D.  Files are searched for in ~A."
-     server-port address database host port common-root)
+     "HTTP server listens on port ~D of ~:[all available addresses~;address ~:*~A~].  Phoros database is ~A on ~A:~D.  Auxiliary database is ~A on ~A:~D.  Files are searched for in ~A."
+     http-port address
+     database host port
+     aux-database aux-host aux-port
+     common-root)
     (loop (sleep 10))))

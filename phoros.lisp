@@ -31,7 +31,10 @@
 (defparameter *standard-coordinates* 4326
   "EPSG code of the coordinate system that we use for communication.")
 
-(defparameter *postgresql-credentials* nil
+(defvar *postgresql-credentials* nil
+  "A list: (database user password host &key (port 5432) use-ssl)")
+
+(defvar *postgresql-aux-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl)")
 
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
@@ -71,12 +74,12 @@ user password host &key (port 5432) use-ssl)."
   (declare (ignore acceptor))
   "phoros-session")
 
-(defun start-server (&key (server-port 8080) address (common-root "/"))
-  "Start the presentation project server which listens on server-port
+(defun start-server (&key (http-port 8080) address (common-root "/"))
+  "Start the presentation project server which listens on http-port
 at address.  Address defaults to all addresses of the local machine."
   (setf *phoros-server*
         (make-instance 'hunchentoot:acceptor
-                       :port server-port
+                       :port http-port
                        :address address
                        :access-logger #'log-http-access
                        :message-logger #'log-hunchentoot-message))
