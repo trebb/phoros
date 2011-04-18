@@ -1,6 +1,6 @@
 (defsystem :phoros
 
-  :description                          ;goes with --version output
+  :description                 ;goes with --version --verbose=1 output
   "PHOROS (Photogrammetric Road Survey)"
 
   :author "Bert Burgemeister <trebbu@googlemail.com>"
@@ -12,14 +12,18 @@
 in a PostgreSQL database and then makes it available over a web
 interface.                              http://phoros.berlios.de"
 
-  :version "2.2.1"
+  :version                              ;goes with --version output
   ;; :version is MAJOR.MINOR.REVISION where
-  ;; different MAJOR means data incompatibility,
-  ;; different MINOR means changed feature set,
-  ;; different REVISION means any other change.
+  ;; - different MAJOR means data incompatibility,
+  ;; - different MINOR means changed feature set,
+  ;; - different REVISION means any other change.
+  ;; 
+  ;; There should be a corresponding git tag which marks the point this
+  ;; version number becomes official.
+  "2.3.0"
 
-  :licence
-  "Copyright (C) 2011 Bert Burgemeister
+  :licence                              ;goes with --licence output
+  "Copyright (C) 2010, 2011 Bert Burgemeister
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

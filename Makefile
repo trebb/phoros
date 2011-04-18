@@ -119,11 +119,11 @@ tarball : phoros TimeSteps.history README \
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML) \
 		| gzip -f \
-		> phoros-$(PHOROS_VERSION)-bin.tar.gz
+		> phoros_$(PHOROS_VERSION)-bin.tar.gz
 
 html : $(INDEX_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
 
-git-tag : phoros
+git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
 clean :
