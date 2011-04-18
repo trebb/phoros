@@ -92,6 +92,11 @@ at address.  Address defaults to all addresses of the local machine."
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (register-sql-operators :2+-ary :&& :overlaps))
 
+(setf *default-handler*
+      #'(lambda ()
+          "Http default response."
+          (setf (return-code*) +http-not-found+)))
+
 (define-easy-handler phoros-handler ()
   "First HTTP contact: if necessary, check credentials, establish new
 session."
