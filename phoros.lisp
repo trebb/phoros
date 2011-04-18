@@ -43,10 +43,6 @@
 (defparameter *common-root* nil
   "Root directory; contains directories of measuring data.")
 
-(defparameter *verbose* 0
-  "Integer (interpreted as a bit mask) denoting various kinds of
-  debugging output.")
-
 (defparameter *use-multi-file-openlayers* nil
   "If t, use OpenLayers uncompiled from openlayers/*, which makes
   debugging easier.  Otherwise use a single-file shrunk
@@ -77,7 +73,7 @@ user password host &key (port 5432) use-ssl)."
 
 (defun start-server (&key (server-port 8080) address (common-root "/"))
   "Start the presentation project server which listens on server-port
-at address. Address defaults to all addresses of the local machine."
+at address.  Address defaults to all addresses of the local machine."
   (setf *phoros-server*
         (make-instance 'hunchentoot:acceptor
                        :port server-port
@@ -86,14 +82,6 @@ at address. Address defaults to all addresses of the local machine."
                        :message-logger #'log-hunchentoot-message))
   (setf *session-max-time* (* 3600 24))
   (setf *common-root* common-root)
-  ;;; TODO: the following should perhaps be done somewhere in cli.lisp
-  (setf *show-lisp-errors-p* (logbitp 16 *verbose*))
-  (setf *ps-print-pretty* (logbitp 15 *verbose*))
-  (setf *use-multi-file-openlayers* (logbitp 14 *verbose*))
-  ;; obeyed by both hunchentoot and Phoros' own logging:
-  (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 *verbose*))
-  ;;(setf *show-lisp-backtraces-p* (logbitp 12 *verbose*))  ;doesn't seem to exist
-
   (check-db *postgresql-credentials*)
   (with-connection *postgresql-credentials*
     (assert-phoros-db-major-version))

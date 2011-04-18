@@ -29,7 +29,7 @@
      :documentation "Print licence boilerplate and exit.")
     ("version" :action #'cli-version-action
      :documentation "Print version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
-    ("verbose" :type integer :initial-value 0 :action *verbose*
+    ("verbose" :type integer :initial-value 0
      :documentation "Dependent on bits set in this integer, emit various kinds of debugging output. ")
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
@@ -322,6 +322,31 @@
 
 (defun ignore-warnings (c) (declare (ignore c)) (muffle-warning))
 
+(defmacro with-cli-options ((&rest options) &body body)
+  "Evaluate body with options bound to the values or the respective
+command line arguments."
+  `(destructuring-bind (&key ,@options &allow-other-keys)
+       (cli-remaining-options)
+     ,@body)) 
+
+(defun cli-remaining-options ()
+  "Return current set of command line options as an alist, and a list
+of the non-option arguments.  In passing, set global variables
+according to the --verbose option given."
+  (let ((options
+         (multiple-value-list
+          (process-command-line-options
+           *cli-options* *command-line-arguments*))))
+    (destructuring-bind (&key verbose &allow-other-keys)
+        (car options)
+      ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist
+      ;; obeyed by both hunchentoot and Phoros' own logging:
+      (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 verbose))
+      (setf *use-multi-file-openlayers* (logbitp 14 verbose))
+      (setf *ps-print-pretty* (logbitp 15 verbose))
+      (setf *show-lisp-errors-p* (logbitp 16 verbose)))
+    (values-list options)))
+
 (defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
@@ -384,23 +409,23 @@ the key argument, or the whole dotted string."
 (defun cli-version-action (&rest rest)
   "Print --version message. TODO: OpenLayers, Proj4js version."
   (declare (ignore rest))
-  (process-command-line-options *cli-options* *command-line-arguments*)
-  (case *verbose*
-    (0
-     (format
-      *standard-output*
-      "~&~A~&" (phoros-version)))
-    (otherwise
-     (format
-      *standard-output*
-      "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  PhoML version ~A~&"
-      (handler-bind ((warning #'ignore-warnings))
-        (asdf:system-description (asdf:find-system :phoros)))
-      (handler-bind ((warning #'ignore-warnings))
-        (asdf:component-version (asdf:find-system :phoros)))
-      (lisp-implementation-type) (lisp-implementation-version)
-      (proj:version)
-      (phoml:get-version-number)))))
+  (with-cli-options (verbose)
+    (case verbose
+      (0
+       (format
+        *standard-output*
+        "~&~A~&" (phoros-version)))
+      (otherwise
+       (format
+        *standard-output*
+        "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  PhoML version ~A~&"
+        (handler-bind ((warning #'ignore-warnings))
+          (asdf:system-description (asdf:find-system :phoros)))
+        (handler-bind ((warning #'ignore-warnings))
+          (asdf:component-version (asdf:find-system :phoros)))
+        (lisp-implementation-type) (lisp-implementation-version)
+        (proj:version)
+        (phoml:get-version-number))))))
 
 (defun cli-licence-action (&rest rest)
   "Print --licence boilerplate."
@@ -413,9 +438,7 @@ the key argument, or the whole dotted string."
 (defun check-db-action (&rest rest)
   "Say `OK´ if database is accessible."
   (declare (ignore rest))
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl)
     (when (check-db (list database user password host :port port
                           :use-ssl (s-sql:from-sql-name use-ssl)))
       (format *error-output* "~&OK~%"))))
@@ -434,9 +457,8 @@ the key argument, or the whole dotted string."
 (defun nuke-all-tables-action (&rest rest)
   "Drop the bomb.  Ask for confirmation first."
   (declare (ignore rest))
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to delete anything in database ~A at ~A:~D.  Proceed?"
@@ -451,9 +473,8 @@ the key argument, or the whole dotted string."
 (defun create-sys-tables-action (&rest rest)
   "Make a set of sys-* tables.  Ask for confirmation first."
   (declare (ignore rest))
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-option (host port database (user "") (password "") use-ssl
+                         log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
@@ -467,9 +488,8 @@ the key argument, or the whole dotted string."
 
 (defun create-acquisition-project-action (common-table-name)
   "Make a set of data tables."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -481,10 +501,8 @@ the key argument, or the whole dotted string."
 
 (defun delete-acquisition-project-action (common-table-name)
   "Delete an acquisition project."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to delete acquisition-project ~A (including all its measurements) from database ~A at ~A:~D.  Proceed?"
@@ -500,10 +518,8 @@ the key argument, or the whole dotted string."
 
 (defun delete-measurement-action (measurement-id)
   "Delete a measurement by its measurement-id."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -516,9 +532,7 @@ the key argument, or the whole dotted string."
 
 (defun list-acquisition-project-action (&optional common-table-name)
   "List content of acquisition projects."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (let ((content
@@ -551,11 +565,9 @@ the key argument, or the whole dotted string."
 
 (defun store-images-and-points-action (common-table-name)
   "Put data into the data tables."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            directory epsilon common-root aggregate-events
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          directory epsilon common-root aggregate-events)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -638,7 +650,7 @@ sql-string-p is t, convert it into a string in SQL syntax."
 options.  Print return values to *standard-output*.  store-function
 should only take keyargs."
   (let ((command-line-options
-         (process-command-line-options *cli-options* *command-line-arguments*)))
+         (cli-remaining-options)))
     (setf (getf command-line-options :bayer-pattern)
           (canonicalize-bayer-pattern
            (getf command-line-options :raw-bayer-pattern) t)
@@ -684,10 +696,8 @@ should only take keyargs."
   "Output a PNG file extracted from a .pictures file; print its
 trigger-time to stdout."
   (declare (ignore rest))
-  (destructuring-bind (&key count byte-position in out
-                            raw-bayer-pattern raw-color-raiser
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (count byte-position in out
+                           raw-bayer-pattern raw-color-raiser)
     (with-open-file (out-stream out :direction :output
                                 :element-type 'unsigned-byte
                                 :if-exists :supersede)
@@ -708,10 +718,8 @@ trigger-time to stdout."
 
 (defun create-presentation-project-action (presentation-project-name)
   "Make a presentation project."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-open-file (host port database (user "") (password "") use-ssl
+                        log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -725,10 +733,8 @@ trigger-time to stdout."
 
 (defun delete-presentation-project-action (presentation-project-name)
   "Delete a presentation project."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to delete presentation-project ~A (including its table of user-defined points usr-~:*~A-point) from database ~A at ~A:~D.  Proceed?"
@@ -744,11 +750,9 @@ trigger-time to stdout."
 
 (defun add-to-presentation-project-action (presentation-project-name)
   "Add measurements to a presentation project."
-    (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                              log-dir
-                              measurement-id acquisition-project
-                              &allow-other-keys)
-        (process-command-line-options *cli-options* *command-line-arguments*)
+    (with-cli-options (host port database (user "") (password "") use-ssl
+                            log-dir
+                            measurement-id acquisition-project)
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -763,11 +767,9 @@ trigger-time to stdout."
 
 (defun remove-from-presentation-project-action (presentation-project-name)
   "Add measurements to a presentation project."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            measurement-id acquisition-project
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          measurement-id acquisition-project)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -783,11 +785,10 @@ trigger-time to stdout."
 (defun create-user-action (presentation-project-user)
   "Define a new user."
   (let (fresh-user-p)
-    (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                              log-dir
-                              user-password user-full-name user-role presentation-project
-                              &allow-other-keys)
-        (process-command-line-options *cli-options* *command-line-arguments*)
+    (with-cli-options (host port database (user "") (password "") use-ssl
+                            log-dir
+                            user-password user-full-name
+                            user-role presentation-project)
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -806,10 +807,8 @@ trigger-time to stdout."
 
 (defun delete-user-action (presentation-project-user)
   "Delete a presentation project user."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options ( host port database (user "") (password "") use-ssl
+                           log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -823,9 +822,7 @@ trigger-time to stdout."
 (defun list-user-action (&optional presentation-project-user)
   "List presentation project users together with their presentation
 projects."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (let ((content
@@ -858,9 +855,7 @@ projects."
 
 (defun list-presentation-project-action (&optional presentation-project)
   "List content of presentation projects."
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (let ((content
@@ -930,11 +925,9 @@ projects."
 (defun server-action (&rest rest)
   "Start the HTTP server."
   (declare (ignore rest))
-  (destructuring-bind (&key host port database (user "") (password "") use-ssl
-                            log-dir
-                            server-port address common-root
-                            &allow-other-keys)
-      (process-command-line-options *cli-options* *command-line-arguments*)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          server-port address common-root)
     (launch-logger log-dir)
     (setf *postgresql-credentials*
           (list database user password host :port port
