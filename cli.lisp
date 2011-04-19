@@ -745,7 +745,7 @@ trigger-time to stdout."
 
 (defun create-presentation-project-action (presentation-project-name)
   "Make a presentation project."
-  (with-open-file (host port database (user "") (password "") use-ssl
+  (with-cli-options (host port database (user "") (password "") use-ssl
                         log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
