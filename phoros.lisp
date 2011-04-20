@@ -453,6 +453,88 @@ junk-keys."
          :error "While fetching points from inside bbox ~S: ~A"
          bbox c)))))
 
+(define-easy-handler (aux-points :uri "/phoros-lib/aux-points.json") (bbox)
+  "Send a bunch of GeoJSON-encoded points from inside bbox to client."
+  (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
+    (handler-case 
+        (let ((limit *number-of-features-per-layer*)
+              (aux-view-name
+               (aux-point-view-name (session-value
+                                     'presentation-project-name))))
+          (encode-geojson-to-string
+           (with-connection *postgresql-credentials*
+             (query
+              (s-sql:sql-compile
+               `(:limit
+                 (:order-by
+                  (:select
+                   (:as
+                    (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
+                    'x)
+                   (:as
+                    (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
+                    'y)
+                   (:as
+                    (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
+                    'z)
+                   :from ,aux-view-name
+                   :where (:&&
+                           (:st_transform 'coordinates ,*standard-coordinates*)
+                           (:st_setsrid  (:type ,(box3d bbox) box3d)
+                                         ,*standard-coordinates*)))
+                  (:random))
+                 ,limit))
+              :plists))))
+      (condition (c)
+        (cl-log:log-message
+         :error "While fetching aux-points from inside bbox ~S: ~A"
+         bbox c)))))
+
+(define-easy-handler
+    (aux-local-data :uri "/phoros-lib/aux-local-data" :default-request-type :post)
+    ()
+  "Receive coordinates, respond with the count nearest json objects
+containing arrays aux-numeric, aux-text, and distance to the
+coordinates received, wrapped in an array."
+  (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
+    (let* ((aux-view-name (aux-point-view-name (session-value 'presentation-project-name)))
+           (data (json:decode-json-from-string (raw-post-data)))
+           (longitude-input (cdr (assoc :longitude data)))
+           (latitude-input (cdr (assoc :latitude data)))
+           (count (cdr (assoc :count data)))
+           (point-form
+            (format nil "POINT(~F ~F)" longitude-input latitude-input)))
+      (encode-geojson-to-string
+       (ignore-errors
+         (with-connection *postgresql-credentials*
+           (query
+            (s-sql:sql-compile
+             `(:limit
+               (:order-by
+                (:select
+                 (:as
+                  (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
+                  'x)
+                 (:as
+                  (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
+                  'y)
+                 (:as
+                  (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
+                  'z)
+                 aux-numeric
+                 aux-text
+                 (:as
+                  (:st_distance
+                   (:st_transform 'coordinates ,*standard-coordinates*)
+                   (:st_geomfromtext ,point-form ,*standard-coordinates*))
+                  distance)                       
+                 :from ',aux-view-name)
+                'distance)
+               ,count))
+            :plists)))))))
+
 (defun presentation-project-bbox (presentation-project-id)
   "Return bounding box of the entire presentation-project as a string
   \"x1,y1,x2,y2\"."
@@ -636,7 +718,7 @@ send all points."
              (:div :class "phoros-controls-vertical-strut")
              (:button :id "blurb-button"
                       :type "button"
-                      :onclick (ps-inline
+                      :onclick (inline
                                 (chain window
                                        (open "/phoros-lib/blurb" "About Phoros")))
                       "blurb")

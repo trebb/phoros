@@ -762,7 +762,13 @@ are used by all projects.  The database should probably be empty."
    (stdz-global
     :initarg :stdz-global
     :col-type double-precision
-    :documentation "Component of standard deviation, in metres."))
+    :documentation "Component of standard deviation, in metres.")
+   (aux-numeric
+    :col-type (or db-null numeric[])
+    :documentation "Arbitrary numeric values from auxiliary point table.")
+   (aux-text
+    :col-type (or db-null text[])
+    :documentation "Arbitrary text values from auxiliary point table."))
   (:metaclass dao-class)
   (:keys user-point-id)
   (:documentation "Points defined by users."))
@@ -799,23 +805,33 @@ are used by all projects.  The database should probably be empty."
 
 (let ((table-prefix "dat-"))
   (defun point-data-table-name (common-table-name)
-    (make-symbol (format nil "~A~A-point" table-prefix common-table-name)))
+    (make-symbol (format nil "~A~A-point"
+                         table-prefix common-table-name)))
 
   (defun image-data-table-name (common-table-name)
-    (make-symbol (format nil "~A~A-image" table-prefix common-table-name)))
+    (make-symbol (format nil "~A~A-image"
+                         table-prefix common-table-name)))
 
   (defun point-id-seq-name (common-table-name)
-    (make-symbol (format nil "~A~A-point-id-seq" table-prefix common-table-name)))
+    (make-symbol (format nil "~A~A-point-id-seq"
+                         table-prefix common-table-name)))
 
   (defun aggregate-view-name (common-table-name)
-    (make-symbol (format nil "~A~A-aggregate" table-prefix common-table-name))))
+    (make-symbol (format nil "~A~A-aggregate"
+                         table-prefix common-table-name))))
 
 (let ((table-prefix "usr-"))
   (defun user-point-table-name (presentation-project-name)
-    (make-symbol (format nil "~A~A-point" table-prefix presentation-project-name)))
+    (make-symbol (format nil "~A~A-point"
+                         table-prefix presentation-project-name)))
 
   (defun user-point-id-seq-name (presentation-project-name)
-    (make-symbol (format nil "~A~A-point-id-seq" table-prefix presentation-project-name))))
+    (make-symbol (format nil "~A~A-point-id-seq"
+                         table-prefix presentation-project-name)))
+
+  (defun aux-point-view-name (presentation-project-name)
+    (make-symbol (format nil "~A~A-aux-point"
+                         table-prefix presentation-project-name))))
 
 (defun create-data-table-definitions (common-table-name)
   "Define or redefine a bunch of dao-classes which can hold measuring
@@ -945,6 +961,28 @@ belonging to images."
     ;;    (:metaclass dao-class)
     ;;    (:table-name ,aggregate-view-name))) ;redefinition
     ))
+
+(defun create-aux-view (presentation-project-name aux-table-name
+                        &key
+                        (coordinates-row :the-geom) numeric-rows text-rows)
+  "Create a view into aux-table-name.  coordinates-row goes into row
+coordinates, numeric-rows and text-rows go into arrays in aux-numeric
+and aux-text respectively."
+  (let ((aux-point-view-name (aux-point-view-name presentation-project-name)))
+    (execute (:drop-view :if-exists aux-point-view-name))
+    (execute
+     (format
+      nil
+      "CREATE VIEW ~A ~
+       AS (SELECT ~A AS coordinates, ~
+           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric, ~
+           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text ~
+           FROM ~A)"
+      (s-sql:to-sql-name aux-point-view-name)
+      coordinates-row
+      (mapcar #'s-sql:to-sql-name numeric-rows)
+      (mapcar #'s-sql:to-sql-name text-rows)
+      (s-sql:to-sql-name aux-table-name)))))
 
 (defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.

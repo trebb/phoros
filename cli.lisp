@@ -358,7 +358,7 @@ according to the --verbose option given."
       ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist
       ;; obeyed by both hunchentoot and Phoros' own logging:
       (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 verbose))
-      (setf *use-multi-file-openlayers* (logbitp 14 verbose))
+      (setf *use-multi-file-openlayers* (logbitp 14 verbose)) ;necessary for (ps ... (debug-info)...)
       (setf *ps-print-pretty* (logbitp 15 verbose))
       (setf *show-lisp-errors-p* (logbitp 16 verbose)))
     (values-list options)))

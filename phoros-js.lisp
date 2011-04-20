@@ -225,6 +225,27 @@ help message."
                    style survey-layer-style
                    ))))))
 
+       (defvar *aux-point-layer*
+         (let ((aux-layer-style
+                (create stroke-color (chain *open-layers *feature *vector
+                                            style "default" stroke-color)
+                        fill-color "#000000"
+                        stroke-width 1
+                        point-radius 10
+                        fill-opacity .2
+                        graphic-name "triangle")))
+           (new (chain
+                 *open-layers *layer
+                 (*vector
+                  "Auxiliary"
+                  (create
+                   strategies (array (new (*bbox-strategy*)))
+                   protocol
+                   (new (*http-protocol*
+                         (create :url "/phoros-lib/aux-points.json")))
+                   style aux-layer-style
+                   ))))))
+
        (defvar *user-point-layer*
          (new (chain
                *open-layers *layer
@@ -236,6 +257,12 @@ help message."
                  (new (*http-protocol*
                        (create :url "/phoros-lib/user-points.json"))))))))
 
+       (defvar *streetmap-nearest-aux-points-layer*
+         (new (chain *open-layers
+                     *layer
+                     (*vector "Nearest Aux Points"
+                              (create display-in-layer-switcher t)))))
+
        (defvar *pristine-images-p* t
          "T if none of the current images has been clicked into yet.")
 
@@ -244,8 +271,13 @@ help message."
 
        (defvar *user-points-select-control*
          (new (chain *open-layers *control (*select-feature *user-point-layer*))))
+       
+       (defvar *nearest-aux-points-select-control*
+         (new (chain *open-layers *control (*select-feature *streetmap-nearest-aux-points-layer*))))
+       
        ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
        (defvar *osm-layer* (new (chain *open-layers *layer (*osm*))))
+       
        (defvar *click-streetmap*
          (new (*click-control* (create :trigger request-photos))))
 
@@ -410,7 +442,8 @@ into a (first) photo."
          "Draw into streetmap and into all images points at Estimated
 Position.  Estimated Position is the point returned so far from
 photogrammetric calculations that are triggered by clicking into
-another photo."
+another photo.  Also draw into streetmap the nearest auxiliary points
+to Estimated Position."
          (when (write-permission-p)
            (setf (chain document
                         (get-element-by-id "finish-point-button")
@@ -442,6 +475,22 @@ another photo."
              (chain *streetmap-estimated-position-layer*
                     (add-features feature))
              (chain *streetmap* (add-layer *streetmap-estimated-position-layer*)))
+
+           (let ((global-position-etc *global-position*)
+                 (count 3)
+                 content)
+             (setf (chain global-position-etc count) count)
+             (setf content (chain *json-parser*
+                                  (write global-position-etc)))
+             (setf (@ *streetmap* aux-local-data-request-response)
+                   ((@ *open-layers *Request *POST*)
+                    (create :url "/phoros-lib/aux-local-data"
+                            :data content
+                            :headers (create "Content-type" "text/plain"
+                                             "Content-length"
+                                             (@ content length))
+                            :success draw-nearest-aux-points)))))
+
            (let ((estimated-position-style
                   (create stroke-color (chain *open-layers *feature *vector
                                               style "temporary" stroke-color)
@@ -474,8 +523,35 @@ another photo."
                     (chain i map
                            (add-layer (@ i estimated-position-layer)))
                     (chain i estimated-position-layer
-                           (add-features feature)))))))
+                           (add-features feature))))))
          (zoom-images-to-point))
+
+       (defun draw-nearest-aux-points ()
+         "Draw a few auxiliary points into streetmap."
+         (let ((features
+                 (chain *json-parser*
+                        (read
+                         (getprop *streetmap*
+                                  'aux-local-data-request-response
+                                  'response-text))
+                        features)))
+           (loop
+              for i in features do
+              (let* ((point
+                      (chain
+                       (new
+                        (chain *open-layers
+                               *geometry
+                               (*point (chain i geometry coordinates 0)
+                                       (chain i geometry coordinates 1))))
+                       (transform +geographic+ +spherical-mercator+)))
+                     (feature
+                      (new
+                       (chain *open-layers *feature (*vector point)))))
+                (setf (chain feature attributes) (chain i properties))
+                (chain *streetmap-nearest-aux-points-layer*
+                       (add-features feature))))
+           (chain *streetmap* (add-layer *streetmap-nearest-aux-points-layer*))))
 
        (defun draw-user-point ()
          "Draw currently selected user point into all images."
@@ -941,12 +1017,15 @@ image-index in array *images*."
                   (register "featureunselected"
                             *user-point-layer* reset-controls))
            (chain *streetmap* (add-control *user-points-select-control*))
+           (chain *streetmap* (add-control *nearest-aux-points-select-control*))
            (chain *user-points-select-control* (activate))
+           (chain *nearest-aux-points-select-control* (activate))
     
            (chain *streetmap* (add-layer *osm-layer*))
            ;;(chain *streetmap* (add-layer *google*))
            (chain *streetmap* (add-layer *survey-layer*))
            (chain *streetmap* (add-layer *user-point-layer*))
+           (chain *streetmap* (add-layer *aux-point-layer*))
            (setf (chain overview-map element)
                  (chain document (get-element-by-id
                                   "streetmap-overview-element")))
