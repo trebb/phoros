@@ -375,21 +375,23 @@ recorded-device-id (a string) of camera (etc.)"
 
 (defun assert-utm-zone (longitude-median longitude-leeway longitude latitude
                         geographic-height easting northing cartesian-height)
-  "Check if, given latitude and longitude, easting and northing are
+  "Check if, given longitude and latitude, easting and northing are
 calculated in the UTM zone belonging to longitude-median."
   (let ((epsilon 1d-1))
     (unless
         (or (every #'(lambda (x y) (almost= x y epsilon))
                    (geographic-to-utm (utm-zone (- longitude-median
                                                    longitude-leeway))
-                                      latitude longitude geographic-height)
+                                      longitude latitude geographic-height)
                    (list easting northing cartesian-height))
             (every #'(lambda (x y) (almost= x y epsilon))
                    (geographic-to-utm (utm-zone (+ longitude-median
                                                    longitude-leeway))
-                                      latitude longitude geographic-height)
+                                      longitude latitude geographic-height)
                    (list easting northing cartesian-height)))
-      (error "The longitude median ~A should be in or near UTM zone ~D.  This is inconsistent with the easting values I was given.  Offending coordinates: (~A ~A ~A) (~A ~A ~A)."
+      (error "The longitude median ~A should be in or near UTM zone ~D.  ~
+              This is inconsistent with the easting values I was given.  ~
+              Offending coordinates: (~A ~A ~A) (~A ~A ~A)."
              longitude-median (utm-zone longitude-median) longitude latitude
              geographic-height easting northing cartesian-height))))
 
@@ -400,8 +402,8 @@ used."
   (loop
      for gps-event in gps-points
      for gps-event-vector = (cdr gps-event)
-     for first-latitude = (latitude (aref gps-event-vector 0))
      for first-longitude = (longitude (aref gps-event-vector 0))
+     for first-latitude = (latitude (aref gps-event-vector 0))
      for first-geographic-height = (ellipsoid-height (aref gps-event-vector 0))
      for first-easting = (easting (aref gps-event-vector 0))
      for first-northing = (northing (aref gps-event-vector 0))
@@ -413,11 +415,12 @@ used."
           sum (longitude point) into longitude-sum
           finally (return (/ longitude-sum i)))
      do (assert-utm-zone longitude-median 1
-                         first-latitude first-longitude
+                         first-longitude first-latitude
                          first-geographic-height
                          first-easting first-northing
                          first-cartesian-height)
-     finally (return (format nil "+proj=utm +ellps=WGS84 +zone=~D" (utm-zone longitude-median)))))
+     finally (return (format nil "+proj=utm +ellps=WGS84 +zone=~D"
+                             (utm-zone longitude-median)))))
 
 (defun get-measurement-id (common-table-name dir-path cartesian-system)
   "Get measurement-id associated with dir-path and
