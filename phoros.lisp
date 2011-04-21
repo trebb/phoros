@@ -529,7 +529,6 @@ coordinates received, wrapped in an array."
                   (:st_distance
                    'coordinates
                    (:st_geomfromtext ,point-form ,*standard-coordinates*))
-                   (:st_geomfromtext ,point-form ,*standard-coordinates*))
                   distance)                       
                  :from ',aux-view-name)
                 'distance)              ;TODO: convert into metres
