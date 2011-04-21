@@ -75,5 +75,12 @@
                 (:img :src "http://postgis.refractions.net/download/logo_suite/stock_text/stock_text_180.gif"
                       :height 30 :style "vertical-align:middle"
                       :alt "PostGIS"))
+            (who:fmt "version ~A"
+                     (car (cl-utilities:split-sequence
+                           #\Space
+                           (with-connection *postgresql-credentials*
+                             (query
+                              (:select (:postgis_version))
+                              :single)))))
             "."
             ))))))
