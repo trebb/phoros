@@ -270,10 +270,14 @@ help message."
          "The currently selected user-point.")
 
        (defvar *user-points-select-control*
-         (new (chain *open-layers *control (*select-feature *user-point-layer*))))
+         (new (chain *open-layers
+                     *control
+                     (*select-feature *user-point-layer*))))
        
        (defvar *nearest-aux-points-select-control*
-         (new (chain *open-layers *control (*select-feature *streetmap-nearest-aux-points-layer*))))
+         (new (chain *open-layers
+                     *control
+                     (*select-feature *streetmap-nearest-aux-points-layer*))))
        
        ;;(defvar google (new ((@ *open-layers *Layer *google) "Google Streets")))
        (defvar *osm-layer* (new (chain *open-layers *layer (*osm*))))
@@ -282,7 +286,8 @@ help message."
          (new (*click-control* (create :trigger request-photos))))
 
        (defun write-permission-p (&optional (current-owner +user-name+))
-         "Nil if current user can't edit stuff created by current-owner or, without arguments, new stuff."
+         "Nil if current user can't edit stuff created by
+current-owner or, without arguments, new stuff."
          (or (== +user-role+ "admin")
              (and (== +user-role+ "write")
                   (== +user-name+ current-owner))))
@@ -330,11 +335,11 @@ an image url."
        (defun remove-any-layers (layer-name)
          "Destroy in all *images* and in *streetmap* the layer named layer-name."
          (loop
-            for i across *images* do (remove-layer (getprop i 'map) layer-name))
+            for i across *images* do
+              (remove-layer (getprop i 'map) layer-name))
          (remove-layer *streetmap* layer-name))
 
        (defun reset-controls ()
-         "Destroy user-generated layers in *streetmap* and in all *images*."
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "delete-point-button")
          (disable-element-with-id "remove-work-layers-button")
@@ -343,10 +348,13 @@ an image url."
          (setf (inner-html-with-id "point-creation-date") nil))
 
        (defun reset-layers-and-controls ()
+         "Destroy user-generated layers in *streetmap* and in all
+*images*, and put controls into pristine state."
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Active Point")
          (remove-any-layers "Estimated Position")
          (remove-any-layers "User Point")
+         (remove-any-layers "Nearest Aux Points")
          (when (and (!= undefined *current-user-point*)
                     (chain *current-user-point* layer))
            (chain *user-points-select-control* (unselect *current-user-point*)))
@@ -872,6 +880,7 @@ image-index in array *images*."
                                 (+ "image-" image-index))))))
 
        (defun user-point-selected (event)
+         "Things to do once a user point is selected."
          (setf *current-user-point* (chain event feature))
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
@@ -907,6 +916,36 @@ image-index in array *images*."
                         :headers (create "Content-type" "text/plain"
                                          "Content-length" (@ content length))
                         :success draw-user-point))))
+
+       (defun nearest-aux-point-selected (event)
+         "Things to do once a nearest auxiliary point is selected."
+         (setf *current-nearest-aux-point* (chain event feature))
+         (let* ((aux-numeric-raw
+                 (chain event feature attributes aux-numeric))
+                (aux-text-raw
+                 (chain event feature attributes aux-text))
+                (aux-numeric
+                 (if (== "null" aux-numeric-raw) (array) aux-numeric-raw))
+                (aux-text
+                 (if (== "null" aux-text-raw) (array) aux-text-raw))
+                (distance
+                 (chain event feature attributes distance)))
+           (setf (inner-html-with-id "aux-distance")
+                 distance)
+           (setf (inner-html-with-id "aux-numeric")
+                 (when (chain aux-numeric length)
+                   (who-ps-html
+                    (:ol (chain aux-numeric
+                                (reduce (lambda (x y)
+                                          (+ x (who-ps-html (:li y))))
+                                        ""))))))
+           (setf (inner-html-with-id "aux-text")
+                 (when (chain aux-text length)
+                   (who-ps-html
+                    (:ol (chain aux-text
+                                (reduce (lambda (x y)
+                                          (+ x (who-ps-html (:li y))))
+                                        ""))))))))
 
        (defun init ()
          "Prepare user's playground."
@@ -1016,6 +1055,18 @@ image-index in array *images*."
                   events
                   (register "featureunselected"
                             *user-point-layer* reset-controls))
+
+
+           (chain *streetmap-nearest-aux-points-layer*
+                  events
+                  (register "featureselected"
+                            *streetmap-nearest-aux-points-layer* nearest-aux-point-selected))
+           ;;(chain *user-point-layer*
+           ;;       events
+           ;;       (register "featureunselected"
+           ;;                 *user-point-layer* reset-controls))
+
+
            (chain *streetmap* (add-control *user-points-select-control*))
            (chain *streetmap* (add-control *nearest-aux-points-select-control*))
            (chain *user-points-select-control* (activate))

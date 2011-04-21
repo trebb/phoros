@@ -527,11 +527,12 @@ coordinates received, wrapped in an array."
                  aux-text
                  (:as
                   (:st_distance
-                   (:st_transform 'coordinates ,*standard-coordinates*)
+                   'coordinates
+                   (:st_geomfromtext ,point-form ,*standard-coordinates*))
                    (:st_geomfromtext ,point-form ,*standard-coordinates*))
                   distance)                       
                  :from ',aux-view-name)
-                'distance)
+                'distance)              ;TODO: convert into metres
                ,count))
             :plists)))))))
 
@@ -718,7 +719,7 @@ send all points."
              (:div :class "phoros-controls-vertical-strut")
              (:button :id "blurb-button"
                       :type "button"
-                      :onclick (inline
+                      :onclick (ps-inline
                                 (chain window
                                        (open "/phoros-lib/blurb" "About Phoros")))
                       "blurb")
@@ -739,6 +740,9 @@ send all points."
              (:input :id "point-description" :class "vanilla-input"
                      :disabled t
                      :type "text" :size 20 :name "point-description")
+             (:div :id "aux-distance")
+             (:div :id "aux-numeric")
+             (:div :id "aux-text")
              :br
              (:button :disabled t :id "finish-point-button"
                       :type "button"
