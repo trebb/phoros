@@ -113,7 +113,7 @@ tarball : phoros TimeSteps.history README \
           $(SERVER_CSS) $(OPENLAYERS_DIR) \
           $(LOGO) $(FAVICON) $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf - \
-		--transform='s,^,phoros-$(PHOROS_VERSION)/,' \
+		--transform='s,^,phoros_$(PHOROS_VERSION)/,' \
 		phoros TimeSteps.history README \
 		$(SERVER_CSS) $(OPENLAYERS_DIR) \
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
