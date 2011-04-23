@@ -1,7 +1,8 @@
 (defpackage phoros-test
-  (:use :common-lisp :phoros :rt))
+  (:use :common-lisp
+        :rt))
 
-(in-package phoros-test)
+(in-package :phoros-test)
 
 (deftest cs2cs/1
     (proj:cs2cs (list (proj:degrees-to-radians -112.5d0)
@@ -18,3 +19,18 @@
 (deftest geographic-to-utm/2
     (phoros::geographic-to-utm 32 13d0 50d0 200d0)
   (786627.9510428045 5546300.84739345 200.0))
+
+(deftest geographic-to-utm/3
+    (phoros::geographic-to-utm 32 13 50 200)
+  (786627.9510428045 5546300.84739345 200.0))
+
+(deftest assert-utm-zone/1
+    (phoros::assert-utm-zone 9.427261747452828 3 9.28838684 53.19274138 68.969 519267.427 5893750.59 68.969)
+  nil)
+
+(deftest assert-utm-zone/2
+    (handler-case
+        (phoros::assert-utm-zone 9.427261747452828 3 9.28838684 53.19274138 68.969 519267.627 5893750.59 68.969)
+      (simple-error () "expected error"))
+  "expected error")
+
