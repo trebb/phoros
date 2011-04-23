@@ -638,7 +638,7 @@ the key argument, or the whole dotted string."
 
 (defun canonicalize-bayer-pattern (raw &optional sql-string-p)
   "Convert a string of comma-separated hex color strings (ex: #ff0000
-for red) into a vector integers.  If sql-string-p is t, convert it
+for red) into a vector of integers.  If sql-string-p is t, convert it
 into a string in SQL syntax."
   (when raw
     (let* ((vector
