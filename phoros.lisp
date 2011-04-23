@@ -514,31 +514,33 @@ coordinates received, wrapped in an array."
       (encode-geojson-to-string
        (ignore-errors
          (with-connection *postgresql-credentials*
-           (query
-            (s-sql:sql-compile
-             `(:limit
-               (:order-by
-                (:select
-                 (:as
-                  (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
-                  'x)
-                 (:as
-                  (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
-                  'y)
-                 (:as
-                  (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
-                  'z)
-                 aux-numeric
-                 aux-text
-                 (:as
-                  (:st_distance
-                   'coordinates
-                   (:st_geomfromtext ,point-form ,*standard-coordinates*))
-                  distance)                       
-                 :from ',aux-view-name)
-                'distance)              ;TODO: convert into metres
-               ,count))
-            :plists)))))))
+           (nsubst
+            nil :null
+            (query
+             (s-sql:sql-compile
+              `(:limit
+                (:order-by
+                 (:select
+                  (:as
+                   (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
+                   'x)
+                  (:as
+                   (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
+                   'y)
+                  (:as
+                   (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
+                   'z)
+                  aux-numeric
+                  aux-text
+                  (:as
+                   (:st_distance
+                    'coordinates
+                    (:st_geomfromtext ,point-form ,*standard-coordinates*))
+                   distance)                       
+                  :from ',aux-view-name)
+                 'distance)             ;TODO: convert into metres
+                ,count))
+             :plists))))))))
 
 (defun presentation-project-bbox (presentation-project-id)
   "Return bounding box of the entire presentation-project as a string

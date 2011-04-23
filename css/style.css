@@ -296,6 +296,9 @@ button, select {
     height: 18px;
     width: 18px;
 }
+.olControlScaleLineBottom {     /* Imperial units */
+    display: none;
+}
 .streetmapZoomToMaxExtentItemInactive {
     background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
