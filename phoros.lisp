@@ -263,11 +263,14 @@ wrapped in an array."
            (point-form
             (format nil "SRID=4326; POINT(~S ~S ~S)"
                     longitude-input latitude-input ellipsoid-height-input))
+           (aux-numeric (apply #'vector (cdr (assoc :aux-numeric data))))
+           ;;(aux-text (apply #'vector (cdr (assoc :aux-text data)))) ;TODO: enable
            (user-point-table-name
             (user-point-table-name presentation-project-name)))
       (assert
        (not (string-equal user-role "read")) ;that is, "write" or "admin"
        () "No write permission.")
+      (print aux-numeric) (terpri)
       (with-connection *postgresql-credentials*
         (assert
          (= 1 (execute (:insert-into user-point-table-name :set
@@ -280,6 +283,8 @@ wrapped in an array."
                                      'stdx-global stdx-global
                                      'stdy-global stdy-global
                                      'stdz-global stdz-global
+                                     'aux-numeric aux-numeric
+                                     ;;'aux-text aux-text ;TODO: enable
                                      )))
          () "No point stored.  This should not happen.")))))
 
@@ -739,6 +744,15 @@ send all points."
              (:input :id "point-description" :class "vanilla-input"
                      :disabled t
                      :type "text" :size 20 :name "point-description")
+             :br
+             (:input :id "include-aux-data-p"
+                     :type "checkbox" :checked t :name "include-aux-data-p"
+                     :onchange (ps-inline (flip-aux-data-inclusion))
+                     "include auxiliary data")
+             (:select :id "aux-point-distance" :disabled t
+                      :size 1 :name "aux-point-distance"
+                      :onchange (ps-inline (aux-point-distance-selected))
+                      :onclick (ps-inline (enable-aux-point-selection)))
              (:div :id "aux-distance")
              (:div :id "aux-numeric")
              (:div :id "aux-text")
