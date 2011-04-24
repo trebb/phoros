@@ -270,7 +270,6 @@ wrapped in an array."
       (assert
        (not (string-equal user-role "read")) ;that is, "write" or "admin"
        () "No write permission.")
-      (print aux-numeric) (terpri)
       (with-connection *postgresql-credentials*
         (assert
          (= 1 (execute (:insert-into user-point-table-name :set

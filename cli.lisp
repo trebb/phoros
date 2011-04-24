@@ -287,6 +287,23 @@
     ("acquisition-project" :type string
      :documentation "The acquisition project whose measurements are to add or remove.")))
 
+(defparameter *cli-aux-view-options*
+  '(("create-aux-view"
+     :type string :action #'create-aux-view-action
+     :documentation "Connect table of auxiliary data with the specified presentation project by creating a view.")
+    ("aux-table"
+     :type string
+     :documentation "Name of auxiliary table, which may be in any database.  It must have a geometry column.")
+    ("coordinates-column"
+     :type string :initial-value "the-geom"
+     :documentation "Name of the geometry column in the auxiliary data table.")
+    ("numeric-column"
+     :type string :list t :optional t
+     :documentation "Name of a numeric column in the auxiliary data table.  Repeat if necessary.")
+    ("text-column"
+     :type string :list t :optional t
+     :documentation "Name of a text column in the auxiliary data table.  Repeat if necessary.")))
+
 (defparameter *cli-user-options*
   '(("create-user"
      :type string :action #'create-user-action
@@ -316,7 +333,9 @@
           *cli-acquisition-project-options*
           *cli-store-images-and-points-options*
           *cli-start-server-options*
-          *cli-presentation-project-options* *cli-user-options*))
+          *cli-presentation-project-options*
+          *cli-aux-view-options*
+          *cli-user-options*))
 
 (defun main ()
   "The UNIX command line entry point."
@@ -358,7 +377,8 @@ according to the --verbose option given."
       ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist
       ;; obeyed by both hunchentoot and Phoros' own logging:
       (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 verbose))
-      (setf *use-multi-file-openlayers* (logbitp 14 verbose)) ;necessary for (ps ... (debug-info)...)
+      ;; necessary for (ps ... (debug-info ...)...):
+      (setf *use-multi-file-openlayers* (logbitp 14 verbose))
       (setf *ps-print-pretty* (logbitp 15 verbose))
       (setf *show-lisp-errors-p* (logbitp 16 verbose)))
     (values-list options)))
@@ -377,7 +397,7 @@ according to the --verbose option given."
     (show-option-help *cli-main-options*)
     (show-help-headline "Database Connection (necessary for most operations)")
     (show-option-help *cli-db-connection-options*)
-    (show-help-headline "Auxiliary Database Connection (with --server)")
+    (show-help-headline "Auxiliary Database Connection (with --server and --create-aux-view)")
     (show-option-help *cli-aux-db-connection-options*)
     (show-help-headline "Examine .pictures File")
     (show-option-help *cli-get-image-options*)
@@ -407,6 +427,9 @@ according to the --verbose option given."
     (show-help-headline
      "Manage Presentation Projects (comprising data visible via web interface)")
     (show-option-help *cli-presentation-project-options*)
+    (show-help-headline
+     "Connect A Presentation Project To A Table Of Auxiliary Data")
+    (show-option-help *cli-aux-view-options*)
     (show-help-headline "Manage Presentation Project Users")
     (show-option-help *cli-user-options*)))
 
@@ -500,8 +523,8 @@ the key argument, or the whole dotted string."
 (defun create-sys-tables-action (&rest rest)
   "Make a set of sys-* tables.  Ask for confirmation first."
   (declare (ignore rest))
-  (with-cli-option (host port database (user "") (password "") use-ssl
-                         log-dir)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
@@ -667,7 +690,7 @@ sql-string-p is t, convert it into a string in SQL syntax."
             (loop
                for multiplier in (cl-utilities:split-sequence #\, raw :count 3)
                collect
-               (read-from-string multiplier nil))))
+                 (read-from-string multiplier nil))))
       (if sql-string-p
           (format nil "{~{~A~#^,~}}" vector)
           (make-array '(3) :initial-contents vector)))))
@@ -698,7 +721,7 @@ should only take keyargs."
 (defun store-camera-hardware-action (&rest rest)
   (declare (ignore rest))
   (store-stuff #'store-camera-hardware))
-          
+
 (defun store-lens-action (&rest rest)
   (declare (ignore rest))
   (store-stuff #'store-lens))
@@ -746,7 +769,7 @@ trigger-time to stdout."
 (defun create-presentation-project-action (presentation-project-name)
   "Make a presentation project."
   (with-cli-options (host port database (user "") (password "") use-ssl
-                        log-dir)
+                          log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
@@ -777,20 +800,20 @@ trigger-time to stdout."
 
 (defun add-to-presentation-project-action (presentation-project-name)
   "Add measurements to a presentation project."
-    (with-cli-options (host port database (user "") (password "") use-ssl
-                            log-dir
-                            measurement-id acquisition-project)
-      (launch-logger log-dir)
-      (with-connection (list database user password host :port port
-                             :use-ssl (s-sql:from-sql-name use-ssl))
-        (add-to-presentation-project presentation-project-name
-                                     :measurement-ids measurement-id
-                                     :acquisition-project acquisition-project))
-      (cl-log:log-message
-       :db-dat
-       "Added ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements from acquisition project ~A~] to presentation project ~A in database ~A at ~A:~D."
-       measurement-id acquisition-project
-       presentation-project-name database host port)))
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          measurement-id acquisition-project)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (add-to-presentation-project presentation-project-name
+                                   :measurement-ids measurement-id
+                                   :acquisition-project acquisition-project))
+    (cl-log:log-message
+     :db-dat
+     "Added ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements from acquisition project ~A~] to presentation project ~A in database ~A at ~A:~D."
+     measurement-id acquisition-project
+     presentation-project-name database host port)))
 
 (defun remove-from-presentation-project-action (presentation-project-name)
   "Add measurements to a presentation project."
@@ -801,14 +824,64 @@ trigger-time to stdout."
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (remove-from-presentation-project presentation-project-name
-                                   :measurement-ids measurement-id
-                                   :acquisition-project acquisition-project))
+                                        :measurement-ids measurement-id
+                                        :acquisition-project acquisition-project))
     (cl-log:log-message
      :db-dat
      "Removed ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements that belong to acquisition project ~A~] from presentation project ~A in database ~A at ~A:~D."
      measurement-id acquisition-project
      presentation-project-name database host port)))
 
+(defun create-aux-view-action (presentation-project-name)
+  "Connect presentation project to an auxiliary data table by means of
+a view."
+  (with-cli-options (host (aux-host host) port (aux-port port)
+                          database (aux-database database)
+                          (user "") (aux-user user)
+                          (password "") (aux-password password)
+                          use-ssl (aux-use-ssl use-ssl)
+                          log-dir
+                          aux-table coordinates-column
+                          numeric-column text-column)
+    (launch-logger log-dir)
+    (with-connection (list aux-database aux-user aux-password aux-host
+                           :port aux-port
+                           :use-ssl (s-sql:from-sql-name aux-use-ssl))
+      (let ((aux-view-in-phoros-db-p
+             (every #'equal
+                    (list host port database user password use-ssl)
+                    (list aux-host aux-port aux-database
+                          aux-user aux-password aux-use-ssl)))
+            (aux-view-exists-p
+             (aux-view-exists-p presentation-project-name)))
+        (when (or
+               aux-view-in-phoros-db-p
+               (yes-or-no-p
+                "I'm going to ~:[create~;replace~] a view named ~A ~
+                 in database ~A at ~A:~D.  Proceed?"
+                aux-view-exists-p
+                (aux-point-view-name presentation-project-name)
+                aux-database aux-host aux-port))
+          (when aux-view-exists-p
+            (delete-aux-view presentation-project-name))
+          (handler-bind ((warning #'ignore-warnings)) ;TODO: muffle more postgresql warnings
+            (create-aux-view
+             presentation-project-name aux-table
+             :coordinates-column (s-sql:to-sql-name coordinates-column)
+             :numeric-columns numeric-column
+             :text-columns text-column))
+          (cl-log:log-message
+           :db-dat
+           "~:[Created~;Updated~] in database ~A at ~A:~D a view called ~A ~
+            into table (of auxiliary data) ~A.  Coordinates column is ~A.  ~
+            ~:[No numeric columns.~;Numeric column(s): ~:*~{~A~#^, ~}.~]  ~
+            ~:[No text columns.~;Text column(s): ~:*~{~A~#^, ~}.~]"
+           aux-view-exists-p
+           aux-database aux-host aux-port
+           (aux-point-view-name presentation-project-name)
+           aux-table coordinates-column
+           numeric-column text-column))))))
+    
 (defun create-user-action (presentation-project-user)
   "Define a new user."
   (let (fresh-user-p)

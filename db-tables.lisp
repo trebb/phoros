@@ -962,14 +962,23 @@ belonging to images."
     ;;    (:table-name ,aggregate-view-name))) ;redefinition
     ))
 
+(defun aux-view-exists-p (presentation-project-name)
+  "See if there is a view into auxiliary point table that belongs to
+presentation-project-name."
+  (view-exists-p (aux-point-view-name presentation-project-name)))
+
+(defun delete-aux-view (presentation-project-name)
+  "Delete the view into auxiliary point table that belongs to
+presentation-project-name."
+  (execute (:drop-view (aux-point-view-name presentation-project-name))))
+
 (defun create-aux-view (presentation-project-name aux-table-name
-                        &key
-                        (coordinates-row :the-geom) numeric-rows text-rows)
-  "Create a view into aux-table-name.  coordinates-row goes into row
-coordinates, numeric-rows and text-rows go into arrays in aux-numeric
-and aux-text respectively."
+                        &key (coordinates-column :the-geom)
+                        numeric-columns text-columns)
+  "Create a view into aux-table-name.  coordinates-column goes into column
+coordinates, numeric-columns and text-columns go into arrays in aux-numeric
+and aux-text respectively.  TODO: should we assert-phoros-db-major-version?"
   (let ((aux-point-view-name (aux-point-view-name presentation-project-name)))
-    (execute (:drop-view :if-exists aux-point-view-name))
     (execute
      (format
       nil
@@ -979,9 +988,9 @@ and aux-text respectively."
            ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text ~
            FROM ~A)"
       (s-sql:to-sql-name aux-point-view-name)
-      coordinates-row
-      (mapcar #'s-sql:to-sql-name numeric-rows)
-      (mapcar #'s-sql:to-sql-name text-rows)
+      coordinates-column
+      (mapcar #'s-sql:to-sql-name numeric-columns)
+      (mapcar #'s-sql:to-sql-name text-columns)
       (s-sql:to-sql-name aux-table-name)))))
 
 (defun create-acquisition-project (common-table-name)
