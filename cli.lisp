@@ -386,52 +386,66 @@ according to the --verbose option given."
 (defun cli-help-action (&rest rest)
   "Print --help message."
   (declare (ignore rest))
-  (flet ((show-help-headline (content)
-           (format *standard-output* "~2&#### ~105,,,'#@<~A ~>" content)))
+  (flet ((show-help-section
+             (options-specification &optional heading introduction)
+           (format *standard-output*
+                   "~@[~2&#### ~95,,,'#@<~A ~>~]~
+                    ~@[~&        ~{~@<~%        ~1,90:;~A~> ~}~]"
+                   heading
+                   (cl-utilities:split-sequence
+                    #\Space introduction :remove-empty-subseqs t))
+           (show-option-help options-specification)))
     (format
      *standard-output*
      "~&Usage: phoros [options] ...~&~A"
      (handler-bind ((warning #'ignore-warnings))
        (asdf:system-long-description (asdf:find-system :phoros))))
-    (show-help-headline "Main Options")
-    (show-option-help *cli-main-options*)
-    (show-help-headline "Database Connection (necessary for most operations)")
-    (show-option-help *cli-db-connection-options*)
-    (show-help-headline "Auxiliary Database Connection (with --server and --create-aux-view)")
-    (show-option-help *cli-aux-db-connection-options*)
-    (show-help-headline "Examine .pictures File")
-    (show-option-help *cli-get-image-options*)
-    (show-help-headline
+    (show-help-section
+     *cli-main-options*
+     "Main Options")
+    (show-help-section
+     *cli-db-connection-options*
+     "Database Connection (necessary for most operations)")
+    (show-help-section
+     *cli-aux-db-connection-options*
+     "Auxiliary Database Connection (with --server and --create-aux-view)")
+    (show-help-section *cli-get-image-options* "Examine .pictures File")
+    (show-help-section
+     *cli-camera-hardware-options*
      "Camera Hardware Parameters (not including information on lens or mounting)")
-    (show-option-help *cli-camera-hardware-options*)
-    (show-help-headline
+    (show-help-section
+     *cli-lens-options*
      "Lens Parameters (for human consumption; not used for photogrammetric calculation)")
-    (show-option-help *cli-lens-options*)
-    (show-help-headline
+    (show-help-section
+     *cli-generic-device-options*
      "Generic Device Definition (basically a particular camera with a particular lens)")
-    (show-option-help *cli-generic-device-options*)
-    (show-help-headline
+    (show-help-section
+     *cli-device-stage-of-life-options*
      "Device Stage-Of-Life Definition (generic device in a particular mounting constellation)")
-    (show-option-help *cli-device-stage-of-life-options*)
-    (show-help-headline
+    (show-help-section
+     *cli-device-stage-of-life-end-options*
      "Put An End To A Device's Stage-Of-Life (e.g. after accidental change of mounting constellation)")
-    (show-option-help *cli-device-stage-of-life-end-options*)
-    (show-help-headline "Camera Calibration Parameters")
-    (show-option-help *cli-camera-calibration-options*)
-    (show-help-headline "Manage Acquisition Projects")
-    (show-option-help *cli-acquisition-project-options*)
-    (show-help-headline "Store Measure Data")
-    (show-option-help *cli-store-images-and-points-options*)
-    (show-help-headline "Become A HTTP Presentation Server")
-    (show-option-help *cli-start-server-options*)
-    (show-help-headline
+    (show-help-section
+     *cli-camera-calibration-options* "Camera Calibration Parameters")
+    (show-help-section
+     *cli-acquisition-project-options*
+     "Manage Acquisition Projects")
+    (show-help-section
+     *cli-store-images-and-points-options*
+     "Store Measure Data")
+    (show-help-section
+     *cli-start-server-options*
+     "Become A HTTP Presentation Server")
+    (show-help-section
+     *cli-presentation-project-options*
      "Manage Presentation Projects (comprising data visible via web interface)")
-    (show-option-help *cli-presentation-project-options*)
-    (show-help-headline
-     "Connect A Presentation Project To A Table Of Auxiliary Data")
-    (show-option-help *cli-aux-view-options*)
-    (show-help-headline "Manage Presentation Project Users")
-    (show-option-help *cli-user-options*)))
+    (show-help-section
+     *cli-aux-view-options*
+     "Connect A Presentation Project To A Table Of Auxiliary Data"
+     "Arbitrary data from tables not directly belonging to any Phoros project can be connected to a presentation project by means of a view which must be named usr-<presentation-project-name>-aux-point and which must contain the columns coordinates (geometry), aux-numeric (null or array of numeric), and aux-text (null or array of text).  The array elements of both aux-numeric and aux-text of auxiliary points can than be incorporated into neighbouring user points.  In simple cases (auxiliary data from one table which has a geometry column and some numeric and/or text columns), the following options can be used to create such view.")
+    (show-help-section
+     *cli-user-options*
+     "Manage Presentation Project Users")))
 
 (defun phoros-version (&key major minor revision)
   "Return version of this program, either one integer part as denoted by
@@ -527,7 +541,9 @@ the key argument, or the whole dotted string."
                           log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
-           "You asked me to create a set of sys-* tables in database ~A at ~A:~D.  Make sure you know what you are doing.  Proceed?"
+           "You asked me to create a set of sys-* tables ~
+            in database ~A at ~A:~D.  ~
+            Make sure you know what you are doing.  Proceed?"
            database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -546,7 +562,8 @@ the key argument, or the whole dotted string."
       (create-acquisition-project common-table-name))
     (cl-log:log-message
      :db-dat
-     "Created a fresh acquisition project by the name of ~A in database ~A at ~A:~D."
+     "Created a fresh acquisition project by the name of ~A ~
+      in database ~A at ~A:~D."
      common-table-name database host port)))
 
 (defun delete-acquisition-project-action (common-table-name)
@@ -555,7 +572,9 @@ the key argument, or the whole dotted string."
                           log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
-           "You asked me to delete acquisition-project ~A (including all its measurements) from database ~A at ~A:~D.  Proceed?"
+           "You asked me to delete acquisition-project ~A ~
+            (including all its measurements) ~
+            from database ~A at ~A:~D.  Proceed?"
            common-table-name database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -563,7 +582,8 @@ the key argument, or the whole dotted string."
                (delete-acquisition-project common-table-name)))
           (cl-log:log-message
            :db-dat
-           "~:[Tried to delete nonexistent~;Deleted~] acquisition project ~A from database ~A at ~A:~D."
+           "~:[Tried to delete nonexistent~;Deleted~] ~
+            acquisition project ~A from database ~A at ~A:~D."
            project-did-exist-p common-table-name database host port))))))
 
 (defun delete-measurement-action (measurement-id)
@@ -577,7 +597,8 @@ the key argument, or the whole dotted string."
              (delete-measurement measurement-id)))
         (cl-log:log-message
          :db-dat
-         "~:[Tried to delete nonexistent~;Deleted~] measurement with ID ~A from database ~A at ~A:~D."
+         "~:[Tried to delete nonexistent~;Deleted~] ~
+          measurement with ID ~A from database ~A at ~A:~D."
          measurement-did-exist-p measurement-id database host port)))))
 
 (defun list-acquisition-project-action (&optional common-table-name)
@@ -623,7 +644,8 @@ the key argument, or the whole dotted string."
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (cl-log:log-message
        :db-dat
-       "Start: storing data from ~A into acquisition project ~A in database ~A at ~A:~D."
+       "Start: storing data from ~A into acquisition project ~A ~
+        in database ~A at ~A:~D."
        directory common-table-name database host port)
       (store-images-and-points common-table-name directory
                                :epsilon (read-from-string epsilon nil)
@@ -631,7 +653,8 @@ the key argument, or the whole dotted string."
                                :aggregate-events aggregate-events))
     (cl-log:log-message
      :db-dat
-     "Finish: storing data from ~A into acquisition project ~A in database ~A at ~A:~D."
+     "Finish: storing data from ~A into acquisition project ~A ~
+      in database ~A at ~A:~D."
      directory common-table-name database host port)))
 
 ;;; We don't seem to have two-dimensional arrays in postmodern
@@ -777,7 +800,8 @@ trigger-time to stdout."
              (create-presentation-project presentation-project-name)))
         (cl-log:log-message
          :db-dat
-         "~:[Tried to recreate an existing~;Created a fresh~] presentation project by the name of ~A in database ~A at ~A:~D."
+         "~:[Tried to recreate an existing~;Created a fresh~] ~
+          presentation project by the name of ~A in database ~A at ~A:~D."
          fresh-project-p presentation-project-name database host port)))))
 
 
@@ -787,7 +811,9 @@ trigger-time to stdout."
                           log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
-           "You asked me to delete presentation-project ~A (including its table of user-defined points usr-~:*~A-point) from database ~A at ~A:~D.  Proceed?"
+           "You asked me to delete presentation-project ~A ~
+            (including its table of user-defined points usr-~:*~A-point) ~
+            from database ~A at ~A:~D.  Proceed?"
            presentation-project-name database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
@@ -795,8 +821,10 @@ trigger-time to stdout."
                (delete-presentation-project presentation-project-name)))
           (cl-log:log-message
            :db-dat
-           "~:[Tried to delete nonexistent~;Deleted~] presentation project ~A from database ~A at ~A:~D."
-           project-did-exist-p presentation-project-name database host port))))))
+           "~:[Tried to delete nonexistent~;Deleted~] ~
+            presentation project ~A from database ~A at ~A:~D."
+           project-did-exist-p presentation-project-name
+           database host port))))))
 
 (defun add-to-presentation-project-action (presentation-project-name)
   "Add measurements to a presentation project."
@@ -811,7 +839,9 @@ trigger-time to stdout."
                                    :acquisition-project acquisition-project))
     (cl-log:log-message
      :db-dat
-     "Added ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements from acquisition project ~A~] to presentation project ~A in database ~A at ~A:~D."
+     "Added ~@[measurement-ids ~{~D~#^, ~}~]~
+      ~@[all measurements from acquisition project ~A~] ~
+      to presentation project ~A in database ~A at ~A:~D."
      measurement-id acquisition-project
      presentation-project-name database host port)))
 
@@ -828,7 +858,9 @@ trigger-time to stdout."
                                         :acquisition-project acquisition-project))
     (cl-log:log-message
      :db-dat
-     "Removed ~@[measurement-ids ~{~D~#^, ~}~]~@[all measurements that belong to acquisition project ~A~] from presentation project ~A in database ~A at ~A:~D."
+     "Removed ~@[measurement-ids ~{~D~#^, ~}~]~
+      ~@[all measurements that belong to acquisition project ~A~] ~
+      from presentation project ~A in database ~A at ~A:~D."
      measurement-id acquisition-project
      presentation-project-name database host port)))
 
@@ -900,7 +932,9 @@ a view."
                            :presentation-projects presentation-project)))
       (cl-log:log-message
        :db-dat ;TODO: We're listing nonexistent p-projects here as well.
-       "~:[Updated~;Created~] user ~A (~A) who has ~A access to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} in database ~A at ~A:~D."
+       "~:[Updated~;Created~] user ~A (~A) who has ~A access ~
+        to ~:[no ~;~]presentation project(s)~:*~{ ~A~#^,~} ~
+        in database ~A at ~A:~D."
        fresh-user-p presentation-project-user
        user-full-name user-role
        presentation-project database host port))))
@@ -916,7 +950,8 @@ a view."
              (delete-user presentation-project-user)))
         (cl-log:log-message
          :db-dat
-         "~:[Tried to delete nonexistent~;Deleted~] presentation project user ~A from database ~A at ~A:~D."
+         "~:[Tried to delete nonexistent~;Deleted~] ~
+          presentation project user ~A from database ~A at ~A:~D."
          user-did-exist-p presentation-project-user database host port)))))
 
 (defun list-user-action (&optional presentation-project-user)
@@ -950,8 +985,9 @@ projects."
                                      'sys-presentation-project.presentation-project-id)
                                  (:= 'sys-user.user-id 'sys-user-role.user-id)))
                    'user-name)))))
-        (format-table *standard-output* " | " content
-                      "User" "ID" "Password" "Full Name" "Presentation Project" "ID" "Role")))))
+        (format-table
+         *standard-output* " | " content
+         "User" "ID" "Password" "Full Name" "Presentation Project" "ID" "Role")))))
 
 (defun list-presentation-project-action (&optional presentation-project)
   "List content of presentation projects."
@@ -1043,7 +1079,10 @@ projects."
                   :common-root common-root)
     (cl-log:log-message
      :info
-     "HTTP server listens on port ~D of ~:[all available addresses~;address ~:*~A~].  Phoros database is ~A on ~A:~D.  Auxiliary database is ~A on ~A:~D.  Files are searched for in ~A."
+     "HTTP server listens on port ~D ~
+      of ~:[all available addresses~;address ~:*~A~].  ~
+      Phoros database is ~A on ~A:~D.  Auxiliary database is ~A on ~A:~D.  ~
+      Files are searched for in ~A."
      http-port address
      database host port
      aux-database aux-host aux-port
