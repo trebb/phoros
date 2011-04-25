@@ -22,7 +22,7 @@
 
 (in-package :phoros)
 
-(defparameter *cli-main-options*
+(defparameter *cli-general-options*
   '((("help" #\h) :action #'cli-help-action
      :documentation "Print this help and exit.")
     (("licence" "license") :action #'cli-licence-action
@@ -58,17 +58,17 @@
 
 (defparameter *cli-aux-db-connection-options*
   '(("aux-host" :type string
-     :documentation "Database server.  (default: same as --host)")
+     :documentation "Auxiliary database server.  (default: same as --host)")
     ("aux-port" :type integer
-     :documentation "Port on database server.  (default: same as --port)")
+     :documentation "Port on auxiliary database server.  (default: same as --port)")
     ("aux-database" :type string
-     :documentation "Name of database.  (defaul: same as --database)")
+     :documentation "Name of auxiliary database.  (defaul: same as --database)")
     ("aux-user" :type string
-     :documentation "Database user.  (default: same as --user)")
+     :documentation "Auxiliary database user.  (default: same as --user)")
     ("aux-password" :type string
-     :documentation "Database user's password.  (default: same as --password)")
+     :documentation "Auxiliary database user's password.  (default: same as --password)")
     ("aux-use-ssl" :type string
-     :documentation "Use SSL in database connection. [yes|no|try]  (default: same as --use-ssl)")))
+     :documentation "Use SSL in auxiliary database connection. [yes|no|try]  (default: same as --use-ssl)")))
 
 (defparameter *cli-get-image-options*
   '(("get-image" :action #'get-image-action
@@ -323,7 +323,7 @@
      :documentation "List the specified user with their presentation projects, or all users if no user is given.")))
 
 (defparameter *cli-options*
-  (append *cli-main-options*
+  (append *cli-general-options*
           *cli-db-connection-options* *cli-aux-db-connection-options*
           *cli-get-image-options*
           *cli-camera-hardware-options* *cli-lens-options*
@@ -387,13 +387,23 @@ according to the --verbose option given."
   "Print --help message."
   (declare (ignore rest))
   (flet ((show-help-section
-             (options-specification &optional heading introduction)
+             (options-specification
+              &optional heading
+              &rest introduction-paragraphs)
+           "Show on *standard-output* help on options-specification
+           preceded by header and introduction-paragraphs."
            (format *standard-output*
-                   "~@[~2&#### ~95,,,'#@<~A ~>~]~
-                    ~@[~&        ~{~@<~%        ~1,90:;~A~> ~}~]"
+                   "~@[~2&_____~72,,,'_@<~A~>~]~
+                    ~@[~{~&           ~{~@<~%        ~1,72:;~A~> ~}~}~]"
                    heading
-                   (cl-utilities:split-sequence
-                    #\Space introduction :remove-empty-subseqs t))
+                   (mapcar
+                    #'(lambda (paragraph)
+                        (cl-utilities:split-sequence-if
+                         #'(lambda (x) (or (eql #\Space x)
+                                           (eql #\Newline x)))
+                         paragraph
+                         :remove-empty-subseqs t))
+                    introduction-paragraphs))
            (show-option-help options-specification)))
     (format
      *standard-output*
@@ -401,35 +411,56 @@ according to the --verbose option given."
      (handler-bind ((warning #'ignore-warnings))
        (asdf:system-long-description (asdf:find-system :phoros))))
     (show-help-section
-     *cli-main-options*
-     "Main Options")
+     *cli-general-options*
+     "General Options")
     (show-help-section
      *cli-db-connection-options*
      "Database Connection (necessary for most operations)")
     (show-help-section
      *cli-aux-db-connection-options*
-     "Auxiliary Database Connection (with --server and --create-aux-view)")
-    (show-help-section *cli-get-image-options* "Examine .pictures File")
+     "Auxiliary Database Connection"
+     "Connection parameters to the database containing auxiliary data.
+     Only needed for definition (--create-aux-view) and use (--server)
+     of auxiliary data.")
+    (show-help-section
+     *cli-get-image-options*
+     "Examine .pictures File"
+     "Useful mostly for debugging purposes.")
     (show-help-section
      *cli-camera-hardware-options*
-     "Camera Hardware Parameters (not including information on lens or mounting)")
+     "Camera Hardware Parameters (not including information on lens or
+     mounting)")
     (show-help-section
      *cli-lens-options*
-     "Lens Parameters (for human consumption; not used for photogrammetric calculation)")
+     "Lens Parameters"
+     "Stored primarily for human consumption; not used in
+     photogrammetric calculations.")
     (show-help-section
      *cli-generic-device-options*
-     "Generic Device Definition (basically a particular camera with a particular lens)")
+     "Generic Device Definition"
+     "Basically, this is a particular camera fitted with a particular
+     lens.")
     (show-help-section
      *cli-device-stage-of-life-options*
-     "Device Stage-Of-Life Definition (generic device in a particular mounting constellation)")
+     "Device Stage-Of-Life Definition"
+     "A stage-of-life of a generic device is a possibly unfinished
+     period of time during which the mounting constellation of the
+     generic device remains unchanged.")
     (show-help-section
      *cli-device-stage-of-life-end-options*
-     "Put An End To A Device's Stage-Of-Life (e.g. after accidental change of mounting constellation)")
+     "Put An End To A Device's Stage-Of-Life"
+     "This should be done after any event that renders any portion of
+     the calibration data invalid. E.g.: accidental change of mounting
+     constellation.")
     (show-help-section
-     *cli-camera-calibration-options* "Camera Calibration Parameters")
+     *cli-camera-calibration-options*
+     "Camera Calibration Parameters")
     (show-help-section
      *cli-acquisition-project-options*
-     "Manage Acquisition Projects")
+     "Manage Acquisition Projects"
+     "An acquisition project is a set of measurements which share a
+     set of data tables and views all of which have names beginning
+     with dat-<acquisition-project-name>-.")
     (show-help-section
      *cli-store-images-and-points-options*
      "Store Measure Data")
@@ -438,11 +469,26 @@ according to the --verbose option given."
      "Become A HTTP Presentation Server")
     (show-help-section
      *cli-presentation-project-options*
-     "Manage Presentation Projects (comprising data visible via web interface)")
+     "Manage Presentation Projects"
+     "A presentation project is a set of measurements that can be
+     visited under a dedicated URL
+     \(http://<host>:<port>/phoros/<presentation-project>).
+     Its extent may or may not be equal to the extent of an
+     acquisition project.")
     (show-help-section
      *cli-aux-view-options*
      "Connect A Presentation Project To A Table Of Auxiliary Data"
-     "Arbitrary data from tables not directly belonging to any Phoros project can be connected to a presentation project by means of a view which must be named usr-<presentation-project-name>-aux-point and which must contain the columns coordinates (geometry), aux-numeric (null or array of numeric), and aux-text (null or array of text).  The array elements of both aux-numeric and aux-text of auxiliary points can than be incorporated into neighbouring user points.  In simple cases (auxiliary data from one table which has a geometry column and some numeric and/or text columns), the following options can be used to create such view.")
+     "Arbitrary data from tables not directly belonging to any Phoros
+     project can be connected to a presentation project by means of a
+     view which must be named
+     usr-<presentation-project-name>-aux-point and which must contain
+     the columns coordinates (geometry), aux-numeric (null or array of
+     numeric), and aux-text (null or array of text).  The array
+     elements of both aux-numeric and aux-text of auxiliary points can
+     then be incorporated into neighbouring user points."
+     "In simple cases (auxiliary data from one table which has a
+     geometry column and some numeric and/or text columns), the
+     following options can be used to create such view.")
     (show-help-section
      *cli-user-options*
      "Manage Presentation Project Users")))
@@ -473,7 +519,8 @@ the key argument, or the whole dotted string."
       (otherwise
        (format
         *standard-output*
-        "~&~A version ~A~&  ~A version ~A~&  Proj4 library: ~A~&  PhoML version ~A~&"
+        "~&~A version ~A~&  ~A version ~A~&  ~
+         Proj4 library: ~A~&  PhoML version ~A~&"
         (handler-bind ((warning #'ignore-warnings))
           (asdf:system-description (asdf:find-system :phoros)))
         (handler-bind ((warning #'ignore-warnings))
@@ -525,7 +572,8 @@ the key argument, or the whole dotted string."
                           log-dir)
     (launch-logger log-dir)
     (when (yes-or-no-p
-           "You asked me to delete anything in database ~A at ~A:~D.  Proceed?"
+           "You asked me to delete anything in database ~A at ~A:~D.  ~
+            Proceed?"
            database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
@@ -631,8 +679,9 @@ the key argument, or the whole dotted string."
                     :from
                     'sys-acquisition-project :natural :left-join 'sys-measurement)
                    'common-table-name 'measurement-id)))))
-        (format-table *standard-output* " | " content
-                      "Acquisition Project" "ID" "Meas. ID" "Directory" "Cartesian CS")))))
+        (format-table
+         *standard-output* " | " content
+         "Acquisition Project" "ID" "Meas. ID" "Directory" "Cartesian CS")))))
 
 (defun store-images-and-points-action (common-table-name)
   "Put data into the data tables."
