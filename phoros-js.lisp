@@ -28,6 +28,14 @@
          "innerHTML of element with id=\"id\"."
          `(chain document (get-element-by-id ,id) inner-h-t-m-l))
 
+       (defmacro value-with-id (id)
+         "Value of element with id=\"id\"."
+         `(chain document (get-element-by-id ,id) value))
+
+       (defmacro checkbox-status-with-id (id)
+         "Whether checkbox with id=\"id\" is checked or not."
+         `(chain document (get-element-by-id ,id) checked))
+
        (defvar *help-topics*
          (create
           :user-role
@@ -195,6 +203,12 @@ help message."
 
        (defvar *global-position* undefined
          "Coordinates of the current estimated position")
+
+       (defvar *current-nearest-aux-point*
+         (create attributes (create aux-numeric undefined
+                                    aux-text undefined))
+         "Attributes of currently selected point of auxiliary data.")
+
 
        (defvar *bbox-strategy* (chain *open-layers *strategy *bbox*))
        (setf (chain *bbox-strategy* prototype ratio) 1.5)
@@ -385,13 +399,14 @@ shadow any other control."
          "Grey out HTML element with id=\"id\"."
          (setf (chain document (get-element-by-id id) disabled) t))
 
-       (defmacro value-with-id (id)
-         "Value of element with id=\"id\"."
-         `(chain document (get-element-by-id ,id) value))
-
-       (defmacro checkbox-status-with-id (id)
-         "Whether checkbox with id=\"id\" is checked or not."
-         `(chain document (get-element-by-id ,id) checked))
+       (defun hide-aux-data-choice ()
+         "Disable selector for auxiliary data."
+         (disable-element-with-id "include-aux-data-p")
+         (setf (chain document
+                      (get-element-by-id "aux-point-distance")
+                      options
+                      length)
+               0))
 
        (defun refresh-layer (layer)
          "Have layer re-request and redraw features."
@@ -463,6 +478,23 @@ into a (first) photo."
                   (add-features feature))))
        ;; either *line-string or *multi-point are usable
 
+       (defun request-nearest-aux-points (global-position count)
+         "Draw into streetmap the count nearest points of auxiliary
+data."
+         (let ((global-position-etc global-position)
+               content)
+           (setf (chain global-position-etc count) count)
+           (setf content (chain *json-parser*
+                                (write global-position-etc)))
+           (setf (@ *streetmap* aux-local-data-request-response)
+                 ((@ *open-layers *Request *POST*)
+                  (create :url "/phoros-lib/aux-local-data"
+                          :data content
+                          :headers (create "Content-type" "text/plain"
+                                           "Content-length"
+                                           (@ content length))
+                          :success draw-nearest-aux-points)))))
+
        (defun draw-estimated-positions ()
          "Draw into streetmap and into all images points at Estimated
 Position.  Estimated Position is the point returned so far from
@@ -508,20 +540,7 @@ to Estimated Position."
                     (add-features feature))
              (chain *streetmap*
                     (add-layer *streetmap-estimated-position-layer*)))
-           (let ((global-position-etc *global-position*)
-                 (count 3)
-                 content)
-             (setf (chain global-position-etc count) count)
-             (setf content (chain *json-parser*
-                                  (write global-position-etc)))
-             (setf (@ *streetmap* aux-local-data-request-response)
-                   ((@ *open-layers *Request *POST*)
-                    (create :url "/phoros-lib/aux-local-data"
-                            :data content
-                            :headers (create "Content-type" "text/plain"
-                                             "Content-length"
-                                             (@ content length))
-                            :success draw-nearest-aux-points))))
+           (request-nearest-aux-points *global-position* 5)
            (loop
               for i in *images*
               for p in estimated-positions
@@ -554,6 +573,7 @@ to Estimated Position."
 
        (defun draw-nearest-aux-points ()
          "Draw a few auxiliary points into streetmap."
+         (enable-element-with-id "include-aux-data-p")
          (let ((features
                  (chain *json-parser*
                         (read
@@ -585,7 +605,7 @@ to Estimated Position."
                 (setf (chain feature attributes)
                       (chain i properties))
                 (setf (chain feature fid) ;this is supposed to correspond to
-                      n)                  ; option of *aux-point-distance-select
+                      n)                  ; option of *aux-point-distance-select*
                 (chain *streetmap-nearest-aux-points-layer*
                        (add-features feature))
                 (setf aux-point-distance-item
@@ -607,30 +627,32 @@ to Estimated Position."
 
        (defun draw-user-point ()
          "Draw currently selected user point into all images."
-         (let* ((user-point-in-images
+         (let* ((user-point
                  (chain *json-parser*
                         (read
                          (getprop *user-point-in-images-response*
-                                  'response-text)))))
+                                  'response-text))))
+                (user-point-in-images (chain user-point image-positions))
+                (user-point-globally (chain user-point global-position)))
            (loop
               for i in *images*
               for p in user-point-in-images
               do
-              (when i    ;otherwise a photogrammetry error has occured
-                (setf (@ i user-point-layer)
-                      (new (chain *open-layers
-                                  *layer
-                                  (*vector "User Point"
-                                           (create display-in-layer-switcher nil)))))
-                (let* ((point
-                        (new (chain *open-layers *geometry (*point
-                                                            (getprop p 'm)
-                                                            (getprop p 'n)))))
-                       (feature
-                        (new (chain *open-layers *feature (*vector point)))))
-                  (setf (chain feature render-intent) "select")
-                  (chain i map (add-layer (@ i user-point-layer)))
-                  (chain i user-point-layer (add-features feature)))))))
+                (when i    ;otherwise a photogrammetry error has occured
+                  (setf (@ i user-point-layer)
+                        (new (chain *open-layers
+                                    *layer
+                                    (*vector "User Point"
+                                             (create display-in-layer-switcher nil)))))
+                  (let* ((point
+                          (new (chain *open-layers *geometry (*point
+                                                              (getprop p 'm)
+                                                              (getprop p 'n)))))
+                         (feature
+                          (new (chain *open-layers *feature (*vector point)))))
+                    (setf (chain feature render-intent) "select")
+                    (chain i map (add-layer (@ i user-point-layer)))
+                    (chain i user-point-layer (add-features feature)))))))
 
        (defun finish-point ()
          "Send current *global-position* as a user point to the database."
@@ -644,14 +666,15 @@ to Estimated Position."
                  (value-with-id "point-description"))
            (setf (chain global-position-etc numeric-description)
                  (value-with-id "point-numeric-description"))
-           (setf (chain global-position-etc aux-numeric)
-                 (chain *current-nearest-aux-point*
-                        attributes
-                        aux-numeric))
-           (setf (chain global-position-etc aux-text)
-                 (chain *current-nearest-aux-point*
-                        attributes
-                        aux-text))
+           (when (checkbox-status-with-id "include-aux-data-p")
+             (setf (chain global-position-etc aux-numeric)
+                   (chain *current-nearest-aux-point*
+                          attributes
+                          aux-numeric))
+             (setf (chain global-position-etc aux-text)
+                   (chain *current-nearest-aux-point*
+                          attributes
+                          aux-text)))
            (let ((content 
                   (chain *json-parser*
                          (write global-position-etc))))
@@ -754,27 +777,27 @@ photogrammetric calculations."
                   (chain *user-points-select-control* (unselect *current-user-point*)))
                 (loop
                    for i across *images* do
-                   (unless (== i clicked-image)
-                     (setf
-                      (@ i epipolar-layer)
-                      (new (chain *open-layers
-                                  *layer
-                                  (*vector "Epipolar Line"
-                                           (create display-in-layer-switcher nil))))
-                      content (chain *json-parser*
-                                     (write
-                                      (append (array photo-parameters)
-                                              (@ i photo-parameters))))
-                      (@ i epipolar-request-response)
-                      ((@ *open-layers *Request *POST*)
-                       (create :url "/phoros-lib/epipolar-line"
-                               :data content
-                               :headers (create "Content-type" "text/plain"
-                                                "Content-length"
-                                                (@ content length))
-                               :success (getprop i 'draw-epipolar-line)
-                               :scope i)))
-                     ((@ i map add-layer) (@ i epipolar-layer)))))
+                     (unless (== i clicked-image)
+                       (setf
+                        (@ i epipolar-layer)
+                        (new (chain *open-layers
+                                    *layer
+                                    (*vector "Epipolar Line"
+                                             (create display-in-layer-switcher nil))))
+                        content (chain *json-parser*
+                                       (write
+                                        (append (array photo-parameters)
+                                                (@ i photo-parameters))))
+                        (@ i epipolar-request-response)
+                        ((@ *open-layers *Request *POST*)
+                         (create :url "/phoros-lib/epipolar-line"
+                                 :data content
+                                 :headers (create "Content-type" "text/plain"
+                                                  "Content-length"
+                                                  (@ content length))
+                                 :success (getprop i 'draw-epipolar-line)
+                                 :scope i)))
+                       ((@ i map add-layer) (@ i epipolar-layer)))))
               (progn
                 (remove-any-layers "Epipolar Line")
                 (remove-any-layers "Estimated Position")
@@ -942,13 +965,17 @@ image-index in array *images*."
        (defun user-point-selected (event)
          "Things to do once a user point is selected."
          (setf *current-user-point* (chain event feature))
+         (hide-aux-data-choice)
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Estimated Position")
          (remove-any-layers "User Point")
          (if (write-permission-p (chain event feature attributes user-name))
              (progn
-               (setf (chain document (get-element-by-id "finish-point-button") onclick) update-point)
+               (setf (chain document
+                            (get-element-by-id "finish-point-button")
+                            onclick)
+                     update-point)
                (enable-element-with-id "finish-point-button")
                (enable-element-with-id "delete-point-button")
                (setf (inner-html-with-id "h2-controls") "Edit Point"))
@@ -958,10 +985,20 @@ image-index in array *images*."
                (setf (inner-html-with-id "h2-controls") "View Point")))
          (setf (inner-html-with-id "creator")
                (+ "(by " (chain event feature attributes user-name) ")"))
-         (setf (value-with-id "point-attribute") (chain event feature attributes attribute))
-         (setf (value-with-id "point-description") (chain event feature attributes description))
-         (setf (value-with-id "point-numeric-description") (chain event feature attributes numeric-description))
-         (setf (inner-html-with-id "point-creation-date") (chain event feature attributes creation-date))
+         (setf (value-with-id "point-attribute")
+               (chain event feature attributes attribute))
+         (setf (value-with-id "point-description")
+               (chain event feature attributes description))
+         (setf (value-with-id "point-numeric-description")
+               (chain event feature attributes numeric-description))
+         (setf (inner-html-with-id "point-creation-date")
+               (chain event feature attributes creation-date))
+         (setf (inner-html-with-id "aux-numeric")
+               (html-ordered-list
+                (chain event feature attributes aux-numeric)))
+         (setf (inner-html-with-id "aux-text")
+               (html-ordered-list
+                (chain event feature attributes aux-text)))
          (setf content
                (chain *json-parser*
                       (write
@@ -999,9 +1036,20 @@ image-index in array *images*."
 accordingly."
          (if (checkbox-status-with-id "include-aux-data-p")
              (chain *streetmap-nearest-aux-points-layer*
-                      (set-visibility t))
+                    (set-visibility t))
              (chain *streetmap-nearest-aux-points-layer*
-                      (set-visibility nil))))
+                    (set-visibility nil))))
+
+       (defun html-ordered-list (aux-data)
+         "Return a html-formatted list from aux-data."
+         (if aux-data
+             (who-ps-html
+              (:ol :class "aux-data-list"
+                   (chain aux-data
+                          (reduce (lambda (x y)
+                                    (+ x (who-ps-html (:li y))))
+                                  ""))))
+             ""))
 
        (defun nearest-aux-point-selected (event)
          "Things to do once a nearest auxiliary point is selected in streetmap."
@@ -1014,23 +1062,11 @@ accordingly."
                 (chain event feature attributes distance)))
            (setf (chain *aux-point-distance-select* options selected-index)
                  (chain event feature fid))
-           (setf (inner-html-with-id "aux-distance")
-                 distance)
            (setf (inner-html-with-id "aux-numeric")
-                 (when aux-numeric
-                   (who-ps-html
-                    (:ol (chain aux-numeric
-                                (reduce (lambda (x y)
-                                          (+ x (who-ps-html (:li y))))
-                                        ""))))))
+                 (html-ordered-list aux-numeric))
            (setf (inner-html-with-id "aux-text")
-                 (when aux-text
-                   (who-ps-html
-                    (:ol (chain aux-text
-                                (reduce (lambda (x y)
-                                          (+ x (who-ps-html (:li y))))
-                                        ""))))))))
-
+                 (html-ordered-list aux-text))))
+       
        (defun init ()
          "Prepare user's playground."
          (when (write-permission-p)
@@ -1154,7 +1190,7 @@ accordingly."
            (chain *streetmap* (add-control *user-points-select-control*))
            (chain *user-points-select-control* (activate))
            (chain *nearest-aux-points-select-control* (activate))
-    
+           
            (chain *streetmap* (add-layer *osm-layer*))
            ;;(chain *streetmap* (add-layer *google*))
            (chain *streetmap* (add-layer *streetmap-nearest-aux-points-layer*))

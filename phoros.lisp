@@ -263,8 +263,14 @@ wrapped in an array."
            (point-form
             (format nil "SRID=4326; POINT(~S ~S ~S)"
                     longitude-input latitude-input ellipsoid-height-input))
-           (aux-numeric (apply #'vector (cdr (assoc :aux-numeric data))))
-           ;;(aux-text (apply #'vector (cdr (assoc :aux-text data)))) ;TODO: enable
+           (aux-numeric-raw (cdr (assoc :aux-numeric data)))
+           (aux-text-raw (cdr (assoc :aux-text data)))
+           (aux-numeric (if aux-numeric-raw
+                            (apply #'vector aux-numeric-raw)
+                            :null))
+           (aux-text (if aux-text-raw
+                         (apply #'vector aux-text-raw)
+                         :null))
            (user-point-table-name
             (user-point-table-name presentation-project-name)))
       (assert
@@ -283,7 +289,7 @@ wrapped in an array."
                                      'stdy-global stdy-global
                                      'stdz-global stdz-global
                                      'aux-numeric aux-numeric
-                                     ;;'aux-text aux-text ;TODO: enable
+                                     'aux-text aux-text
                                      )))
          () "No point stored.  This should not happen.")))))
 
@@ -317,7 +323,8 @@ wrapped in an array."
                                                      user-id
                                                      'user-id)
                                                  user-id)))))
-         () "No point stored.  Did you try to update someone else's point without having admin permission?")))))
+         () "No point stored.  Did you try to update someone else's point ~
+             without having admin permission?")))))
 
 (define-easy-handler
     (delete-point :uri "/phoros-lib/delete-point" :default-request-type :post)
@@ -587,35 +594,39 @@ send all points."
                                        'presentation-project-name))))
           (encode-geojson-to-string
            (with-connection *postgresql-credentials*
-             (query
-              (s-sql:sql-compile
-               `(:limit
-                 (:order-by
-                  (:select
-                   (:as
-                    (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
-                    'x)
-                   (:as
-                    (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
-                    'y)
-                   (:as
-                    (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
-                    'z)
-                   (:as 'user-point-id 'id) ;becomes fid on client
-                   'attribute
-                   'description
-                   'numeric-description
-                   'user-name
-                   (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
-                        'creation-date)
-                   :from ,user-point-table-name :natural :left-join 'sys-user
-                   :where (:&&
-                           (:st_transform 'coordinates ,*standard-coordinates*)
-                           (:st_setsrid  (:type ,(box3d bounding-box) box3d)
-                                         ,*standard-coordinates*)))
-                  ,order-criterion)
-                 ,limit))
-              :plists))))
+             (nsubst
+              nil :null
+              (query
+               (s-sql:sql-compile
+                `(:limit
+                  (:order-by
+                   (:select
+                    (:as
+                     (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
+                     'x)
+                    (:as
+                     (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
+                     'y)
+                    (:as
+                     (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
+                     'z)
+                    (:as 'user-point-id 'id) ;becomes fid on client
+                    'attribute
+                    'description
+                    'numeric-description
+                    'user-name
+                    (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
+                         'creation-date)
+                    'aux-numeric
+                    'aux-text
+                    :from ,user-point-table-name :natural :left-join 'sys-user
+                    :where (:&&
+                            (:st_transform 'coordinates ,*standard-coordinates*)
+                            (:st_setsrid  (:type ,(box3d bounding-box) box3d)
+                                          ,*standard-coordinates*)))
+                   ,order-criterion)
+                  ,limit))
+               :plists)))))
       (condition (c)
         (cl-log:log-message
          :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
@@ -748,22 +759,21 @@ send all points."
              :br
              (:input :id "include-aux-data-p"
                      :type "checkbox" :checked t :name "include-aux-data-p"
-                     :onchange (ps-inline (flip-aux-data-inclusion))
-                     "include auxiliary data")
+                     :onchange (ps-inline (flip-aux-data-inclusion)))
              (:select :id "aux-point-distance" :disabled t
                       :size 1 :name "aux-point-distance"
                       :onchange (ps-inline (aux-point-distance-selected))
                       :onclick (ps-inline (enable-aux-point-selection)))
-             (:div :id "aux-distance")
-             (:div :id "aux-numeric")
-             (:div :id "aux-text")
              :br
-             (:button :disabled t :id "finish-point-button"
-                      :type "button"
-                      "finish")
-             (:button :id "delete-point-button" :disabled t
-                      :type "button" :onclick (ps-inline (delete-point))
-                      "delete")
+             (:div (:div :id "aux-numeric")
+                   (:div :id "aux-text"))
+             :br
+             (:div (:button :disabled t :id "finish-point-button"
+                            :type "button"
+                            "finish")
+                   (:button :id "delete-point-button" :disabled t
+                            :type "button" :onclick (ps-inline (delete-point))
+                            "delete"))
              :br
              (:button :id "download-user-points-button"
                       :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json\""
@@ -803,6 +813,7 @@ send all points."
   "Receive vector of two sets of picture parameters, respond with
 JSON encoded epipolar-lines."
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (let* ((data (json:decode-json-from-string (raw-post-data))))
       (json:encode-json-to-string
        (photogrammetry :epipolar-line (first data) (second data))))))
@@ -820,6 +831,7 @@ images from the received second vector.  TODO: report error on bad
 data (ex: points too far apart)."
   ;; TODO: global-point-for-display should probably contain a proj string in order to make sense of the (cartesian) standard deviations.
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (let* ((data (json:decode-json-from-string (raw-post-data)))
            (active-point-photo-parameters (first data))
            (destination-photo-parameters (second data))
@@ -854,40 +866,47 @@ data (ex: points too far apart)."
     ()
   "Receive a two-part JSON vector comprising (1) a user-point-id and
 \(2) a vector containing sets of picture-parameters; respond with a
-JSON encoded vector of image coordinates (m, n) for the global
-coordinates of the user point with user-point-id that correspond to
-the images from the received image vector."
+JSON object comprising the elements image-positions (vector of image
+coordinates (m, n) for the global coordinates of the user point with
+user-point-id that correspond to the images from the received image
+vector), and global-position (vector containing global coordinates of
+the user point)."
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (let* ((user-point-table-name
             (user-point-table-name (session-value 'presentation-project-name)))
            (data (json:decode-json-from-string (raw-post-data)))
            (user-point-id (first data))
            (destination-photo-parameters (second data))
-           (cartesian-system (cdr (assoc :cartesian-system (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
+           (cartesian-system
+            (cdr (assoc :cartesian-system
+                        (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
            (global-point-geographic
             (with-connection *postgresql-credentials*
               (query
                (:select
                 (:as
                  (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                 'x-global)
+                 'longitude)
                 (:as
                  (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                 'y-global)
+                 'latitude)
                 (:as
                  (:st_z (:st_transform 'coordinates *standard-coordinates*))
-                 'z-global)
+                 'ellipsoid-height)
                 :from user-point-table-name
                 :where (:= 'user-point-id user-point-id))
-               :list)))
+               :alist)))
            (global-point-cartesian
             (ignore-errors ;in case no destination-photo-parameters have been sent
               (pairlis '(:x-global :y-global :z-global)
                        (proj:cs2cs
                         (list
-                         (proj:degrees-to-radians (first global-point-geographic))
-                         (proj:degrees-to-radians (second global-point-geographic))
-                         (third global-point-geographic))
+                         (proj:degrees-to-radians
+                          (cdr (assoc :longitude global-point-geographic)))
+                         (proj:degrees-to-radians
+                          (cdr (assoc :latitude global-point-geographic)))
+                         (cdr (assoc :ellipsoid-height global-point-geographic)))
                         :destination-cs cartesian-system))))
            (image-coordinates
             (loop
@@ -895,12 +914,19 @@ the images from the received image vector."
                collect
                (ignore-errors
                  (photogrammetry :reprojection i global-point-cartesian)))))
-      (if image-coordinates
-          (json:encode-json-to-string image-coordinates)
-          (setf (return-code*) +http-no-content+)))))
+      (with-output-to-string (s)
+        (json:with-object (s)
+          (json:encode-object-member
+           :global-position global-point-geographic s)
+          (json:encode-object-member
+           :image-positions image-coordinates s))))))
 
-(define-easy-handler (multi-position-intersection :uri "/phoros-lib/intersection") ()
+(define-easy-handler
+    (multi-position-intersection :uri "/phoros-lib/intersection")
+    ()
   "Receive vector of sets of picture parameters, respond with stuff."
   (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
     (let* ((data (json:decode-json-from-string (raw-post-data))))
-      (json:encode-json-to-string (photogrammetry :multi-position-intersection data)))))
+      (json:encode-json-to-string
+       (photogrammetry :multi-position-intersection data)))))

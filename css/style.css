@@ -77,8 +77,6 @@ h6 {
  */
 button, select {
     cursor: pointer;
-    padding: 1px;
-    margin: 3px;
 }
 .vanilla-input {
     padding: 1px;
@@ -87,6 +85,20 @@ button, select {
 .tight-input {
     padding: 0px;
     margin: 0px;
+}
+#aux-point-distance {
+    width: 150px;
+}
+#aux-numeric, #aux-text {
+    float: left;
+    width: 120px;
+    height: 75px;
+    overflow: auto;
+    border: 1px solid green;
+}
+.aux-data-list {
+    list-style-type: upper-alpha;
+    line-height: 1;
 }
 .phoros-controls {
     float: left;
