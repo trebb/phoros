@@ -707,8 +707,7 @@ send all points."
        (:link :rel "stylesheet"
               :href "/phoros-lib/css/style.css" :type "text/css")
        (:script :src "/phoros-lib/phoros.js")
-       ;;(:script :src "http://maps.google.com/maps/api/js?sensor=false")
-       )
+       (:script :src "http://maps.google.com/maps/api/js?sensor=false"))
       (:body
        :onload (ps (init))
        (:h1 :id "title"
@@ -720,64 +719,47 @@ send all points."
             (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name))))
        (:div :class "controlled-streetmap"
+             (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
              (:div :id "streetmap-controls" :class "streetmap-controls"
-                   (:div :class "streetmap-zoom-and-layer-switcher"
-                         (:div :id "streetmap-layer-switcher"
-                               :class "streetmap-layer-switcher")
-                         (:div :id "streetmap-zoom" :class "streetmap-zoom"))
-                   (:div :id "streetmap-overview" :class "streetmap-overview")
                    (:div :id "streetmap-vertical-strut"
                          :class "streetmap-vertical-strut")
+                   (:div :id "streetmap-zoom" :class "streetmap-zoom")
+                   (:div :id "streetmap-layer-switcher"
+                         :class "streetmap-layer-switcher")
+                   (:div :id "streetmap-overview" :class "streetmap-overview")
                    (:div :id "streetmap-mouse-position"
-                         :class "streetmap-mouse-position"))
-             (:div :id "streetmap" :class "smallmap" :style "cursor:crosshair"))
+                         :class "streetmap-mouse-position")))
        (:div :class "phoros-controls"
-             (:div :class "phoros-controls-vertical-strut")
-             (:button :id "blurb-button"
-                      :type "button"
-                      :onclick (ps-inline
-                                (chain window
-                                       (open "/phoros-lib/blurb" "About Phoros")))
-                      "blurb")
-             (:button :id "logout-button"
-                      :type "button"
-                      :onclick "self.location.href = \"/phoros-lib/logout\""
-                      "bye")
-             :br
+             (:div :id "phoros-controls-vertical-strut"
+                   :class "phoros-controls-vertical-strut")
              (:h2 (:span :id "h2-controls") (:span :id "creator"))
-             (:small (:code :id "point-creation-date"))
-             :br
              (:select :id "point-attribute" :disabled t
                       :size 1 :name "point-attribute")
              (:input :id "point-numeric-description" :class "vanilla-input "
                      :disabled t
-                     :type "text" :size 6 :name "point-numeric-description")
-             :br
+                     :type "text" :name "point-numeric-description")
              (:input :id "point-description" :class "vanilla-input"
                      :disabled t
-                     :type "text" :size 20 :name "point-description")
-             :br
-             (:input :id "include-aux-data-p"
-                     :type "checkbox" :checked t :name "include-aux-data-p"
-                     :onchange (ps-inline (flip-aux-data-inclusion)))
-             (:select :id "aux-point-distance" :disabled t
-                      :size 1 :name "aux-point-distance"
-                      :onchange (ps-inline (aux-point-distance-selected))
-                      :onclick (ps-inline (enable-aux-point-selection)))
-             :br
-             (:div (:div :id "aux-numeric")
-                   (:div :id "aux-text"))
-             :br
-             (:div (:button :disabled t :id "finish-point-button"
-                            :type "button"
-                            "finish")
-                   (:button :id "delete-point-button" :disabled t
+                     :type "text" :name "point-description")
+             (:div (:button :id "delete-point-button" :disabled t
                             :type "button" :onclick (ps-inline (delete-point))
-                            "delete"))
-             :br
-             (:button :id "download-user-points-button"
-                      :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json\""
-                      "download user points") ;TODO: offer other formats and maype projections
+                            "delete")
+                   (:button :disabled t :id "finish-point-button"
+                            :type "button"
+                            "finish"))
+             (:div :id "aux-point-distance-or-point-creation-date"
+                   (:code :id "point-creation-date")
+                   (:input :id "include-aux-data-p"
+                           :type "checkbox" :checked t :name "include-aux-data-p"
+                           :onchange (ps-inline (flip-aux-data-inclusion)))
+                   (:select :id "aux-point-distance" :disabled t
+                            :size 1 :name "aux-point-distance"
+                            :onchange (ps-inline (aux-point-distance-selected))
+                            :onclick (ps-inline (enable-aux-point-selection))))
+
+             (:div :id "aux-data"
+                   (:div :id "aux-numeric-list")
+                   (:div :id "aux-text-list"))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
@@ -787,7 +769,22 @@ send all points."
                    (:div :id "remove-work-layers-button" :disabled t
                          :onclick (ps-inline (reset-layers-and-controls))
                          "start over")))
-       (:div :class "smalltext"
+       (:div :class "help-div"
+             (:button :id "download-user-points-button"
+                      :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json\""
+                      "download points") ;TODO: offer other formats and maybe projections
+             (:button :id "blurb-button"
+                      :type "button"
+                      :onclick (ps-inline
+                                (chain window
+                                       (open "/phoros-lib/blurb" "About Phoros")))
+                      (:img :src "/phoros-lib/public_html/phoros-logo-plain.png"
+                            :alt "Phoros" :style "vertical-align:middle"
+                            :height 20))
+             (:button :id "logout-button"
+                      :type "button"
+                      :onclick "self.location.href = \"/phoros-lib/logout\""
+                      "bye")
              (:h2 :id "h2-help" "Help")
              (:div :id "help-display"))
        (:div :id "images" :style "clear:both"

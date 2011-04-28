@@ -79,42 +79,69 @@ button, select {
     cursor: pointer;
 }
 .vanilla-input {
-    padding: 1px;
-    margin: 3px;
+    font: 1em 'andale mono', 'lucida console', monospace;
+    padding: 0px;
+    margin: 0px;
 }
 .tight-input {
     padding: 0px;
     margin: 0px;
 }
-#aux-point-distance {
-    width: 150px;
+#point-description {
+    width: 210px;
+    height: 21px;
 }
-#aux-numeric, #aux-text {
-    float: left;
+#point-numeric-description {
     width: 120px;
-    height: 75px;
+    height: 21px;
+    float: right;
+}
+#point-attribute {
+    height: 21;
+}
+#finish-point-button {
+    width: 145px;
+    height: 30;
+}
+#delete-point-button {
+    width: 60px;
+    height: 30;
+}
+#aux-point-distance-or-point-creation-date {
+    width: 210px;
+    height: 23px;
+    text-align: center;
+    margin-top: 5px;
+}
+#include-aux-data-p {
+    /* height: 23px; */
+}
+#aux-point-distance {
+    width: 180px;
+    float: right;
+}
+#aux-data {
+    float: left;
+    width: 210px;
     overflow: auto;
-    border: 1px solid green;
 }
 .aux-data-list {
+    width: 170px;
     list-style-type: upper-alpha;
     line-height: 1;
 }
 .phoros-controls {
     float: left;
     text-align:left;
-    margin-left: 1em;
-    margin-right: 1em;
-    margin-top: 1px;
-    margin-bottom: 1px;
-    height: 368px;
+    width: 210px;
+    height: 320px;
 }
 .phoros-controls-vertical-strut {
-    height: 350px;
-    width: 1px;
     float: right;
+    height: 305px;
+    width: 0px;
 }
-.smalltext {
+.help-div {
     float: left;
     cursor: default;
     background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
@@ -124,19 +151,24 @@ button, select {
     height: 256px;
     margin-left: 1em;
 }
-.smallmap {
-    float: left;
-    width: 512px;
-    height: 256px;
-    border: 1px solid #00008B;
-}
 .controlled-streetmap {
     float: left;
-    margin: 1px;
+    margin-left: 1px;
+    margin-right: 1em;
+    margin-top: 1px;
+    margin-bottom: 1px;
+    border: 1px solid #00008B;
+}
+.streetmap {
+    float: left;
+    width: 512px;
+    height: 320px;
 }
 .streetmap-controls {
-    width: 100%;
-    height: 110px;
+    float: left;
+    width: 200px;
+    height: 320px;
+    line-height: 1;
     background-color: #00008B;
 }
 .streetmap-zoom {
@@ -144,7 +176,7 @@ button, select {
     width: 126px;
 }
 .streetmap-layer-switcher {
-    height: 92px;
+    /* height: 92px; */
 }
 .streetmap-layer-switcher span {    /*layer name*/
     cursor: pointer;
@@ -154,32 +186,29 @@ button, select {
     cursor: pointer;            /*TODO: doesn't work*/
 }
 .streetmap-vertical-strut {
-    height: 92px;
-    width: 1px;
+    float: right;
+    height: 196px;
+    width: px;
+    background-color: black;
 }
 .streetmap-mouse-position {
     font: 1em 'andale mono', 'lucida console', monospace;
-    color: white; 
-    float: right;
-    height: 18px;
-    margin-right: 5px;
-}
-.streetmap-zoom-and-layer-switcher {
-    width: 126px;
-    height: 110px;
+    color: white;
+    clear: both;
     float: left;
+    height: 18px;
+    margin-left: 5px;
 }
 .streetmap-overview {
-    width: 200px;
+    width: 190px;
     height: 110px;
-    margin-left: 5px;
+    clear: both;
     float: left;
 }
 .image-main-controls {
     height: 18px;
     background-color: #00008B;
     clear: right;
-    float: left;
 }
 #remove-work-layers-button {
     color: #00008B;
@@ -201,7 +230,7 @@ button, select {
     font-size: smaller;
     color: white;
     float: left;
-    padding-top: 3px;
+    /* padding-top: 3px; */
     margin-left: 5px;
     margin-right: 10px;
 }
