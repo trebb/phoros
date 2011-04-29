@@ -38,7 +38,8 @@ SOURCE = *.lisp *.asd Makefile
 phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML) $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON)
-	$(LISP) --load make.lisp
+	$(LISP) --lose-on-corruption --disable-ldb --end-runtime-options \
+		--disable-debugger --load make.lisp
 
 $(OPENLAYERS_TARBALL) :
 	wget http://openlayers.org/download/$@
