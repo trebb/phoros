@@ -723,12 +723,12 @@ send all points."
              (:div :id "streetmap-controls" :class "streetmap-controls"
                    (:div :id "streetmap-vertical-strut"
                          :class "streetmap-vertical-strut")
-                   (:div :id "streetmap-zoom" :class "streetmap-zoom")
                    (:div :id "streetmap-layer-switcher"
                          :class "streetmap-layer-switcher")
                    (:div :id "streetmap-overview" :class "streetmap-overview")
                    (:div :id "streetmap-mouse-position"
-                         :class "streetmap-mouse-position")))
+                         :class "streetmap-mouse-position")
+                   (:div :id "streetmap-zoom" :class "streetmap-zoom")))
        (:div :class "phoros-controls"
              (:div :id "phoros-controls-vertical-strut"
                    :class "phoros-controls-vertical-strut")

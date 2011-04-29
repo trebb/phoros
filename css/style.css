@@ -110,15 +110,14 @@ button, select {
 #aux-point-distance-or-point-creation-date {
     width: 210px;
     height: 23px;
-    text-align: center;
     margin-top: 5px;
-}
-#include-aux-data-p {
-    /* height: 23px; */
 }
 #aux-point-distance {
     width: 180px;
     float: right;
+}
+#point-creation-date {
+    padding-left: 5px;
 }
 #aux-data {
     float: left;
@@ -127,7 +126,7 @@ button, select {
 }
 .aux-data-list {
     width: 170px;
-    list-style-type: upper-alpha;
+    list-style-type: lower-roman;
     line-height: 1;
 }
 .phoros-controls {
@@ -145,10 +144,10 @@ button, select {
     float: left;
     cursor: default;
     background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
-    background-position: center;
+    background-position: 40px 90px;
     background-repeat: no-repeat;
     width: 256px;
-    height: 256px;
+    height: 320px;
     margin-left: 1em;
 }
 .controlled-streetmap {
@@ -174,6 +173,7 @@ button, select {
 .streetmap-zoom {
     height: 18px;
     width: 126px;
+    clear: both;
 }
 .streetmap-layer-switcher {
     /* height: 92px; */
@@ -187,7 +187,7 @@ button, select {
 }
 .streetmap-vertical-strut {
     float: right;
-    height: 196px;
+    height: 174px;
     width: px;
     background-color: black;
 }

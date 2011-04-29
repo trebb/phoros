@@ -39,79 +39,148 @@
        (defvar *help-topics*
          (create
           :user-role
-          (who-ps-html (:p "User role.  \"Read\" can't write or modify anything.  \"Write\" may write user points and delete their own ones. \"Admin\" may write user points and delete points written by others."))
+          (who-ps-html
+           (:p "User role.  \"Read\" can't write or modify anything.
+           \"Write\" may write user points and delete their own
+           ones. \"Admin\" may write user points and delete points
+           written by others."))
           :presentation-project-name
-          (who-ps-html (:p "Presentation project name."))
+          (who-ps-html
+           (:p "Presentation project name."))
           :h2-controls
-          (who-ps-html (:p "Next action."))
+          (who-ps-html
+           (:p "Next action."))
           :finish-point-button
-          (who-ps-html (:p "Store point with its attribute, description and numeric description into database.  Afterwards, increment the numeric description if possible."))
+          (who-ps-html
+           (:p "Store point with its attribute, description and
+           numeric description into database.  Afterwards, increment
+           the numeric description if possible."))
           :delete-point-button
-          (who-ps-html (:p "Delete current point."))
+          (who-ps-html
+           (:p "Delete current point."))
           :download-user-points-button
-          (who-ps-html (:p "Download all user points as GeoJSON-fomatted text file."))
+          (who-ps-html
+           (:p "Download all user points as GeoJSON-fomatted text file."))
           :point-attribute
-          (who-ps-html (:p "One of a few possible user point attributes.")
-                       (:p "TODO: currently only the hard-coded ones are available."))
+          (who-ps-html
+           (:p "One of a few possible user point attributes.")
+           (:p "TODO: currently only the hard-coded ones are available."))
           :point-description
-          (who-ps-html (:p "Optional verbal description of user point."))
+          (who-ps-html
+           (:p "Optional verbal description of user point."))
           :point-numeric-description
-          (who-ps-html (:p "Optional additional description of user point.  Preferrably numeric and if so, automatically incremented after finishing point."))
+          (who-ps-html
+           (:p "Optional additional description of user point.
+           Preferrably numeric and if so, automatically incremented
+           after finishing point."))
           :point-creation-date
-          (who-ps-html (:p "Creation date of current user point.  Will be updated when you change this point."))
+          (who-ps-html
+           (:p "Creation date of current user point.  Will be updated
+           when you change this point."))
           :include-aux-data-p
-          (who-ps-html (:p "Check this if the user point being created should include auxiliary data."))
+          (who-ps-html
+           (:p "Check this if the user point being created should
+           include auxiliary data."))
           :aux-point-distance
-          (who-ps-html (:p "Choose from a few sets of auxiliary data by their distance from current estimated position."))
+          (who-ps-html
+           (:p "Select a set of auxiliary data, either by its distance
+           from the current estimated position, or by clicking its
+           representation in streetmap.")
+           (:p "TODO:  This is not a decent length unit."))
           :aux-data
-          (who-ps-html (:p "Auxiliary data connected to this presentation project; numeric values followed text values if any."))
+          (who-ps-html
+           (:p "Auxiliary data connected to this presentation project;
+           all the numeric values followed by all the text values if
+           any."))
           :creator
-          (who-ps-html (:p "Creator of current user point.  Will be updated when you change this point."))
+          (who-ps-html
+           (:p "Creator of current user point.  Will be updated when
+           you change this point."))
           :remove-work-layers-button
-          (who-ps-html (:p "Discard the current, unstored user point and zoom out all images. Keep the rest of the workspace untouched."))
+          (who-ps-html
+           (:p "Discard the current, unstored user point and zoom out
+           all images. Keep the rest of the workspace untouched."))
           :blurb-button
-          (who-ps-html (:p "View some info about Phoros."))
+          (who-ps-html
+           (:p "View some info about Phoros."))
           :logout-button
-          (who-ps-html (:p "Finish this session.  Fresh login is required to continue."))
+          (who-ps-html
+           (:p "Finish this session.  Fresh login is required to
+           continue."))
           :streetmap
-          (who-ps-html (:p "Clicking into the streetmap fetches images which most probably feature the clicked point.")
-                       (:p "TODO: This is not quite so.  Currently images taken from points nearest to the clicked one are displayed.")
-                       (:p "To pan the map, drag the mouse.  To zoom, spin the mouse wheel, or hold shift down whilst dragging a box, or double-click (shift double-click for larger zoom steps) a point of interest."))
+          (who-ps-html
+           (:p "Clicking into the streetmap fetches images which most
+           probably feature the clicked point.")
+           (:p "TODO: This is not quite so.  Currently images taken
+           from points nearest to the clicked one are displayed.")
+           (:p "To pan the map, drag the mouse.  To zoom, spin the
+           mouse wheel, or hold shift down whilst dragging a box, or
+           double-click (shift double-click for larger zoom steps) a
+           point of interest."))
           :image
-          (who-ps-html (:p "Clicking into an image sets or resets the active point there.  Once a feature is marked by active points in more than one image, the estimated position is calculated.")
-                       (:p "To pan an image, drag the mouse.  To zoom, spin the mouse wheel, or hold shift down whilst dragging a box, or double-click (shift double-click for larger zoom steps) a point of interest."))
+          (who-ps-html
+           (:p "Clicking into an image sets or resets the active point
+           there.  Once a feature is marked by active points in more
+           than one image, the estimated position is calculated.")
+           (:p "To pan an image, drag the mouse.  To zoom, spin the
+           mouse wheel, or hold shift down whilst dragging a box, or
+           double-click (shift double-click for larger zoom steps) a
+           point of interest."))
           ol-Control-Pan-West-Item-Inactive
-          (who-ps-html (:p "Move viewport left."))
+          (who-ps-html
+           (:p "Move viewport left."))
           ol-Control-Pan-East-Item-Inactive
-          (who-ps-html (:p "Move viewport right."))
+          (who-ps-html
+           (:p "Move viewport right."))
           ol-Control-Pan-North-Item-Inactive
-          (who-ps-html (:p "Move viewport up."))
+          (who-ps-html
+           (:p "Move viewport up."))
           ol-Control-Pan-South-Item-Inactive
-          (who-ps-html (:p "Move viewport down."))
+          (who-ps-html
+           (:p "Move viewport down."))
           ol-Control-Zoom-In-Item-Inactive
-          (who-ps-html (:p "Zoom in."))
+          (who-ps-html
+           (:p "Zoom in."))
           ol-Control-Zoom-Out-Item-Inactive
-          (who-ps-html (:p "Zoom out."))
+          (who-ps-html
+           (:p "Zoom out."))
           streetmap-Zoom-To-Max-Extent-Item-Inactive
-          (who-ps-html (:p "Zoom to the extent of presentation project."))
+          (who-ps-html
+           (:p "Zoom to the extent of presentation project."))
           ol-Control-Zoom-To-Max-Extent-Item-Inactive
-          (who-ps-html (:p "Zoom out completely, restoring the original view."))
+          (who-ps-html
+           (:p "Zoom out completely, restoring the original view."))
           :zoom-images-to-max-extent
-          (who-ps-html (:p "Zoom all images out completely, restoring the original view."))
+          (who-ps-html
+           (:p "Zoom all images out completely, restoring the original
+           view."))
           :auto-zoom
-          (who-ps-html (:p "Check this to automatically zoom into images once they get an estimated position."))
+          (who-ps-html
+           (:p "Check this to automatically zoom into images once they
+           get an estimated position."))
           :image-layer-switcher
-          (who-ps-html (:p "Toggle display of image."))
+          (who-ps-html
+           (:p "Toggle display of image."))
           :image-trigger-time
-          (who-ps-html (:p "Time this image was taken."))
-          :streetmap-layer-switcher
-          (who-ps-html (:p "Toggle visibility of data layers, or choose a background streetmap."))
+          (who-ps-html
+           (:p "Time this image was taken."))
+          base-layers-div
+          (who-ps-html
+           (:p "Choose a background streetmap."))
+          data-layers-div
+          (who-ps-html
+           (:p "Toggle visibility of data layers."))
           :streetmap-overview
-          (who-ps-html (:p "Click to re-center streetmap, or drag the red rectangle."))
+          (who-ps-html
+           (:p "Click to re-center streetmap, or drag the red rectangle."))
           :streetmap-mouse-position
-          (who-ps-html (:p "Cursor position in geographic coordinates when cursor is in streetmap."))
+          (who-ps-html
+           (:p "Cursor position in geographic coordinates when cursor
+           is in streetmap."))
           :h2-help
-          (who-ps-html (:p "Hints on Phoros' displays and controls are shown here while hovering over the respective elements."))))
+          (who-ps-html
+           (:p "Hints on Phoros' displays and controls are shown here
+           while hovering over the respective elements."))))
 
        (defun add-help-topic (topic element)
          "Add mouse events to DOM element that initiate display of a
@@ -223,9 +292,12 @@ help message."
        (defvar *json-parser* (new (chain *open-layers *format *json*)))
 
        (defvar *geojson-format* (chain *open-layers *format *geo-j-s-o-n))
-       (setf (chain *geojson-format* prototype ignore-extra-dims) t) ;doesn't handle height anyway
-       (setf (chain *geojson-format* prototype external-projection) +geographic+)
-       (setf (chain *geojson-format* prototype internal-projection) +geographic+)
+       (setf (chain *geojson-format* prototype ignore-extra-dims)
+        t)                              ;doesn't handle height anyway
+       (setf (chain *geojson-format* prototype external-projection)
+        +geographic+)
+       (setf (chain *geojson-format* prototype internal-projection)
+        +geographic+)
 
        (defvar *http-protocol* (chain *open-layers *protocol *http*))
        (setf (chain *http-protocol* prototype format) (new *geojson-format*))
@@ -234,15 +306,14 @@ help message."
          (let ((survey-layer-style
                 (create stroke-color (chain *open-layers *feature *vector
                                             style "default" stroke-color)
-                        fill-color "#FFFFFF"
                         stroke-width 1
                         point-radius 2
-                        fill-opacity .2
-                        graphic-name "square")))
+                        fill-opacity 0
+                        graphic-name "circle")))
            (new (chain
                  *open-layers *layer
                  (*vector
-                  "Survey"
+                  "survey"
                   (create
                    strategies (array (new (*bbox-strategy*)))
                    protocol
@@ -251,19 +322,54 @@ help message."
                    style survey-layer-style
                    ))))))
 
-       (defvar *aux-point-layer*
-         (let ((aux-layer-style
-                (create stroke-color (chain *open-layers *feature *vector
-                                            style "default" stroke-color)
-                        fill-color "#000000"
-                        stroke-width 1
-                        point-radius 10
-                        fill-opacity .2
-                        graphic-name "triangle")))
+       (defvar *user-point-layer*
+         (let ((user-point-layer-style-map
+                (new (chain *open-layers
+                            (*style-map
+                             (create "default"
+                                     (create stroke-color "OrangeRed"
+                                             stroke-opacity .5
+                                             stroke-width 2
+                                             point-radius 5
+                                             fill-opacity 0
+                                             graphic-name "triangle")
+                                     "select"
+                                     (create stroke-color "OrangeRed"
+                                             stroke-opacity 1
+                                             stroke-width 2
+                                             point-radius 5
+                                             fill-opacity 0
+                                             graphic-name "triangle")
+                                     "temporary"
+                                     (create stroke-color "OrangeRed"
+                                             fill-color "OrangeRed"
+                                             stroke-opacity .5
+                                             stroke-width 2
+                                             point-radius 5
+                                             fill-opacity .5
+                                             graphic-name "triangle")))))))
            (new (chain
                  *open-layers *layer
                  (*vector
-                  "Auxiliary"
+                  "user points"
+                  (create
+                   strategies (array (new *bbox-strategy*))
+                   protocol
+                   (new (*http-protocol*
+                         (create :url "/phoros-lib/user-points.json")))
+                   style-map user-point-layer-style-map))))))
+
+       (defvar *aux-point-layer*
+         (let ((aux-layer-style
+                (create stroke-color "grey"
+                        stroke-width 1
+                        point-radius 2
+                        fill-opacity 0
+                        graphic-name "circle")))
+           (new (chain
+                 *open-layers *layer
+                 (*vector
+                  "auxiliary data"
                   (create
                    strategies (array (new (*bbox-strategy*)))
                    protocol
@@ -272,24 +378,45 @@ help message."
                    style aux-layer-style
                    visibility nil))))))
 
-       (defvar *user-point-layer*
-         (new (chain
-               *open-layers *layer
-               (*vector
-                "User Points"
-                (create
-                 strategies (array (new *bbox-strategy*))
-                 protocol
-                 (new (*http-protocol*
-                       (create :url "/phoros-lib/user-points.json"))))))))
-
        (defvar *streetmap-nearest-aux-points-layer*
-         (new (chain *open-layers
-                     *layer
-                     (*vector "Nearest Aux Points"
-                              (create display-in-layer-switcher nil
-                                      visibility t)))))
+         (let ((nearest-aux-point-layer-style-map
+                (new (chain *open-layers
+                            (*style-map
+                             (create "default"
+                                     (create stroke-color "grey"
+                                             stroke-width 1
+                                             point-radius 5
+                                             fill-opacity 0
+                                             graphic-name "circle")
+                                     "select"
+                                     (create stroke-color "black"
+                                             stroke-width 1
+                                             point-radius 5
+                                             fill-opacity 0
+                                             graphic-name "circle")
+                                     "temporary"
+                                     (create stroke-color "grey"
+                                             stroke-width 1
+                                             point-radius 5
+                                             fill-color "grey"
+                                             fill-opacity 1
+                                             graphic-name "circle")))))))
+           (new (chain *open-layers
+                       *layer
+                       (*vector "Nearest Aux Points"
+                                (create
+                                 display-in-layer-switcher nil
+                                 style-map nearest-aux-point-layer-style-map
+                                 visibility t))))))
 
+       (defvar *nearest-aux-points-hover-control*
+         (new (chain *open-layers
+                     *control
+                     (*select-feature *streetmap-nearest-aux-points-layer*
+                                      (create render-intent "temporary"
+                                              hover t
+                                              highlight-only t)))))
+       
        (defvar *nearest-aux-points-select-control*
          (new (chain *open-layers
                      *control
@@ -301,6 +428,14 @@ help message."
        (defvar *current-user-point* undefined
          "The currently selected user-point.")
 
+       (defvar *user-points-hover-control*
+         (new (chain *open-layers
+                     *control
+                     (*select-feature *user-point-layer*
+                                      (create render-intent "temporary"
+                                              hover t
+                                              highlight-only t)))))
+       
        (defvar *user-points-select-control*
          (new (chain *open-layers
                      *control
@@ -340,9 +475,12 @@ current-owner or, without arguments, new stuff."
          (setf (getprop this 'dummy) false) ;TODO why? (omitting splices map components directly into *image)
          )
 
-       (setf (getprop *image 'prototype 'show-photo) show-photo)
-       (setf (getprop *image 'prototype 'draw-epipolar-line) draw-epipolar-line)
-       (setf (getprop *image 'prototype 'draw-active-point) draw-active-point)
+       (setf (getprop *image 'prototype 'show-photo)
+        show-photo)
+       (setf (getprop *image 'prototype 'draw-epipolar-line)
+        draw-epipolar-line)
+       (setf (getprop *image 'prototype 'draw-active-point)
+        draw-active-point)
        (setf (getprop *image 'prototype 'draw-estimated-positions)
         draw-estimated-positions)
 
@@ -404,7 +542,8 @@ shadow any other control."
          (disable-streetmap-nearest-aux-points-layer)
          (when (and (!= undefined *current-user-point*)
                     (chain *current-user-point* layer))
-           (chain *user-points-select-control* (unselect *current-user-point*)))
+           (chain *user-points-select-control*
+                  (unselect *current-user-point*)))
          (reset-controls)
          (setf *pristine-images-p* t)
          (zoom-images-to-max-extent))
@@ -464,9 +603,10 @@ shadow any other control."
          (disable-streetmap-nearest-aux-points-layer)
          (reset-controls)
          (let* ((lonlat
-                 ((@ ((@ *streetmap* get-lon-lat-from-pixel) (@ event xy)) transform)
-                  +spherical-mercator+
-                  +geographic+))
+                 (chain *streetmap*
+                        (get-lon-lat-from-pixel (@ event xy))
+                        (transform +spherical-mercator+
+                                   +geographic+)))
                 (content
                  (chain *json-parser*
                         (write
@@ -493,8 +633,8 @@ into a (first) photo."
                 (points
                  (chain epipolar-line
                         (map (lambda (x)
-                               (new ((@ *open-layers *geometry *point)
-                                     (@ x :m) (@ x :n)))))))
+                               (new (chain *open-layers *geometry (*point
+                                     (@ x :m) (@ x :n))))))))
                 (feature
                  (new (chain *open-layers
                              *feature
@@ -615,6 +755,7 @@ to Estimated Position."
            (disable-streetmap-nearest-aux-points-layer)
            (chain *user-points-select-control* (deactivate))
            (chain *nearest-aux-points-select-control* (activate))
+           (chain *nearest-aux-points-hover-control* (activate))
            (setf (chain *aux-point-distance-select*
                         options
                         length)
@@ -664,21 +805,32 @@ to Estimated Position."
                          (getprop *user-point-in-images-response*
                                   'response-text))))
                 (user-point-in-images (chain user-point image-positions))
-                (user-point-globally (chain user-point global-position)))
+                (user-point-globally (chain user-point global-position))
+                (user-point-layer-style
+                 (create stroke-color "OrangeRed"
+                         stroke-width 2
+                         point-radius 5
+                         fill-opacity 0
+                         graphic-name "triangle")))
            (loop
               for i in *images*
               for p in user-point-in-images
               do
                 (when i    ;otherwise a photogrammetry error has occured
-                  (setf (@ i user-point-layer)
-                        (new (chain *open-layers
-                                    *layer
-                                    (*vector "User Point"
-                                             (create display-in-layer-switcher nil)))))
+                  (setf
+                   (@ i user-point-layer)
+                   (new (chain *open-layers
+                               *layer
+                               (*vector
+                                "User Point"
+                                (create display-in-layer-switcher nil
+                                        style user-point-layer-style)))))
                   (let* ((point
-                          (new (chain *open-layers *geometry (*point
-                                                              (getprop p 'm)
-                                                              (getprop p 'n)))))
+                          (new (chain *open-layers
+                                      *geometry
+                                      (*point
+                                       (getprop p 'm)
+                                       (getprop p 'n)))))
                          (feature
                           (new (chain *open-layers *feature (*vector point)))))
                     (setf (chain feature render-intent) "select")
@@ -732,8 +884,11 @@ to Estimated Position."
                  (create user-point-id (chain *current-user-point* fid)
                          attribute
                          (chain
-                          (elt (chain *point-attributes-select* options)
-                               (chain *point-attributes-select* options selected-index))
+                          (elt (chain *point-attributes-select*
+                                      options)
+                               (chain *point-attributes-select*
+                                      options
+                                      selected-index))
                           text)
                          description
                          (value-with-id "point-description")
@@ -794,7 +949,8 @@ photogrammetric calculations."
                    (new (chain *open-layers
                                *layer
                                (*vector "Active Point"
-                                        (create display-in-layer-switcher nil)))))
+                                        (create display-in-layer-switcher
+                                                nil)))))
              ((@ clicked-image map add-layer)
               (@ clicked-image active-point-layer))
              ((getprop clicked-image 'draw-active-point))
@@ -805,7 +961,8 @@ photogrammetric calculations."
                 (remove-any-layers "User Point") ;from images
                 (when (and (!= undefined *current-user-point*)
                            (chain *current-user-point* layer))
-                  (chain *user-points-select-control* (unselect *current-user-point*)))
+                  (chain *user-points-select-control*
+                         (unselect *current-user-point*)))
                 (loop
                    for i across *images* do
                      (unless (== i clicked-image)
@@ -1215,9 +1372,13 @@ accordingly."
                   (register "featureselected"
                             *streetmap-nearest-aux-points-layer*
                             nearest-aux-point-selected))
+           (chain *streetmap* (add-control *nearest-aux-points-hover-control*))
            (chain *streetmap* (add-control *nearest-aux-points-select-control*))
+           (chain *streetmap* (add-control *user-points-hover-control*))
            (chain *streetmap* (add-control *user-points-select-control*))
+           (chain *user-points-hover-control* (activate))
            (chain *user-points-select-control* (activate))
+           (chain *nearest-aux-points-hover-control* (activate))
            (chain *nearest-aux-points-select-control* (activate))
            
            (chain *streetmap* (add-layer *osm-layer*))
@@ -1226,8 +1387,8 @@ accordingly."
                   (chain *streetmap* (remove-layer *google-streetmap-layer*))))
            (chain *streetmap* (add-layer *streetmap-nearest-aux-points-layer*))
            (chain *streetmap* (add-layer *survey-layer*))
-           (chain *streetmap* (add-layer *user-point-layer*))
            (chain *streetmap* (add-layer *aux-point-layer*))
+           (chain *streetmap* (add-layer *user-point-layer*))
            (setf (chain overview-map element)
                  (chain document (get-element-by-id
                                   "streetmap-overview-element")))
