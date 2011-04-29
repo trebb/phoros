@@ -347,7 +347,7 @@
            c
            *log-lisp-backtraces-p*
            (trivial-backtrace:print-backtrace c :output nil))
-          ;;(format *error-output* "~A~&" c)
+          (format *error-output* "~A~&" c)
           #+sbcl (sb-ext:quit :unix-status 1)))
        (warning
         (lambda (c) (cl-log:log-message :warning "~A" c))))
