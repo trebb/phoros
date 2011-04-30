@@ -799,13 +799,14 @@ to Estimated Position."
 
        (defun draw-user-point ()
          "Draw currently selected user point into all images."
-         (let* ((user-point
+         (let* ((user-point-positions-response
                  (chain *json-parser*
                         (read
                          (getprop *user-point-in-images-response*
                                   'response-text))))
-                (user-point-in-images (chain user-point image-positions))
-                (user-point-globally (chain user-point global-position))
+                (user-point-collections
+                 (chain user-point-positions-response image-points))
+                ;;(user-point-globally (chain user-point global-position)) ;TODO: what for?
                 (user-point-layer-style
                  (create stroke-color "OrangeRed"
                          stroke-width 2
@@ -814,28 +815,42 @@ to Estimated Position."
                          graphic-name "triangle")))
            (loop
               for i in *images*
-              for p in user-point-in-images
+              for user-point-collection in user-point-collections
               do
-                (when i    ;otherwise a photogrammetry error has occured
-                  (setf
-                   (@ i user-point-layer)
-                   (new (chain *open-layers
-                               *layer
-                               (*vector
-                                "User Point"
-                                (create display-in-layer-switcher nil
-                                        style user-point-layer-style)))))
-                  (let* ((point
-                          (new (chain *open-layers
-                                      *geometry
-                                      (*point
-                                       (getprop p 'm)
-                                       (getprop p 'n)))))
-                         (feature
-                          (new (chain *open-layers *feature (*vector point)))))
-                    (setf (chain feature render-intent) "select")
+                (when i  ;otherwise a photogrammetry error has occured
+                  (let ((features
+                         (loop
+                            for raw-feature in
+                            (chain user-point-collection features)
+                            collect
+                            (let* ((x
+                                    (chain raw-feature geometry coordinates 0))
+                                   (y
+                                    (chain raw-feature geometry coordinates 1))
+                                   (point
+                                    (new (chain *open-layers
+                                                *geometry
+                                                (*point x y))))
+                                   (fid
+                                    (chain raw-feature id))
+                                   (attributes
+                                    (chain raw-feature properties))
+                                   (feature
+                                    (new (chain *open-layers
+                                                *feature
+                                                (*vector point attributes)))))
+                              (setf (chain feature fid) fid)
+                              feature))))
+                    (setf
+                     (@ i user-point-layer)
+                     (new (chain *open-layers
+                                 *layer
+                                 (*vector
+                                  "User Point"
+                                  (create display-in-layer-switcher nil
+                                          style user-point-layer-style)))))
                     (chain i map (add-layer (@ i user-point-layer)))
-                    (chain i user-point-layer (add-features feature)))))))
+                    (chain i user-point-layer (add-features features)))))))
 
        (defun finish-point ()
          "Send current *global-position* as a user point to the database."
@@ -1190,7 +1205,8 @@ image-index in array *images*."
          (setf content
                (chain *json-parser*
                       (write
-                       (array (chain event feature fid)
+                       (array (array
+                               (chain event feature fid)) ;TODO: feed in multiple selection
                               (loop
                                  for i across *images*
                                  collect (chain i photo-parameters))))))

@@ -861,24 +861,28 @@ data (ex: points too far apart)."
 (define-easy-handler
     (user-point-positions :uri "/phoros-lib/user-point-positions")
     ()
-  "Receive a two-part JSON vector comprising (1) a user-point-id and
-\(2) a vector containing sets of picture-parameters; respond with a
-JSON object comprising the elements image-positions (vector of image
-coordinates (m, n) for the global coordinates of the user point with
-user-point-id that correspond to the images from the received image
-vector), and global-position (vector containing global coordinates of
-the user point)."
+  "Receive a two-part JSON vector comprising
+\(1) a vector of user-point-id's and
+\(2) a vector containing sets of picture-parameters;
+respond with a JSON object comprising the elements
+- image-points, a vector whose elements 
+   - correspond to the elements of the picture-parameters vector
+     received and
+   - are GeoJSON feature collections containing one point (in picture
+     coordinates) for each user-point-id received;
+- global-positions, a vector of vectors containing global coordinates
+  of the respective user points.  TODO: update docstring; currently no global-positions."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
     (let* ((user-point-table-name
             (user-point-table-name (session-value 'presentation-project-name)))
            (data (json:decode-json-from-string (raw-post-data)))
-           (user-point-id (first data))
+           (user-point-ids (first data))
            (destination-photo-parameters (second data))
            (cartesian-system
             (cdr (assoc :cartesian-system
                         (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
-           (global-point-geographic
+           (user-points
             (with-connection *postgresql-credentials*
               (query
                (:select
@@ -891,32 +895,63 @@ the user point)."
                 (:as
                  (:st_z (:st_transform 'coordinates *standard-coordinates*))
                  'ellipsoid-height)
-                :from user-point-table-name
-                :where (:= 'user-point-id user-point-id))
-               :alist)))
-           (global-point-cartesian
-            (ignore-errors ;in case no destination-photo-parameters have been sent
-              (pairlis '(:x-global :y-global :z-global)
-                       (proj:cs2cs
-                        (list
-                         (proj:degrees-to-radians
-                          (cdr (assoc :longitude global-point-geographic)))
-                         (proj:degrees-to-radians
-                          (cdr (assoc :latitude global-point-geographic)))
-                         (cdr (assoc :ellipsoid-height global-point-geographic)))
-                        :destination-cs cartesian-system))))
+                (:as 'user-point-id 'id) ;becomes fid on client
+                'attribute
+                'description
+                'numeric-description
+                'user-name
+                (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
+                     'creation-date)
+                'aux-numeric
+                'aux-text
+                :from user-point-table-name :natural :left-join 'sys-user
+                ;;:from user-point-table-name
+                :where (:in 'user-point-id (:set user-point-ids)))
+               :plists)))
+           (global-points-cartesian
+            (loop
+               for global-point-geographic in user-points
+               collect
+               (ignore-errors ;in case no destination-photo-parameters have been sent
+                 (pairlis '(:x-global :y-global :z-global)
+                          (proj:cs2cs
+                           (list
+                            (proj:degrees-to-radians
+                             (getf global-point-geographic :longitude))
+                            (proj:degrees-to-radians
+                             (getf global-point-geographic :latitude))
+                            (getf global-point-geographic :ellipsoid-height))
+                           :destination-cs cartesian-system)))))
            (image-coordinates
             (loop
-               for i in destination-photo-parameters
+               for photo-parameter-set in destination-photo-parameters
                collect
-               (ignore-errors
-                 (photogrammetry :reprojection i global-point-cartesian)))))
+               (encode-geojson-to-string
+                (loop
+                   for global-point-cartesian in global-points-cartesian
+                   for user-point in user-points
+                   collect
+                   (ignore-errors
+                     (let ((photo-coordinates
+                            (photogrammetry :reprojection
+                                            photo-parameter-set
+                                            global-point-cartesian))
+                           (photo-point
+                            user-point))
+                       (setf (getf photo-point :x)
+                             (cdr (assoc :m photo-coordinates)))
+                       (setf (getf photo-point :y)
+                             (cdr (assoc :n photo-coordinates)))
+                       photo-point)))
+                :longitude :latitude :ellipsoid-height))))
       (with-output-to-string (s)
         (json:with-object (s)
-          (json:encode-object-member
-           :global-position global-point-geographic s)
-          (json:encode-object-member
-           :image-positions image-coordinates s))))))
+          ;;(json:encode-object-member
+          ;; :global-position global-point-geographic s)
+          (json:as-object-member (:image-points s)
+            (json:with-array (s)
+              (loop for i in image-coordinates do
+                   (json:as-array-member (s) (princ i s))))))))))
 
 (define-easy-handler
     (multi-position-intersection :uri "/phoros-lib/intersection")
