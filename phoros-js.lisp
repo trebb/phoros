@@ -184,7 +184,7 @@
 
        (defun add-help-topic (topic element)
          "Add mouse events to DOM element that initiate display of a
-nhelp message."
+         help message."
          (when element
            (setf (@ element onmouseover)
                  ((lambda (x)
@@ -194,7 +194,7 @@ nhelp message."
 
        (defun add-help-events ()
          "Add mouse events to DOM elements that initiate display of a
-help message."
+         help message."
          (for-in
           (topic *help-topics*)
           (add-help-topic topic (chain document (get-element-by-id topic)))
@@ -323,41 +323,16 @@ help message."
                    ))))))
 
        (defvar *user-point-layer*
-         (let ((user-point-layer-style-map
-                (new (chain *open-layers
-                            (*style-map
-                             (create "default"
-                                     (create stroke-color "OrangeRed"
-                                             stroke-opacity .5
-                                             stroke-width 2
-                                             point-radius 5
-                                             fill-opacity 0
-                                             graphic-name "triangle")
-                                     "select"
-                                     (create stroke-color "OrangeRed"
-                                             stroke-opacity 1
-                                             stroke-width 2
-                                             point-radius 5
-                                             fill-opacity 0
-                                             graphic-name "triangle")
-                                     "temporary"
-                                     (create stroke-color "OrangeRed"
-                                             fill-color "OrangeRed"
-                                             stroke-opacity .5
-                                             stroke-width 2
-                                             point-radius 5
-                                             fill-opacity .5
-                                             graphic-name "triangle")))))))
-           (new (chain
-                 *open-layers *layer
-                 (*vector
-                  "user points"
-                  (create
-                   strategies (array (new *bbox-strategy*))
-                   protocol
-                   (new (*http-protocol*
-                         (create :url "/phoros-lib/user-points.json")))
-                   style-map user-point-layer-style-map))))))
+         (new (chain
+               *open-layers *layer
+               (*vector
+                "user points"
+                (create
+                 strategies (array (new *bbox-strategy*))
+                 protocol
+                 (new (*http-protocol*
+                       (create :url "/phoros-lib/user-points.json")))
+                 style-map (user-point-style-map "${numericDescription}")))))) ;TODO: only for multiple points
 
        (defvar *aux-point-layer*
          (let ((aux-layer-style
@@ -797,7 +772,99 @@ to Estimated Position."
                          0))))
            (enable-element-with-id "aux-point-distance")))
 
-       (defun draw-user-point ()
+       (defun user-point-style-map (label-property)
+         "Create a style map where styles dispatch on feature property
+         \"attribute\" and features are labelled after feature
+         property label-property."
+         (let* ((symbolizer-property "attribute")
+                (solitary-filter
+                 (new (chain *open-layers
+                             *filter
+                             (*comparison (create type (chain *open-layers
+                                                              *filter
+                                                              *comparison
+                                                              *like*)
+                                                  property symbolizer-property
+                                                  value "solitary")))))
+                (polyline-filter
+                 (new (chain *open-layers
+                             *filter
+                             (*comparison (create type (chain *open-layers
+                                                              *filter
+                                                              *comparison
+                                                              *like*)
+                                                  property symbolizer-property
+                                                  value "polyline")))))
+                (polygon-filter
+                 (new (chain *open-layers
+                             *filter
+                             (*comparison (create type (chain *open-layers
+                                                              *filter
+                                                              *comparison
+                                                              *like*)
+                                                  property symbolizer-property
+                                                  value "polygon")))))
+                (solitary-rule
+                 (new (chain *open-layers
+                             (*rule (create
+                                     filter solitary-filter 
+                                     symbolizer (create
+                                                 graphic-name "triangle"))))))
+                (polyline-rule
+                 (new (chain *open-layers
+                             (*rule (create
+                                     filter polyline-filter 
+                                     symbolizer (create
+                                                 graphic-name "square"))))))
+                (polygon-rule
+                 (new (chain *open-layers
+                             (*rule (create
+                                     filter polygon-filter 
+                                     symbolizer (create
+                                                 graphic-name "star"))))))
+                (else-rule
+                 (new (chain *open-layers
+                             (*rule (create
+                                     else-filter t
+                                     symbolizer (create
+                                                 graphic-name "x"))))))
+                (user-point-default-style
+                 (new (chain
+                       *open-layers
+                       (*style (create stroke-color "OrangeRed"
+                                       fill-color "OrangeRed"
+                                       stroke-opacity .5
+                                       stroke-width 2
+                                       point-radius 5
+                                       fill-opacity 0)
+                               (create rules (array solitary-rule
+                                                    polyline-rule
+                                                    polygon-rule
+                                                    else-rule))))))
+                (user-point-select-style
+                 (new (chain
+                       *open-layers
+                       (*style (create stroke-opacity 1
+                                       label label-property)
+                               (create rules (array solitary-rule
+                                                    polyline-rule
+                                                    polygon-rule
+                                                    else-rule))))))
+                (user-point-temporary-style
+                 (new (chain
+                       *open-layers
+                       (*style (create fill-opacity .5)
+                               (create rules (array solitary-rule
+                                                    polyline-rule
+                                                    polygon-rule
+                                                    else-rule)))))))
+           (new (chain *open-layers
+                       (*style-map
+                        (create "default" user-point-default-style
+                                "temporary" user-point-temporary-style
+                                "select" user-point-select-style))))))
+
+       (defun draw-user-point ()        ;TODO: we may draw more than one point; change name
          "Draw currently selected user point into all images."
          (let* ((user-point-positions-response
                  (chain *json-parser*
@@ -807,12 +874,8 @@ to Estimated Position."
                 (user-point-collections
                  (chain user-point-positions-response image-points))
                 ;;(user-point-globally (chain user-point global-position)) ;TODO: what for?
-                (user-point-layer-style
-                 (create stroke-color "OrangeRed"
-                         stroke-width 2
-                         point-radius 5
-                         fill-opacity 0
-                         graphic-name "triangle")))
+                (label "${numericDescription}")  ;TODO: only for multiple points
+                )
            (loop
               for i in *images*
               for user-point-collection in user-point-collections
@@ -840,6 +903,7 @@ to Estimated Position."
                                                 *feature
                                                 (*vector point attributes)))))
                               (setf (chain feature fid) fid)
+                              (setf (chain feature render-intent) "select")
                               feature))))
                     (setf
                      (@ i user-point-layer)
@@ -848,7 +912,8 @@ to Estimated Position."
                                  (*vector
                                   "User Point"
                                   (create display-in-layer-switcher nil
-                                          style user-point-layer-style)))))
+                                          style-map (user-point-style-map
+                                                     label))))))
                     (chain i map (add-layer (@ i user-point-layer)))
                     (chain i user-point-layer (add-features features)))))))
 
