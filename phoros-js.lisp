@@ -414,7 +414,9 @@
        (defvar *user-points-select-control*
          (new (chain *open-layers
                      *control
-                     (*select-feature *user-point-layer*))))
+                     (*select-feature *user-point-layer*
+                                      (create toggle t
+                                              multiple t)))))
        
        (defvar *google-streetmap-layer* 
          (new (chain *open-layers
@@ -514,6 +516,7 @@ shadow any other control."
          (remove-any-layers "Active Point")
          (remove-any-layers "Estimated Position")
          (remove-any-layers "User Point")
+         (chain *user-points-select-control* (unselect-all))
          (disable-streetmap-nearest-aux-points-layer)
          (when (and (!= undefined *current-user-point*)
                     (chain *current-user-point* layer))
@@ -1039,10 +1042,13 @@ photogrammetric calculations."
               (progn
                 (reset-controls)
                 (remove-any-layers "User Point") ;from images
-                (when (and (!= undefined *current-user-point*)
-                           (chain *current-user-point* layer))
-                  (chain *user-points-select-control*
-                         (unselect *current-user-point*)))
+                (chain *user-points-select-control* (unselect-all))
+                ;;; Can't do this here because unselect handler resets current activity.
+                ;;; (*current-user-point* isn't sufficient any longer anyway.)
+                ;;(when (and (!= undefined *current-user-point*)
+                ;;           (chain *current-user-point* layer))
+                ;;  (chain *user-points-select-control*
+                ;;         (unselect *current-user-point*)))
                 (loop
                    for i across *images* do
                      (unless (== i clicked-image)
@@ -1233,10 +1239,19 @@ image-index in array *images*."
        (defun user-point-selected (event)
          "Things to do once a user point is selected."
          (setf *current-user-point* (chain event feature))
-         (hide-aux-data-choice)
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Estimated Position")
+         (user-point-selection-changed event))
+
+       (defun user-point-unselected (event)
+         "Things to do once a user point is selected."
+         (setf *current-user-point* undefined)
+         (user-point-selection-changed event))
+
+       (defun user-point-selection-changed (event)
+         "Things to do once a user point is selected or unselected."
+         (hide-aux-data-choice)
          (remove-any-layers "User Point")
          (if (write-permission-p (chain event feature attributes user-name))
              (progn
@@ -1270,8 +1285,10 @@ image-index in array *images*."
          (setf content
                (chain *json-parser*
                       (write
-                       (array (array
-                               (chain event feature fid)) ;TODO: feed in multiple selection
+                       (array (chain event
+                                     object
+                                     selected-features
+                                     (map (lambda (x) (@ x fid))))
                               (loop
                                  for i across *images*
                                  collect (chain i photo-parameters))))))
@@ -1448,6 +1465,11 @@ accordingly."
                   (register "featureselected"
                             *user-point-layer*
                             user-point-selected))
+           (chain *user-point-layer*
+                  events
+                  (register "featureunselected"
+                            *user-point-layer*
+                            user-point-unselected))
            (chain *streetmap-nearest-aux-points-layer*
                   events
                   (register "featureselected"
