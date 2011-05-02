@@ -49,7 +49,10 @@
            (:p "Presentation project name."))
           :h2-controls
           (who-ps-html
-           (:p "Next action."))
+           (:p "Current action."))
+          :multiple-points-phoros-controls
+          (who-ps-html
+           (:p "Try reading the text under mouse pointer."))
           :finish-point-button
           (who-ps-html
            (:p "Store point with its attribute, description and
@@ -70,9 +73,9 @@
            (:p "Optional verbal description of user point."))
           :point-numeric-description
           (who-ps-html
-           (:p "Optional additional description of user point.
-           Preferrably numeric and if so, automatically incremented
-           after finishing point."))
+           (:p "Optional additional description of user point.  If
+           parts of it looks like a number, the leftmost such part is
+           automatically incremented during click into first image."))
           :point-creation-date
           (who-ps-html
            (:p "Creation date of current user point.  Will be updated
@@ -98,8 +101,9 @@
            you change this point."))
           :remove-work-layers-button
           (who-ps-html
-           (:p "Discard the current, unstored user point and zoom out
-           all images. Keep the rest of the workspace untouched."))
+           (:p "Discard the current, unstored user point or unselect
+           currently selected user points.  Zoom out all images. Keep
+           the rest of the workspace untouched."))
           :blurb-button
           (who-ps-html
            (:p "View some info about Phoros."))
@@ -332,7 +336,7 @@
                  protocol
                  (new (*http-protocol*
                        (create :url "/phoros-lib/user-points.json")))
-                 style-map (user-point-style-map "${numericDescription}")))))) ;TODO: only for multiple points
+                 style-map (user-point-style-map nil))))))
 
        (defvar *aux-point-layer*
          (let ((aux-layer-style
@@ -491,6 +495,8 @@ an image url."
          (remove-layer *streetmap* layer-name))
 
        (defun reset-controls ()
+         (reveal-element-with-id "real-phoros-controls")
+         (hide-element-with-id "multiple-points-phoros-controls")
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "delete-point-button")
          (disable-element-with-id "remove-work-layers-button")
@@ -876,9 +882,10 @@ to Estimated Position."
                                   'response-text))))
                 (user-point-collections
                  (chain user-point-positions-response image-points))
-                ;;(user-point-globally (chain user-point global-position)) ;TODO: what for?
-                (label "${numericDescription}")  ;TODO: only for multiple points
-                )
+                (user-point-count
+                 (chain user-point-positions-response user-point-count))
+                (label
+                 (when (> user-point-count 1) "${numericDescription}")))
            (loop
               for i in *images*
               for user-point-collection in user-point-collections
@@ -951,15 +958,16 @@ to Estimated Position."
                                        "Content-length" (@ content length))
                       :success (lambda ()
                                  (refresh-layer *user-point-layer*)
-                                 (reset-layers-and-controls)))))
-           (let* ((previous-numeric-description ;increment if possible
-                   (chain global-position-etc numeric-description))
-                  (current-numeric-description
-                   (1+ (parse-int previous-numeric-description 10))))
-             (setf (value-with-id "point-numeric-description")
-                   (if (is-finite current-numeric-description)
-                       current-numeric-description
-                       previous-numeric-description)))))
+                                 (reset-layers-and-controls)))))))
+           
+       (defun increment-numeric-text (text)
+         "Increment text if it looks like a number, and return it."
+         (let* ((parts (chain (regex "(\\D*)(\\d*)(.*)") (exec text)))
+                (old-number (elt parts 2))
+                (new-number (1+ (parse-int old-number 10)))))
+           (if (is-finite new-number)
+               (+ (elt parts 1) new-number (elt parts 3))
+               text))
 
        (defun update-point ()
          "Send changes to currently selected user point to database."
@@ -1006,7 +1014,7 @@ to Estimated Position."
 
        (defun draw-active-point ()
          "Draw an Active Point, i.e. a point used in subsequent
-photogrammetric calculations."
+         photogrammetric calculations."
          (chain this active-point-layer
                 (add-features
                  (new ((@ *open-layers *feature *vector)
@@ -1040,15 +1048,12 @@ photogrammetric calculations."
              (if
               *pristine-images-p*
               (progn
-                (reset-controls)
-                (remove-any-layers "User Point") ;from images
                 (chain *user-points-select-control* (unselect-all))
-                ;;; Can't do this here because unselect handler resets current activity.
-                ;;; (*current-user-point* isn't sufficient any longer anyway.)
-                ;;(when (and (!= undefined *current-user-point*)
-                ;;           (chain *current-user-point* layer))
-                ;;  (chain *user-points-select-control*
-                ;;         (unselect *current-user-point*)))
+                (reset-controls)
+                (setf (value-with-id "point-numeric-description")
+                      (increment-numeric-text
+                       (value-with-id "point-numeric-description")))
+                (remove-any-layers "User Point") ;from images
                 (loop
                    for i across *images* do
                      (unless (== i clicked-image)
@@ -1238,7 +1243,6 @@ image-index in array *images*."
 
        (defun user-point-selected (event)
          "Things to do once a user point is selected."
-         (setf *current-user-point* (chain event feature))
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Estimated Position")
@@ -1246,13 +1250,28 @@ image-index in array *images*."
 
        (defun user-point-unselected (event)
          "Things to do once a user point is selected."
-         (setf *current-user-point* undefined)
          (user-point-selection-changed event))
 
        (defun user-point-selection-changed (event)
          "Things to do once a user point is selected or unselected."
          (hide-aux-data-choice)
-         (remove-any-layers "User Point")
+         ;; after single select: same as event
+         (setf *current-user-point* (chain event object selected-features 0))
+         (let ((selected-features-count
+                (chain *user-point-layer* selected-features length)))
+           (setf (chain *user-point-layer* style-map)
+                 (user-point-style-map 
+                  (when (> selected-features-count 1)
+                    "${numericDescription}")))
+           (if (> selected-features-count 1)
+               (progn
+                 (hide-element-with-id "real-phoros-controls")
+                 (reveal-element-with-id "multiple-points-phoros-controls"))
+               (progn
+                 (hide-element-with-id "multiple-points-phoros-controls")
+                 (reveal-element-with-id "real-phoros-controls"))))
+         (chain *user-point-layer* (redraw))
+         (remove-any-layers "User Point") ;from images
          (if (write-permission-p (chain event feature attributes user-name))
              (progn
                (setf (chain document
@@ -1359,6 +1378,7 @@ accordingly."
            (enable-element-with-id "point-attribute")
            (enable-element-with-id "point-description")
            (enable-element-with-id "point-numeric-description")
+           (hide-element-with-id "multiple-points-phoros-controls")
            (setf (inner-html-with-id "h2-controls") "Create Point"))
          (setf *point-attributes-select*
                (chain document (get-element-by-id "point-attribute")))

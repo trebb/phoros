@@ -732,34 +732,38 @@ send all points."
        (:div :class "phoros-controls"
              (:div :id "phoros-controls-vertical-strut"
                    :class "phoros-controls-vertical-strut")
-             (:h2 (:span :id "h2-controls") (:span :id "creator"))
-             (:select :id "point-attribute" :disabled t
-                      :size 1 :name "point-attribute")
-             (:input :id "point-numeric-description" :class "vanilla-input "
-                     :disabled t
-                     :type "text" :name "point-numeric-description")
-             (:input :id "point-description" :class "vanilla-input"
-                     :disabled t
-                     :type "text" :name "point-description")
-             (:div (:button :id "delete-point-button" :disabled t
-                            :type "button" :onclick (ps-inline (delete-point))
-                            "delete")
-                   (:button :disabled t :id "finish-point-button"
-                            :type "button"
-                            "finish"))
-             (:div :id "aux-point-distance-or-point-creation-date"
-                   (:code :id "point-creation-date")
-                   (:input :id "include-aux-data-p"
-                           :type "checkbox" :checked t :name "include-aux-data-p"
-                           :onchange (ps-inline (flip-aux-data-inclusion)))
-                   (:select :id "aux-point-distance" :disabled t
-                            :size 1 :name "aux-point-distance"
-                            :onchange (ps-inline (aux-point-distance-selected))
-                            :onclick (ps-inline (enable-aux-point-selection))))
-
-             (:div :id "aux-data"
-                   (:div :id "aux-numeric-list")
-                   (:div :id "aux-text-list"))
+             (:div :id "real-phoros-controls"
+                   (:h2 (:span :id "h2-controls") (:span :id "creator"))
+                   (:select :id "point-attribute" :disabled t
+                            :size 1 :name "point-attribute")
+                   (:input :id "point-numeric-description" :class "vanilla-input "
+                           :disabled t
+                           :type "text" :name "point-numeric-description")
+                   (:input :id "point-description" :class "vanilla-input"
+                           :disabled t
+                           :type "text" :name "point-description")
+                   (:div (:button :id "delete-point-button" :disabled t
+                                  :type "button" :onclick (ps-inline (delete-point))
+                                  "delete")
+                         (:button :disabled t :id "finish-point-button"
+                                  :type "button"
+                                  "finish"))
+                   (:div :id "aux-point-distance-or-point-creation-date"
+                         (:code :id "point-creation-date")
+                         (:input :id "include-aux-data-p"
+                                 :type "checkbox" :checked t :name "include-aux-data-p"
+                                 :onchange (ps-inline (flip-aux-data-inclusion)))
+                         (:select :id "aux-point-distance" :disabled t
+                                  :size 1 :name "aux-point-distance"
+                                  :onchange (ps-inline (aux-point-distance-selected))
+                                  :onclick (ps-inline (enable-aux-point-selection))))
+                   (:div :id "aux-data"
+                         (:div :id "aux-numeric-list")
+                         (:div :id "aux-text-list")))
+             (:div :id "multiple-points-phoros-controls"
+                   (:h2 "Multiple Points Selected")
+                   (:p "You have selected multiple user points.")
+                   (:p "Unselect all but one to edit its properties."))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
@@ -862,22 +866,23 @@ data (ex: points too far apart)."
     (user-point-positions :uri "/phoros-lib/user-point-positions")
     ()
   "Receive a two-part JSON vector comprising
-\(1) a vector of user-point-id's and
-\(2) a vector containing sets of picture-parameters;
+- a vector of user-point-id's and
+- a vector containing sets of picture-parameters;
 respond with a JSON object comprising the elements
 - image-points, a vector whose elements 
    - correspond to the elements of the picture-parameters vector
      received and
    - are GeoJSON feature collections containing one point (in picture
      coordinates) for each user-point-id received;
-- global-positions, a vector of vectors containing global coordinates
-  of the respective user points.  TODO: update docstring; currently no global-positions."
+- user-point-count, the number of user-points we tried to fetch
+  image-points for."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
     (let* ((user-point-table-name
             (user-point-table-name (session-value 'presentation-project-name)))
            (data (json:decode-json-from-string (raw-post-data)))
            (user-point-ids (first data))
+           (user-point-count (length user-point-ids))
            (destination-photo-parameters (second data))
            (cartesian-system
             (cdr (assoc :cartesian-system
@@ -905,7 +910,6 @@ respond with a JSON object comprising the elements
                 'aux-numeric
                 'aux-text
                 :from user-point-table-name :natural :left-join 'sys-user
-                ;;:from user-point-table-name
                 :where (:in 'user-point-id (:set user-point-ids)))
                :plists)))
            (global-points-cartesian
@@ -946,8 +950,7 @@ respond with a JSON object comprising the elements
                 :longitude :latitude :ellipsoid-height))))
       (with-output-to-string (s)
         (json:with-object (s)
-          ;;(json:encode-object-member
-          ;; :global-position global-point-geographic s)
+          (json:encode-object-member :user-point-count user-point-count s)
           (json:as-object-member (:image-points s)
             (json:with-array (s)
               (loop for i in image-coordinates do
