@@ -42,7 +42,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
   :serial t
 
   :components ((:file "package")
-               (:file "proj4")
+               (:file "proj4-sh")
                (:file "log")
                (:file "photogrammetry")
                (:file "phoros")
@@ -54,6 +54,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "cli"))
 
   :depends-on (:phoml
+               :trivial-shell           ;for proj4-sh
                :hunchentoot
                :cl-who
                :parenscript
