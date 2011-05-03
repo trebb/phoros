@@ -55,11 +55,11 @@ This is an alternative to the CFFI interface defined in proj4.lisp which doesn't
 
 
 (defun degrees-to-radians (degrees)
-  "Convert degrees into radians."
+  "Convert degrees to radians."
   (* degrees  (/ pi 180)))
 
 (defun radians-to-degrees (radians)
-  "Convert radians into degrees."
+  "Convert radians to degrees."
   (* radians  (/ 180 pi)))
 
 (defun cs2cs (point &key
@@ -67,12 +67,12 @@ This is an alternative to the CFFI interface defined in proj4.lisp which doesn't
               (destination-cs "+proj=latlong +datum=WGS84"))
   "Transform point (a list of (x y z)) from source-cs to
 destination-cs.  Geographic coordinates are in radians."
-  (let ((command
-         (format
-          nil
-          "cs2cs -f %.9f ~A +no_defs +to ~A +no_defs"
-          source-cs destination-cs)))
-    (multiple-value-bind (standard-output error-output exit-status) 
+  (let ((command (format
+                  nil
+                  "cs2cs -f %.9f ~A +no_defs +to ~A +no_defs"
+                  source-cs destination-cs))
+        (*read-default-float-format* 'double-float))
+    (multiple-value-bind (standard-output error-output exit-status)
         (trivial-shell:shell-command
          command
          :input (format nil "~{~S ~}~S"
