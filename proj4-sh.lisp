@@ -27,22 +27,22 @@ This is an alternative to the CFFI interface defined in proj4.lisp which doesn't
 ;;; (proj:cs2cs (list (proj:degrees-to-radians 9.28838684)
 ;;;                   (proj:degrees-to-radians 53.19274138)
 ;;;                   68.969)
-;;;             :source-cs "+proj=longlat +datum=WGS84 +no_defs"
-;;;             :destination-cs "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs")
+;;;             :source-cs \"+proj=longlat +datum=WGS84 +no_defs\"
+;;;             :destination-cs \"+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs\")
 ;;; (519267.42716064927 5893750.589875963 68.969)
-;;; echo 9.28838684 -53.19274138 68.969 | cs2cs -f %.9f +proj=longlat +datum=WGS84 +no_defs +to  +proj=utm +south +zone=32 +datum=WGS84 +units=m +no_defs 
-;;; 519267.427160649	4106249.410124036 68.969000000
+;;; echo 9.28838684 -53.19274138 68.969 | cs2cs -f %.9f +proj=longlat +datum=WGS84 +no_defs +to  +proj=utm +zone=32 +datum=WGS84 +units=m +no_defs 
+;;; 519267.427160649	5893750.589875964 68.969000000
 
 ;;; (proj:version)
 ;;; \"Rel. 4.6.1, 21 August 2008\"
 ;;; (proj:cs2cs (list (proj:degrees-to-radians 9.28838684)
 ;;;                   (proj:degrees-to-radians 53.19274138)
 ;;;                   68.969)
-;;;             :source-cs " +proj=longlat +datum=WGS84 +no_defs"
-;;;             :destination-cs "+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs")
+;;;             :source-cs \" +proj=longlat +datum=WGS84 +no_defs\"
+;;;             :destination-cs \"+proj=utm +zone=32 +datum=WGS84 +units=m +no_defs\")
 ;;; (519267.46293972526 5893728.74020727 68.969)
-;;; echo 9.28838684 -53.19274138 68.969 | cs2cs -f %.9f +proj=longlat +datum=WGS84 +no_defs +to  +proj=utm +south +zone=32 +datum=WGS84 +units=m +no_defs
-;;; 519267.427160649	4106249.410124036 68.969000000"))
+;;; echo 9.28838684 -53.19274138 68.969 | cs2cs -f %.9f +proj=longlat +datum=WGS84 +no_defs +to  +proj=utm +zone=32 +datum=WGS84 +units=m +no_defs
+;;; 519267.427160649	5893750.589875964 68.969000000"))
 
 (in-package :proj)
 
@@ -52,7 +52,6 @@ This is an alternative to the CFFI interface defined in proj4.lisp which doesn't
       (trivial-shell:shell-command "cs2cs")
     (declare (ignore standard-output) (ignore exit-status))
     (car (cl-utilities:split-sequence #\Newline error-output))))
-
 
 (defun degrees-to-radians (degrees)
   "Convert degrees to radians."
@@ -67,24 +66,41 @@ This is an alternative to the CFFI interface defined in proj4.lisp which doesn't
               (destination-cs "+proj=latlong +datum=WGS84"))
   "Transform point (a list of (x y z)) from source-cs to
 destination-cs.  Geographic coordinates are in radians."
-  (let ((command (format
-                  nil
-                  "cs2cs -f %.9f ~A +no_defs +to ~A +no_defs"
-                  source-cs destination-cs))
-        (*read-default-float-format* 'double-float))
-    (multiple-value-bind (standard-output error-output exit-status)
-        (trivial-shell:shell-command
-         command
-         :input (format nil "~{~S ~}~S"
-                        (mapcar #'radians-to-degrees (butlast point))
-                        (third point)))
-      (unless (zerop exit-status)
-        (error "Attempt to call `~A´ returned ~D: ~A"
-               command exit-status error-output))
-      (with-input-from-string (stream standard-output)
-        (loop
-           for number = (read stream nil)
-           repeat 3
-           while number
-           do (assert (numberp number))
-           collect number)))))
+  (flet ((degrees-p (number) (<= (abs number) 360)) ;kludges
+         (radians-p (number) (<= (abs number) (* 2 pi))))
+    (let ((command (format
+                    nil
+                    "cs2cs -f %.9f ~A +no_defs +to ~A +no_defs"
+                    source-cs destination-cs))
+          (horizontal-coordinates (butlast point))
+          (height (third point))
+          (*read-default-float-format* 'double-float))
+      (when (every #'radians-p horizontal-coordinates)
+        (setf horizontal-coordinates
+              (mapcar #'proj:radians-to-degrees horizontal-coordinates)))
+      (multiple-value-bind (standard-output error-output exit-status)
+          (trivial-shell:shell-command
+           command
+           :input (format nil "~{~S ~}~S"
+                          horizontal-coordinates
+                          height))
+        (unless (zerop exit-status)
+          (error "Attempt to call `~A´ returned ~D: ~A"
+                 command exit-status error-output))
+        (with-input-from-string (stream standard-output)
+          (let ((result
+                 (loop
+                    for number = (read stream nil)
+                    repeat 3
+                    while number
+                    do (assert (numberp number)
+                               () "cs2cs didn't return numbers.")
+                    collect number)))
+            (if (degrees-p (first result))
+                (setf (first result)
+                      (proj:degrees-to-radians (first result))))
+            (if (degrees-p (second result))
+                (setf (second result)
+                      (proj:degrees-to-radians (second result))))
+            result))))))
+
