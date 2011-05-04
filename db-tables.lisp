@@ -22,13 +22,16 @@
   "Drop all tables (except PostGIS helper tables) and sequences in current database."
   (let ((user-tables (list-tables))
         (sequences (list-sequences))
-        (system-tables '(:spatial-ref-sys :geometry-columns)))
+        (views (list-views))
+          (system-tables '(:spatial-ref-sys :geometry-columns)))
     (dolist (system-table system-tables)
       (setf user-tables (remove system-table user-tables))) ; TODO: do we need to spare those?
     (dolist (user-table user-tables)
       (execute (format nil "DROP TABLE IF EXISTS ~A CASCADE" (s-sql:to-sql-name user-table))))
     (dolist (sequence sequences)
-      (execute (format nil "DROP SEQUENCE IF EXISTS ~A CASCADE" (s-sql:to-sql-name sequence))))))
+      (execute (format nil "DROP SEQUENCE IF EXISTS ~A CASCADE" (s-sql:to-sql-name sequence))))
+    (dolist (view views)
+      (execute (format nil "DROP VIEW IF EXISTS ~A CASCADE" (s-sql:to-sql-name view))))))
  
 ;;TODO: make a spatial-ref-sys table
 ;;

@@ -20,7 +20,7 @@ interface.                              http://phoros.berlios.de"
   ;; 
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
-  "3.0.1"
+  "3.1.0"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011 Bert Burgemeister
