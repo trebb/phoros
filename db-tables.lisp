@@ -766,6 +766,10 @@ are used by all projects.  The database should probably be empty."
     :initarg :stdz-global
     :col-type double-precision
     :documentation "Component of standard deviation, in metres.")
+   (input-size
+    :initarg :input-size
+    :col-type integer
+    :documentation "Number of points (from different images) used for calculation.")
    (aux-numeric
     :col-type (or db-null numeric[])
     :documentation "Arbitrary numeric values from auxiliary point table.")

@@ -282,6 +282,7 @@ wrapped in an array."
            (stdx-global (cdr (assoc :stdx-global data)))
            (stdy-global (cdr (assoc :stdy-global data)))
            (stdz-global (cdr (assoc :stdz-global data)))
+           (input-size (cdr (assoc :input-size data)))
            (attribute (cdr (assoc :attribute data)))
            (description (cdr (assoc :description data)))
            (numeric-description (cdr (assoc :numeric-description data)))
@@ -313,6 +314,7 @@ wrapped in an array."
                                      'stdx-global stdx-global
                                      'stdy-global stdy-global
                                      'stdz-global stdz-global
+                                     'input-size input-size
                                      'aux-numeric aux-numeric
                                      'aux-text aux-text
                                      )))
@@ -636,6 +638,8 @@ send all points."
                      (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
                      'z)
                     (:as 'user-point-id 'id) ;becomes fid on client
+                    'stdx-global 'stdy-global 'stdz-global
+                    'input-size
                     'attribute
                     'description
                     'numeric-description
@@ -857,11 +861,20 @@ data (ex: points too far apart)."
   ;; TODO: global-point-for-display should probably contain a proj string in order to make sense of the (cartesian) standard deviations.
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
-    (let* ((data (json:decode-json-from-string (raw-post-data)))
-           (active-point-photo-parameters (first data))
-           (destination-photo-parameters (second data))
-           (cartesian-system (cdr (assoc :cartesian-system (first active-point-photo-parameters))))
-           (global-point-cartesian (photogrammetry :multi-position-intersection active-point-photo-parameters))
+    (let* ((data
+            (json:decode-json-from-string (raw-post-data)))
+           (active-point-photo-parameters
+            (first data))
+           (number-of-active-points
+            (length active-point-photo-parameters))
+           (destination-photo-parameters
+            (second data))
+           (cartesian-system
+            (cdr (assoc :cartesian-system
+                        (first active-point-photo-parameters))))
+           (global-point-cartesian
+            (photogrammetry
+             :multi-position-intersection active-point-photo-parameters))
            (global-point-geographic-radians
             (proj:cs2cs (list (cdr (assoc :x-global global-point-cartesian))
                               (cdr (assoc :y-global global-point-cartesian))
@@ -869,14 +882,16 @@ data (ex: points too far apart)."
                         :source-cs cartesian-system))
            (global-point-for-display    ;points geographic cs, degrees; std deviations in cartesian cs
             (pairlis '(:longitude :latitude :ellipsoid-height
-                       :stdx-global :stdy-global :stdz-global)
+                       :stdx-global :stdy-global :stdz-global
+                       :input-size)
                      (list
                       (proj:radians-to-degrees (first global-point-geographic-radians))
                       (proj:radians-to-degrees (second global-point-geographic-radians))
                       (third global-point-geographic-radians)
                       (cdr (assoc :stdx-global global-point-cartesian))
                       (cdr (assoc :stdy-global global-point-cartesian))
-                      (cdr (assoc :stdz-global global-point-cartesian)))))
+                      (cdr (assoc :stdz-global global-point-cartesian))
+                      number-of-active-points)))
            (image-coordinates
             (loop
                for i in destination-photo-parameters
