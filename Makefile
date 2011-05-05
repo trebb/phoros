@@ -68,23 +68,23 @@ public_html :
 	mkdir -p public_html
 
 $(LOGO) : Makefile public_html
-	 convert \
+	 ! convert \
 		-size 113x125 xc:transparent \
 		-font Gentium-Regular \
 		-fill black \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
-		$@
+		$@ 2>&1 | grep convert:
 
 $(BACKGROUND_IMAGE) : Makefile public_html
-	 convert \
+	 ! convert \
 		-size 113x125 xc:transparent \
 		-font Gentium-Regular \
 		-fill "#f5f5f5" \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
 		-resize 150% \
-		$@
+		$@ 2>&1 | grep convert:
 # Font Gentium-Regular is in Debian package ttf-sil-gentium.
 
 $(FAVICON) : favicon.png
