@@ -264,7 +264,9 @@
     (("common-root" #\r) :type string :initial-value "/"
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
     ("images" :type integer :initial-value 4 :action *number-of-images*
-     :documentation "Number of photos shown to the HTTP client.")))
+     :documentation "Number of photos shown to the HTTP client.")
+    ("login-intro" :type string :action *login-intro*
+     :documentation "Text to be shown below the login form.")))
 
 (defparameter *cli-presentation-project-options*
   '(("create-presentation-project"

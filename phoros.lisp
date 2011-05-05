@@ -46,6 +46,9 @@
 (defparameter *common-root* nil
   "Root directory; contains directories of measuring data.")
 
+(defparameter *login-intro* nil
+  "A few friendly words to be shown below the login form.")
+
 (defparameter *use-multi-file-openlayers* nil
   "If t, use OpenLayers uncompiled from openlayers/*, which makes
   debugging easier.  Otherwise use a single-file shrunk
@@ -105,18 +108,21 @@ at address.  Address defaults to all addresses of the local machine."
 session."
   (with-connection *postgresql-credentials*
     (let* ((presentation-project-name
-            (second (cl-utilities:split-sequence #\/ (script-name*) :remove-empty-subseqs t)))
+            (second (cl-utilities:split-sequence
+                     #\/ (script-name*) :remove-empty-subseqs t)))
            (presentation-project-id
             (ignore-errors
               (query
                (:select 'presentation-project-id
                         :from 'sys-presentation-project
-                        :where (:= 'presentation-project-name presentation-project-name))
+                        :where (:= 'presentation-project-name
+                                   presentation-project-name))
                :single))))
       (cond
         ((null presentation-project-id)
          (setf (return-code*) +http-not-found+))
-        ((and (equal (session-value 'presentation-project-name) presentation-project-name)
+        ((and (equal (session-value 'presentation-project-name)
+                     presentation-project-name)
               (session-value 'authenticated-p))
          (redirect "/phoros-lib/view" :add-session-id t))
         (t
@@ -130,11 +136,15 @@ session."
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
                     :action "/phoros-lib/authenticate"
-                    "User:" :br
+                    "User:"
+                    :br
                     (:input :type "text" :name "user-name") :br
-                    "Password:" :br
-                    (:input :type "password" :name "user-password") :br
-                    (:input :type "submit" :value "Submit")))))))))
+                    "Password:"
+                    :br
+                    (:input :type "password" :name "user-password")
+                    :br
+                    (:input :type "submit" :value "Submit"))
+             (:p (who:str *login-intro*)))))))))
       
 (pushnew (create-prefix-dispatcher "/phoros/" 'phoros-handler)
          *dispatch-table*)
@@ -177,8 +187,23 @@ session."
 
 (define-easy-handler logout-handler ()
   (if (session-verify *request*)
-      (progn (remove-session *session*)
-             "Bye.")
+      (let ((presentation-project-name
+             (session-value 'presentation-project-name)))
+        (remove-session *session*)
+        (who:with-html-output-to-string (s nil :prologue t :indent t)
+          (:html
+           (:head
+            (:title (who:str
+                     (concatenate
+                      'string
+                      "Phoros: logged out" )))
+            (:link :rel "stylesheet"
+                   :href "/phoros-lib/css/style.css" :type "text/css"))
+           (:body
+            (:h1 :id "title" "Phoros: logged out")
+            (:p "Log back in to project "
+                (:a :href (format nil "/phoros/~A" presentation-project-name)
+                    (who:fmt "~A." presentation-project-name)))))))
       "Bye (again)."))
 
 (pushnew (create-regex-dispatcher "/logout" 'logout-handler)
@@ -689,9 +714,8 @@ send all points."
   "Serve the client their main workspace."
   (if
    (session-value 'authenticated-p)
-   (who:with-html-output-to-string (s nil :indent t)
+   (who:with-html-output-to-string (s nil :prologue t :indent t)
      (:html
-      :xmlns "http://www.w3.org/1999/xhtml"
       (:head
        (:title (who:str
                 (concatenate
