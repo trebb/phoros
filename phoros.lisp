@@ -91,6 +91,7 @@ at address.  Address defaults to all addresses of the local machine."
   (check-db *postgresql-credentials*)
   (with-connection *postgresql-credentials*
     (assert-phoros-db-major-version))
+  (hunchentoot:reset-session-secret)
   (hunchentoot:start *phoros-server*))
 
 (defun stop-server () (hunchentoot:stop *phoros-server*))
