@@ -699,7 +699,7 @@ to Estimated Position."
               for i in *images*
               for p in estimated-positions
               do
-                (when i    ;otherwise a photogrammetry error has occured
+                (when p  ;otherwise a photogrammetry error has occured
                   (setf (@ i estimated-position-layer)
                         (new
                          (chain *open-layers *layer
