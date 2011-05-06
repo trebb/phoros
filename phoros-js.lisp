@@ -440,9 +440,9 @@
        (defun write-permission-p (&optional (current-owner +user-name+))
          "Nil if current user can't edit stuff created by
 current-owner or, without arguments, new stuff."
-         (or (== +user-role+ "admin")
-             (and (== +user-role+ "write")
-                  (== +user-name+ current-owner))))
+         (or (equal +user-role+ "admin")
+             (and (equal +user-role+ "write")
+                  (equal +user-name+ current-owner))))
 
        (defun *image ()
          "Anything necessary to deal with a photo."
@@ -524,7 +524,7 @@ shadow any other control."
          (remove-any-layers "User Point")
          (chain *user-points-select-control* (unselect-all))
          (disable-streetmap-nearest-aux-points-layer)
-         (when (and (!= undefined *current-user-point*)
+         (when (and (not (equal undefined *current-user-point*))
                     (chain *current-user-point* layer))
            (chain *user-points-select-control*
                   (unselect *current-user-point*)))
@@ -1056,7 +1056,7 @@ to Estimated Position."
                 (remove-any-layers "User Point") ;from images
                 (loop
                    for i across *images* do
-                     (unless (== i clicked-image)
+                     (unless (equal i clicked-image)
                        (setf
                         (@ i epipolar-layer)
                         (new (chain *open-layers
