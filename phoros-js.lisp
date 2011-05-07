@@ -73,9 +73,12 @@
            (:p "Optional verbal description of user point."))
           :point-numeric-description
           (who-ps-html
-           (:p "Optional additional description of user point.  If
-           parts of it looks like a number, the leftmost such part is
-           automatically incremented during click into first image."))
+           (:p "Optional additional description of user point.  It is
+           occasionally used as a label for the representions of this
+           point in streetmap and in images.")
+           (:p "If parts of it looks like a number, the leftmost such
+           part is automatically incremented during click into first
+           image."))
           :point-creation-date
           (who-ps-html
            (:p "Creation date of current user point.  Will be updated
@@ -219,21 +222,8 @@
           (*class
            (@ *open-layers *control)
            (create
-            :default-handler-options
-            (create :single t
-                    :double false
-                    :pixel-tolerance 0
-                    :stop-single false
-                    :stop-double false)
             :initialize
             (lambda (options)
-              (setf 
-               (@ this handler-options)
-               (chain *open-layers
-                      *util
-                      (extend
-                       (create)
-                       (@ this default-handler-options))))
               (chain *open-layers
                      *control
                      prototype
@@ -244,8 +234,7 @@
                                 *handler
                                 (*click this
                                         (create
-                                         :click (@ this trigger))
-                                        (@ this handler-options))))))))))
+                                         :click (@ this trigger)))))))))))
 
        (defvar +unix-epoch+ (lisp *unix-epoch*)
          "Seconds between Lisp epoch and UNIX epoch.")
@@ -272,13 +261,12 @@
        (defvar *streetmap* undefined
          "The streetmap shown to the user.")
 
-       (defvar *streetmap-estimated-position-layer*)
-
        (defvar *point-attributes-select* undefined
          "The HTML element for selecting user point attributes.")
 
        (defvar *aux-point-distance-select* undefined
-         "The HTML element for selecting one of a few nearest auxiliary points.")
+         "The HTML element for selecting one of a few nearest
+         auxiliary points.")
 
        (defvar *global-position* undefined
          "Coordinates of the current estimated position")
@@ -289,153 +277,28 @@
          "Attributes of currently selected point of auxiliary data.")
 
 
-       (defvar *bbox-strategy* (chain *open-layers *strategy *bbox*))
-       (setf (chain *bbox-strategy* prototype ratio) 1.5)
-       (setf (chain *bbox-strategy* prototype res-factor) 1.5)
+       (defvar *bbox-strategy* (@ *open-layers *strategy *bbox*))
+       (setf (@ *bbox-strategy* prototype ratio) 1.5)
+       (setf (@ *bbox-strategy* prototype res-factor) 1.5)
 
        (defvar *json-parser* (new (chain *open-layers *format *json*)))
 
        (defvar *geojson-format* (chain *open-layers *format *geo-j-s-o-n))
-       (setf (chain *geojson-format* prototype ignore-extra-dims)
+       (setf (@ *geojson-format* prototype ignore-extra-dims)
         t)                              ;doesn't handle height anyway
-       (setf (chain *geojson-format* prototype external-projection)
+       (setf (@ *geojson-format* prototype external-projection)
         +geographic+)
-       (setf (chain *geojson-format* prototype internal-projection)
+       (setf (@ *geojson-format* prototype internal-projection)
         +geographic+)
 
        (defvar *http-protocol* (chain *open-layers *protocol *http*))
        (setf (chain *http-protocol* prototype format) (new *geojson-format*))
 
-       (defvar *survey-layer*
-         (let ((survey-layer-style
-                (create stroke-color (chain *open-layers *feature *vector
-                                            style "default" stroke-color)
-                        stroke-width 1
-                        point-radius 2
-                        fill-opacity 0
-                        graphic-name "circle")))
-           (new (chain
-                 *open-layers *layer
-                 (*vector
-                  "survey"
-                  (create
-                   strategies (array (new (*bbox-strategy*)))
-                   protocol
-                   (new (*http-protocol*
-                         (create :url "/phoros-lib/points.json")))
-                   style survey-layer-style
-                   ))))))
-
-       (defvar *user-point-layer*
-         (new (chain
-               *open-layers *layer
-               (*vector
-                "user points"
-                (create
-                 strategies (array (new *bbox-strategy*))
-                 protocol
-                 (new (*http-protocol*
-                       (create :url "/phoros-lib/user-points.json")))
-                 style-map (user-point-style-map nil))))))
-
-       (defvar *aux-point-layer*
-         (let ((aux-layer-style
-                (create stroke-color "grey"
-                        stroke-width 1
-                        point-radius 2
-                        fill-opacity 0
-                        graphic-name "circle")))
-           (new (chain
-                 *open-layers *layer
-                 (*vector
-                  "auxiliary data"
-                  (create
-                   strategies (array (new (*bbox-strategy*)))
-                   protocol
-                   (new (*http-protocol*
-                         (create :url "/phoros-lib/aux-points.json")))
-                   style aux-layer-style
-                   visibility nil))))))
-
-       (defvar *streetmap-nearest-aux-points-layer*
-         (let ((nearest-aux-point-layer-style-map
-                (new (chain *open-layers
-                            (*style-map
-                             (create "default"
-                                     (create stroke-color "grey"
-                                             stroke-width 1
-                                             point-radius 5
-                                             fill-opacity 0
-                                             graphic-name "circle")
-                                     "select"
-                                     (create stroke-color "black"
-                                             stroke-width 1
-                                             point-radius 5
-                                             fill-opacity 0
-                                             graphic-name "circle")
-                                     "temporary"
-                                     (create stroke-color "grey"
-                                             stroke-width 1
-                                             point-radius 5
-                                             fill-color "grey"
-                                             fill-opacity 1
-                                             graphic-name "circle")))))))
-           (new (chain *open-layers
-                       *layer
-                       (*vector "Nearest Aux Points"
-                                (create
-                                 display-in-layer-switcher nil
-                                 style-map nearest-aux-point-layer-style-map
-                                 visibility t))))))
-
-       (defvar *nearest-aux-points-hover-control*
-         (new (chain *open-layers
-                     *control
-                     (*select-feature *streetmap-nearest-aux-points-layer*
-                                      (create render-intent "temporary"
-                                              hover t
-                                              highlight-only t)))))
-       
-       (defvar *nearest-aux-points-select-control*
-         (new (chain *open-layers
-                     *control
-                     (*select-feature *streetmap-nearest-aux-points-layer*))))
-       
        (defvar *pristine-images-p* t
          "T if none of the current images has been clicked into yet.")
 
        (defvar *current-user-point* undefined
          "The currently selected user-point.")
-
-       (defvar *user-points-hover-control*
-         (new (chain *open-layers
-                     *control
-                     (*select-feature *user-point-layer*
-                                      (create render-intent "temporary"
-                                              hover t
-                                              highlight-only t)))))
-       
-       (defvar *user-points-select-control*
-         (new (chain *open-layers
-                     *control
-                     (*select-feature *user-point-layer*
-                                      (create toggle t
-                                              multiple t)))))
-       
-       (defvar *google-streetmap-layer* 
-         (new (chain *open-layers
-                     *layer
-                     (*google "Google Streets"
-                              (create num-zoom-levels 22)))))
-
-       (defvar *osm-layer*
-         (new (chain *open-layers
-                     *layer
-                     (*osm* "OpenStreetMap"
-                            nil (create num-zoom-levels 19)))))
-       
-       (defvar *click-streetmap*
-         (new (*click-control* (create :trigger request-photos))))
 
        (defun write-permission-p (&optional (current-owner +user-name+))
          "Nil if current user can't edit stuff created by
@@ -508,12 +371,12 @@ an image url."
          (setf (inner-html-with-id "aux-text-list") nil))
 
        (defun disable-streetmap-nearest-aux-points-layer ()
-         "Get *streetmap-nearest-aux-points-layer* out of the way,
+         "Get (@ *streetmap* nearest-aux-points-layer) out of the way,
 I.e., remove features and disable feature select control so it won't
 shadow any other control."
-         (chain *streetmap-nearest-aux-points-layer* (remove-all-features))
-         (chain *nearest-aux-points-select-control* (deactivate))
-         (chain *user-points-select-control* (activate)))
+         (chain *streetmap* nearest-aux-points-layer (remove-all-features))
+         (chain *streetmap* nearest-aux-points-select-control (deactivate))
+         (chain *streetmap* user-points-select-control (activate)))
 
        (defun reset-layers-and-controls ()
          "Destroy user-generated layers in *streetmap* and in all
@@ -522,11 +385,12 @@ shadow any other control."
          (remove-any-layers "Active Point")
          (remove-any-layers "Estimated Position")
          (remove-any-layers "User Point")
-         (chain *user-points-select-control* (unselect-all))
+         (chain *streetmap* user-points-select-control (unselect-all))
          (disable-streetmap-nearest-aux-points-layer)
          (when (and (not (equal undefined *current-user-point*))
-                    (chain *current-user-point* layer))
-           (chain *user-points-select-control*
+                    (@ *current-user-point* layer))
+           (chain *streetmap*
+                  user-points-select-control
                   (unselect *current-user-point*)))
          (reset-controls)
          (setf *pristine-images-p* t)
@@ -617,8 +481,10 @@ into a (first) photo."
                 (points
                  (chain epipolar-line
                         (map (lambda (x)
-                               (new (chain *open-layers *geometry (*point
-                                     (@ x :m) (@ x :n))))))))
+                               (new (chain *open-layers
+                                           *geometry
+                                           (*point
+                                            (@ x :m) (@ x :n))))))))
                 (feature
                  (new (chain *open-layers
                              *feature
@@ -627,7 +493,7 @@ into a (first) photo."
                                     *open-layers
                                     *geometry
                                     (*line-string points))))))))
-           (setf (chain feature render-intent) "temporary")
+           (setf (@ feature render-intent) "temporary")
            (chain this epipolar-layer
                   (add-features feature))))
        ;; either *line-string or *multi-point are usable
@@ -637,7 +503,7 @@ into a (first) photo."
 data."
          (let ((global-position-etc global-position)
                content)
-           (setf (chain global-position-etc count) count)
+           (setf (@ global-position-etc count) count)
            (setf content (chain *json-parser*
                                 (write global-position-etc)))
            (setf (@ *streetmap* aux-local-data-request-response)
@@ -670,7 +536,9 @@ to Estimated Position."
                 (estimated-positions
                  (aref estimated-positions-request-response 1))
                 (estimated-position-style
-                 (create stroke-color (chain *open-layers *feature *vector
+                 (create stroke-color (chain *open-layers
+                                             *feature
+                                             *vector
                                              style "temporary" stroke-color)
                          point-radius 9
                          fill-opacity 0)))
@@ -682,18 +550,17 @@ to Estimated Position."
                                   (getprop *global-position* 'longitude)
                                   (getprop *global-position* 'latitude)))
                             transform) +geographic+ +spherical-mercator+)))))
-             (setf (chain feature render-intent) "temporary")
-             (setf *streetmap-estimated-position-layer*
+             (setf (@ feature render-intent) "temporary")
+             (setf (@ *streetmap* estimated-position-layer)
                    (new (chain *open-layers
                                *layer
                                (*vector "Estimated Position"
                                         (create display-in-layer-switcher nil)))))
-             (setf (chain *streetmap-estimated-position-layer* style)
+             (setf (@ *streetmap* estimated-position-layer style)
                    estimated-position-style)
-             (chain *streetmap-estimated-position-layer*
-                    (add-features feature))
+             (chain *streetmap* estimated-position-layer (add-features feature))
              (chain *streetmap*
-                    (add-layer *streetmap-estimated-position-layer*)))
+                    (add-layer (@ *streetmap* estimated-position-layer))))
            (request-nearest-aux-points *global-position* 5)
            (loop
               for i in *images*
@@ -705,11 +572,11 @@ to Estimated Position."
                          (chain *open-layers *layer
                                 (*vector "Estimated Position"
                                          (create display-in-layer-switcher nil)))))
-                  (setf (chain i estimated-position-lonlat)
+                  (setf (@ i estimated-position-lonlat)
                         (new (chain *open-layers (*lon-lat
                                                   (getprop p 'm)
                                                   (getprop p 'n)))))
-                  (setf (chain i estimated-position-layer style)
+                  (setf (@ i estimated-position-layer style)
                         estimated-position-style)
                   (let* ((point
                           (new
@@ -737,12 +604,10 @@ to Estimated Position."
                                  'response-text))
                        features)))
            (disable-streetmap-nearest-aux-points-layer)
-           (chain *user-points-select-control* (deactivate))
-           (chain *nearest-aux-points-select-control* (activate))
-           (chain *nearest-aux-points-hover-control* (activate))
-           (setf (chain *aux-point-distance-select*
-                        options
-                        length)
+           (chain *streetmap* user-points-select-control (deactivate))
+           (chain *streetmap* nearest-aux-points-select-control (activate))
+           (chain *streetmap* nearest-aux-points-hover-control (activate))
+           (setf (@ *aux-point-distance-select* options length)
                  0)
            (loop
               for i in features
@@ -752,32 +617,34 @@ to Estimated Position."
                          (new
                           (chain *open-layers
                                  *geometry
-                                 (*point (chain i geometry coordinates 0)
-                                         (chain i geometry coordinates 1))))
+                                 (*point (@ i geometry coordinates 0)
+                                         (@ i geometry coordinates 1))))
                          (transform +geographic+ +spherical-mercator+)))
                        (feature
                         (new
                          (chain *open-layers *feature (*vector point)))))
-                  (setf (chain feature attributes)
-                        (chain i properties))
-                  (setf (chain feature fid) ;this is supposed to correspond to
+                  (setf (@ feature attributes)
+                        (@ i properties))
+                  (setf (@ feature fid) ;this is supposed to correspond to
                         n)                  ; option of *aux-point-distance-select*
-                  (chain *streetmap-nearest-aux-points-layer*
+                  (chain *streetmap*
+                         nearest-aux-points-layer
                          (add-features feature))
                   (setf aux-point-distance-item
                         (chain document (create-element "option")))
-                  (setf (chain aux-point-distance-item text)
+                  (setf (@ aux-point-distance-item text)
                         (+
                          "("
                          n ;let's hope add-features alway stores features in order of arrival
                          ") "
-                         (chain i properties distance)))
+                         (@ i properties distance)))
                   (chain *aux-point-distance-select*
                          (add aux-point-distance-item null))))
-           (chain *nearest-aux-points-select-control*
+           (chain *streetmap*
+                  nearest-aux-points-select-control
                   (select 
                    (chain
-                    (elt (chain *streetmap-nearest-aux-points-layer* features)
+                    (elt (@ *streetmap* nearest-aux-points-layer features)
                          0))))
            (enable-element-with-id "aux-point-distance")))
 
@@ -873,8 +740,8 @@ to Estimated Position."
                                 "temporary" user-point-temporary-style
                                 "select" user-point-select-style))))))
 
-       (defun draw-user-point ()        ;TODO: we may draw more than one point; change name
-         "Draw currently selected user point into all images."
+       (defun draw-user-points ()
+         "Draw currently selected user points into all images."
          (let* ((user-point-positions-response
                  (chain *json-parser*
                         (read
@@ -894,26 +761,26 @@ to Estimated Position."
                   (let ((features
                          (loop
                             for raw-feature in
-                            (chain user-point-collection features)
+                            (@ user-point-collection features)
                             collect
                             (let* ((x
-                                    (chain raw-feature geometry coordinates 0))
+                                    (@ raw-feature geometry coordinates 0))
                                    (y
-                                    (chain raw-feature geometry coordinates 1))
+                                    (@ raw-feature geometry coordinates 1))
                                    (point
                                     (new (chain *open-layers
                                                 *geometry
                                                 (*point x y))))
                                    (fid
-                                    (chain raw-feature id))
+                                    (@ raw-feature id))
                                    (attributes
-                                    (chain raw-feature properties))
+                                    (@ raw-feature properties))
                                    (feature
                                     (new (chain *open-layers
                                                 *feature
                                                 (*vector point attributes)))))
-                              (setf (chain feature fid) fid)
-                              (setf (chain feature render-intent) "select")
+                              (setf (@ feature fid) fid)
+                              (setf (@ feature render-intent) "select")
                               feature))))
                     (setf
                      (@ i user-point-layer)
@@ -930,24 +797,24 @@ to Estimated Position."
        (defun finish-point ()
          "Send current *global-position* as a user point to the database."
          (let ((global-position-etc *global-position*))
-           (setf (chain global-position-etc attribute)
+           (setf (@ global-position-etc attribute)
                  (chain
                   (elt (chain *point-attributes-select* options)
                        (chain *point-attributes-select* options selected-index))
                   text))
-           (setf (chain global-position-etc description)
+           (setf (@ global-position-etc description)
                  (value-with-id "point-description"))
-           (setf (chain global-position-etc numeric-description)
+           (setf (@ global-position-etc numeric-description)
                  (value-with-id "point-numeric-description"))
            (when (checkbox-status-with-id "include-aux-data-p")
-             (setf (chain global-position-etc aux-numeric)
-                   (chain *current-nearest-aux-point*
-                          attributes
-                          aux-numeric))
-             (setf (chain global-position-etc aux-text)
-                   (chain *current-nearest-aux-point*
-                          attributes
-                          aux-text)))
+             (setf (@ global-position-etc aux-numeric)
+                   (@ *current-nearest-aux-point*
+                      attributes
+                      aux-numeric))
+             (setf (@ global-position-etc aux-text)
+                   (@ *current-nearest-aux-point*
+                      attributes
+                      aux-text)))
            (let ((content 
                   (chain *json-parser*
                          (write global-position-etc))))
@@ -957,7 +824,8 @@ to Estimated Position."
                       :headers (create "Content-type" "text/plain"
                                        "Content-length" (@ content length))
                       :success (lambda ()
-                                 (refresh-layer *user-point-layer*)
+                                 (refresh-layer
+                                  (@ *streetmap* user-point-layer))
                                  (reset-layers-and-controls)))))))
            
        (defun increment-numeric-text (text)
@@ -972,12 +840,12 @@ to Estimated Position."
        (defun update-point ()
          "Send changes to currently selected user point to database."
          (let* ((point-data
-                 (create user-point-id (chain *current-user-point* fid)
+                 (create user-point-id (@ *current-user-point* fid)
                          attribute
                          (chain
-                          (elt (chain *point-attributes-select*
+                          (elt (@ *point-attributes-select*
                                       options)
-                               (chain *point-attributes-select*
+                               (@ *point-attributes-select*
                                       options
                                       selected-index))
                           text)
@@ -994,12 +862,13 @@ to Estimated Position."
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
                     :success (lambda ()
-                               (refresh-layer *user-point-layer*)
+                               (refresh-layer
+                                (@ *streetmap* user-point-layer))
                                (reset-layers-and-controls))))))
 
        (defun delete-point ()
          "Purge currently selected user point from database."
-         (let ((user-point-id (chain *current-user-point* fid)))
+         (let ((user-point-id (@ *current-user-point* fid)))
            (setf content 
                  (chain *json-parser*
                         (write user-point-id)))
@@ -1009,7 +878,8 @@ to Estimated Position."
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
                     :success (lambda ()
-                               (refresh-layer *user-point-layer*)
+                               (refresh-layer
+                                (@ *streetmap* user-point-layer))
                                (reset-layers-and-controls))))))
 
        (defun draw-active-point ()
@@ -1048,7 +918,7 @@ to Estimated Position."
              (if
               *pristine-images-p*
               (progn
-                (chain *user-points-select-control* (unselect-all))
+                (chain *streetmap* user-points-select-control (unselect-all))
                 (reset-controls)
                 (setf (value-with-id "point-numeric-description")
                       (increment-numeric-text
@@ -1062,7 +932,8 @@ to Estimated Position."
                         (new (chain *open-layers
                                     *layer
                                     (*vector "Epipolar Line"
-                                             (create display-in-layer-switcher nil))))
+                                             (create
+                                              display-in-layer-switcher nil))))
                         content (chain *json-parser*
                                        (write
                                         (append (array photo-parameters)
@@ -1130,7 +1001,7 @@ to Estimated Position."
                  (new ((@ *open-layers *size) 512 256))
                  (create)))))
          (chain this map (zoom-to-max-extent))
-         (setf (chain this trigger-time-div inner-h-t-m-l)
+         (setf (@ this trigger-time-div inner-h-t-m-l)
                (iso-time-string (getprop this 'photo-parameters 'trigger-time))))
 
        (defun zoom-images-to-max-extent ()
@@ -1143,8 +1014,8 @@ Estimated Position, zoom in and recenter."
          (when (checkbox-status-with-id "zoom-to-point-p")
            (let ((point-lonlat
                   (new (chain *open-layers
-                              (*lon-lat (chain *global-position* longitude)
-                                        (chain *global-position* latitude))
+                              (*lon-lat (@ *global-position* longitude)
+                                        (@ *global-position* latitude))
                               (transform +geographic+ +spherical-mercator+)))))
              (when point-lonlat
                (chain *streetmap*
@@ -1152,12 +1023,12 @@ Estimated Position, zoom in and recenter."
            (loop for i across *images* do
                 (let ((point-lonlat
                        (cond
-                         ((has-layer-p (chain i map) "Active Point")
+                         ((has-layer-p (@ i map) "Active Point")
                           (new (chain *open-layers (*lon-lat
-                                                    (chain i photo-parameters m)
-                                                    (chain i photo-parameters n)))))
-                         ((has-layer-p (chain i map) "Estimated Position")
-                          (chain i estimated-position-lonlat))
+                                                    (@ i photo-parameters m)
+                                                    (@ i photo-parameters n)))))
+                         ((has-layer-p (@ i map) "Estimated Position")
+                          (@ i estimated-position-lonlat))
                          (t false))))
                   (when point-lonlat
                     (chain i map (set-center point-lonlat 4 nil t)))))))
@@ -1227,14 +1098,17 @@ image-index in array *images*."
                                       document
                                       (get-element-by-id
                                        (+ "image-" image-index "-zoom")))))))))
-           (chain (aref *images* image-index) map (add-control pan-zoom-panel))
-           (chain pan-zoom-panel (add-controls (array pan-west-control
-                                                      pan-north-control
-                                                      pan-south-control
-                                                      pan-east-control
-                                                      zoom-in-control
-                                                      zoom-out-control
-                                                      zoom-to-max-extent-control))))
+           (chain (aref *images* image-index)
+                  map
+                  (add-control pan-zoom-panel))
+           (chain pan-zoom-panel
+                  (add-controls (array pan-west-control
+                                       pan-north-control
+                                       pan-south-control
+                                       pan-east-control
+                                       zoom-in-control
+                                       zoom-out-control
+                                       zoom-to-max-extent-control))))
          (chain (aref *images* image-index)
                 map
                 (render (chain document
@@ -1256,10 +1130,10 @@ image-index in array *images*."
          "Things to do once a user point is selected or unselected."
          (hide-aux-data-choice)
          ;; after single select: same as event
-         (setf *current-user-point* (chain event object selected-features 0))
+         (setf *current-user-point* (@ event object selected-features 0))
          (let ((selected-features-count
-                (chain *user-point-layer* selected-features length)))
-           (setf (chain *user-point-layer* style-map)
+                (@ *streetmap* user-point-layer selected-features length)))
+           (setf (@ *streetmap* user-point-layer style-map)
                  (user-point-style-map 
                   (when (> selected-features-count 1)
                     "${numericDescription}")))
@@ -1270,9 +1144,9 @@ image-index in array *images*."
                (progn
                  (hide-element-with-id "multiple-points-phoros-controls")
                  (reveal-element-with-id "real-phoros-controls"))))
-         (chain *user-point-layer* (redraw))
+         (chain *streetmap* user-point-layer (redraw))
          (remove-any-layers "User Point") ;from images
-         (if (write-permission-p (chain event feature attributes user-name))
+         (if (write-permission-p (@ event feature attributes user-name))
              (progn
                (setf (chain document
                             (get-element-by-id "finish-point-button")
@@ -1286,21 +1160,21 @@ image-index in array *images*."
                (disable-element-with-id "delete-point-button")
                (setf (inner-html-with-id "h2-controls") "View Point")))
          (setf (inner-html-with-id "creator")
-               (+ "(by " (chain event feature attributes user-name) ")"))
+               (+ "(by " (@ event feature attributes user-name) ")"))
          (setf (value-with-id "point-attribute")
-               (chain event feature attributes attribute))
+               (@ event feature attributes attribute))
          (setf (value-with-id "point-description")
-               (chain event feature attributes description))
+               (@ event feature attributes description))
          (setf (value-with-id "point-numeric-description")
-               (chain event feature attributes numeric-description))
+               (@ event feature attributes numeric-description))
          (setf (inner-html-with-id "point-creation-date")
-               (chain event feature attributes creation-date))
+               (@ event feature attributes creation-date))
          (setf (inner-html-with-id "aux-numeric-list")
                (html-ordered-list
-                (chain event feature attributes aux-numeric)))
+                (@ event feature attributes aux-numeric)))
          (setf (inner-html-with-id "aux-text-list")
                (html-ordered-list
-                (chain event feature attributes aux-text)))
+                (@ event feature attributes aux-text)))
          (setf content
                (chain *json-parser*
                       (write
@@ -1310,26 +1184,28 @@ image-index in array *images*."
                                      (map (lambda (x) (@ x fid))))
                               (loop
                                  for i across *images*
-                                 collect (chain i photo-parameters))))))
+                                 collect (@ i photo-parameters))))))
          (setf *user-point-in-images-response*
                ((@ *open-layers *Request *POST*)
                 (create :url "/phoros-lib/user-point-positions"
                         :data content
                         :headers (create "Content-type" "text/plain"
                                          "Content-length" (@ content length))
-                        :success draw-user-point))))
+                        :success draw-user-points))))
 
        (defun aux-point-distance-selected ()
          "Things to do on change of aux-point-distance select element."
-         (chain *nearest-aux-points-select-control*
+         (chain *streetmap*
+                nearest-aux-points-select-control
                 (unselect-all))
-         (chain *nearest-aux-points-select-control*
+         (chain *streetmap*
+                nearest-aux-points-select-control
                 (select 
                  (chain
-                  (elt (chain *streetmap-nearest-aux-points-layer* features)
-                       (chain *aux-point-distance-select*
-                              options
-                              selected-index))))))
+                  (elt (@ *streetmap* nearest-aux-points-layer features)
+                       (@ *aux-point-distance-select*
+                          options
+                          selected-index))))))
 
        (defun enable-aux-point-selection ()
          "Check checkbox include-aux-data-p and act accordingly."
@@ -1340,9 +1216,11 @@ image-index in array *images*."
          "Query status of checkbox include-aux-data-p and act
 accordingly."
          (if (checkbox-status-with-id "include-aux-data-p")
-             (chain *streetmap-nearest-aux-points-layer*
+             (chain *streetmap*
+                    nearest-aux-points-layer
                     (set-visibility t))
-             (chain *streetmap-nearest-aux-points-layer*
+             (chain *streetmap*
+                    nearest-aux-points-layer
                     (set-visibility nil))))
 
        (defun html-ordered-list (aux-data)
@@ -1358,15 +1236,15 @@ accordingly."
 
        (defun nearest-aux-point-selected (event)
          "Things to do once a nearest auxiliary point is selected in streetmap."
-         (setf *current-nearest-aux-point* (chain event feature))
+         (setf *current-nearest-aux-point* (@ event feature))
          (let ((aux-numeric
-                (chain event feature attributes aux-numeric))
+                (@ event feature attributes aux-numeric))
                (aux-text
-                (chain event feature attributes aux-text))
+                (@ event feature attributes aux-text))
                (distance
-                (chain event feature attributes distance)))
-           (setf (chain *aux-point-distance-select* options selected-index)
-                 (chain event feature fid))
+                (@ event feature attributes distance)))
+           (setf (@ *aux-point-distance-select* options selected-index)
+                 (@ event feature fid))
            (setf (inner-html-with-id "aux-numeric-list")
                  (html-ordered-list aux-numeric))
            (setf (inner-html-with-id "aux-text-list")
@@ -1386,7 +1264,7 @@ accordingly."
                (chain document (get-element-by-id "aux-point-distance")))
          (loop for i in '("solitary" "polyline" "polygon") do
               (setf point-attribute-item (chain document (create-element "option")))
-              (setf (chain point-attribute-item text) i)
+              (setf (@ point-attribute-item text) i)
               (chain *point-attributes-select* (add point-attribute-item null))) ;TODO: input of user-defined attributes
          (hide-aux-data-choice)
          (setf *streetmap*
@@ -1401,6 +1279,121 @@ accordingly."
                                                    (new (chain *open-layers
                                                                *control
                                                                (*attribution)))))))))
+         (setf (@ *streetmap* survey-layer)
+               (let ((survey-layer-style
+                      (create stroke-color (chain *open-layers *feature *vector
+                                                  style "default" stroke-color)
+                              stroke-width 1
+                              point-radius 2
+                              fill-opacity 0
+                              graphic-name "circle")))
+                 (new (chain
+                       *open-layers *layer
+                       (*vector
+                        "survey"
+                        (create
+                         strategies (array (new (*bbox-strategy*)))
+                         protocol
+                         (new (*http-protocol*
+                               (create :url "/phoros-lib/points.json")))
+                         style survey-layer-style))))))
+         (setf (@ *streetmap* user-point-layer)
+               (new (chain
+                     *open-layers *layer
+                     (*vector
+                      "user points"
+                      (create
+                       strategies (array (new *bbox-strategy*))
+                       protocol
+                       (new (*http-protocol*
+                             (create :url "/phoros-lib/user-points.json")))
+                       style-map (user-point-style-map nil))))))
+         (setf (@ *streetmap* user-points-hover-control)
+               (new (chain *open-layers
+                           *control
+                           (*select-feature (@ *streetmap* user-point-layer)
+                                            (create render-intent "temporary"
+                                                    hover t
+                                                    highlight-only t)))))
+         (setf (@ *streetmap* user-points-select-control)
+               (new (chain *open-layers
+                           *control
+                           (*select-feature (@ *streetmap* user-point-layer)
+                                            (create toggle t
+                                                    multiple t)))))
+         (setf (@ *streetmap* aux-point-layer)
+               (let ((aux-layer-style
+                      (create stroke-color "grey"
+                              stroke-width 1
+                              point-radius 2
+                              fill-opacity 0
+                              graphic-name "circle")))
+                 (new (chain
+                       *open-layers *layer
+                       (*vector
+                        "auxiliary data"
+                        (create
+                         strategies (array (new (*bbox-strategy*)))
+                         protocol
+                         (new (*http-protocol*
+                               (create :url "/phoros-lib/aux-points.json")))
+                         style aux-layer-style
+                         visibility nil))))))
+         (setf (@ *streetmap* nearest-aux-points-layer)
+               (let ((nearest-aux-point-layer-style-map
+                      (new (chain *open-layers
+                                  (*style-map
+                                   (create "default"
+                                           (create stroke-color "grey"
+                                                   stroke-width 1
+                                                   point-radius 5
+                                                   fill-opacity 0
+                                                   graphic-name "circle")
+                                           "select"
+                                           (create stroke-color "black"
+                                                   stroke-width 1
+                                                   point-radius 5
+                                                   fill-opacity 0
+                                                   graphic-name "circle")
+                                           "temporary"
+                                           (create stroke-color "grey"
+                                                   stroke-width 1
+                                                   point-radius 5
+                                                   fill-color "grey"
+                                                   fill-opacity 1
+                                                   graphic-name "circle")))))))
+                 (new (chain *open-layers
+                             *layer
+                             (*vector "Nearest Aux Points"
+                                      (create
+                                       display-in-layer-switcher nil
+                                       style-map nearest-aux-point-layer-style-map
+                                       visibility t))))))
+         (setf (@ *streetmap* nearest-aux-points-hover-control)
+               (new (chain *open-layers
+                           *control
+                           (*select-feature
+                            (@ *streetmap* nearest-aux-points-layer)
+                            (create render-intent "temporary"
+                                    hover t
+                                    highlight-only t)))))
+         (setf (@ *streetmap* nearest-aux-points-select-control)
+               (new (chain *open-layers
+                           *control
+                           (*select-feature
+                            (@ *streetmap* nearest-aux-points-layer)))))
+         (setf (@ *streetmap* google-streetmap-layer) 
+               (new (chain *open-layers
+                           *layer
+                           (*google "Google Streets"
+                                    (create num-zoom-levels 22)))))
+         (setf (@ *streetmap* osm-layer)
+               (new (chain *open-layers
+                           *layer
+                           (*osm* "OpenStreetMap"
+                                  nil (create num-zoom-levels 19)))))
+         (setf (@ *streetmap* click-streetmap)
+               (new (*click-control* (create :trigger request-photos))))
          (chain *streetmap*
                 (add-control
                  (new (chain *open-layers
@@ -1477,42 +1470,59 @@ accordingly."
                                        zoom-out-control
                                        zoom-to-max-extent-control)))
            (chain *streetmap*
-                  (add-control *click-streetmap*))
-           (chain *click-streetmap* (activate))
+                  (add-control (@ *streetmap* click-streetmap)))
+           (chain *streetmap* click-streetmap (activate))
 
-           (chain *user-point-layer*
+           (chain *streetmap*
+                  user-point-layer
                   events
                   (register "featureselected"
-                            *user-point-layer*
+                            (@ *streetmap* user-point-layer)
                             user-point-selected))
-           (chain *user-point-layer*
+           (chain *streetmap*
+                  user-point-layer
                   events
                   (register "featureunselected"
-                            *user-point-layer*
+                            (@ *streetmap* user-point-layer)
                             user-point-unselected))
-           (chain *streetmap-nearest-aux-points-layer*
+           (chain *streetmap*
+                  nearest-aux-points-layer
                   events
                   (register "featureselected"
-                            *streetmap-nearest-aux-points-layer*
+                            (@ *streetmap* nearest-aux-points-layer)
                             nearest-aux-point-selected))
-           (chain *streetmap* (add-control *nearest-aux-points-hover-control*))
-           (chain *streetmap* (add-control *nearest-aux-points-select-control*))
-           (chain *streetmap* (add-control *user-points-hover-control*))
-           (chain *streetmap* (add-control *user-points-select-control*))
-           (chain *user-points-hover-control* (activate))
-           (chain *user-points-select-control* (activate))
-           (chain *nearest-aux-points-hover-control* (activate))
-           (chain *nearest-aux-points-select-control* (activate))
+           (chain *streetmap*
+                  (add-control
+                   (@ *streetmap* nearest-aux-points-hover-control)))
+           (chain *streetmap*
+                  (add-control
+                   (@ *streetmap* nearest-aux-points-select-control)))
+           (chain *streetmap*
+                  (add-control
+                   (@ *streetmap* user-points-hover-control)))
+           (chain *streetmap*
+                  (add-control
+                   (@ *streetmap* user-points-select-control)))
+           (chain *streetmap* user-points-hover-control (activate))
+           (chain *streetmap* user-points-select-control (activate))
+           (chain *streetmap* nearest-aux-points-hover-control (activate))
+           (chain *streetmap* nearest-aux-points-select-control (activate))
            
-           (chain *streetmap* (add-layer *osm-layer*))
-           (try (chain *streetmap* (add-layer *google-streetmap-layer*))
+           (chain *streetmap* (add-layer (@ *streetmap* osm-layer)))
+           (try (chain *streetmap*
+                       (add-layer (@ *streetmap* google-streetmap-layer)))
                 (:catch (c)
-                  (chain *streetmap* (remove-layer *google-streetmap-layer*))))
-           (chain *streetmap* (add-layer *streetmap-nearest-aux-points-layer*))
-           (chain *streetmap* (add-layer *survey-layer*))
-           (chain *streetmap* (add-layer *aux-point-layer*))
-           (chain *streetmap* (add-layer *user-point-layer*))
-           (setf (chain overview-map element)
+                  (chain *streetmap*
+                         (remove-layer (@ *streetmap*
+                                          google-streetmap-layer)))))
+           (chain *streetmap*
+                  (add-layer (@ *streetmap* nearest-aux-points-layer)))
+           (chain *streetmap* (add-layer (@ *streetmap* survey-layer)))
+           (chain *streetmap*
+                  (add-layer (@ *streetmap* aux-point-layer)))
+           (chain *streetmap*
+                  (add-layer (@ *streetmap* user-point-layer)))
+           (setf (@ overview-map element)
                  (chain document (get-element-by-id
                                   "streetmap-overview-element")))
            (chain *streetmap* (add-control overview-map))
