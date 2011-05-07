@@ -1255,9 +1255,9 @@ accordingly."
          (when (write-permission-p)
            (enable-element-with-id "point-attribute")
            (enable-element-with-id "point-description")
-           (enable-element-with-id "point-numeric-description")
-           (hide-element-with-id "multiple-points-phoros-controls")
-           (setf (inner-html-with-id "h2-controls") "Create Point"))
+           (enable-element-with-id "point-numeric-description"))
+         (setf (inner-html-with-id "h2-controls") "Create Point")
+         (hide-element-with-id "multiple-points-phoros-controls")
          (setf *point-attributes-select*
                (chain document (get-element-by-id "point-attribute")))
          (setf *aux-point-distance-select*

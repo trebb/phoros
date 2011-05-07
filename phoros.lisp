@@ -792,7 +792,7 @@ send all points."
              (:div :id "multiple-points-phoros-controls"
                    (:h2 "Multiple Points Selected")
                    (:p "You have selected multiple user points.")
-                   (:p "Unselect all but one to edit its properties."))
+                   (:p "Unselect all but one to edit or view its properties."))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
