@@ -136,15 +136,21 @@ session."
                  (presentation-project-bbox presentation-project-id))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
-                    :action "/phoros-lib/authenticate"
+                    :action "/phoros-lib/authenticate" :name "login-form"
                     "User:"
                     :br
-                    (:input :type "text" :name "user-name") :br
+                    (:input :type "text" :name "user-name")
+                    :br
                     "Password:"
                     :br
                     (:input :type "password" :name "user-password")
                     :br
-                    (:input :type "submit" :value "Submit"))
+                    (:input :type "submit" :value "Submit")
+                    (:script :type "text/javascript"
+                             (who:str (ps (chain document
+                                                 :login-form
+                                                 :user-name
+                                                 (focus))))))
              (:p (who:str *login-intro*)))))))))
       
 (pushnew (create-prefix-dispatcher "/phoros/" 'phoros-handler)
