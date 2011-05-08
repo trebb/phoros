@@ -78,6 +78,12 @@ h6 {
 button, select {
     cursor: pointer;
 }
+#logout-button {
+    float:right;
+}
+#phoros-version {
+    float:right;
+}
 .vanilla-input {
     font: 1em 'andale mono', 'lucida console', monospace;
     padding: 0px;

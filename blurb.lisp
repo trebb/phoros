@@ -17,7 +17,8 @@
 
 (in-package :phoros)
 
-(define-easy-handler (blurb :uri "/phoros-lib/blurb") ()
+(define-easy-handler (blurb :uri "/phoros-lib/blurb") (openlayers-version)
+  (print openlayers-version) (terpri)
   (when
       (session-value 'authenticated-p)
     (who:with-html-output-to-string (s nil :indent t)
@@ -64,13 +65,19 @@
                 (:img :src "http://www.openlayers.org/images/OpenLayers.trac.png"
                       :height 30 :style "vertical-align:middle"
                       :alt "OpenLayers"))
-            "OpenLayers.")
+            (who:fmt " ~A." (string-trim " " (remove #\$ openlayers-version))))
         (:p "Phoros stores data in a"
             (:a :href "http://postgresql.org"
                 (:img :src "http://www.postgresql.org/files/community/propaganda/32x32_1.gif"
                       :height 30 :style "vertical-align:middle"
                       :alt "PostgreSQL"))
-             "PostgreSQL database that is spatially enabled by "
+            (who:fmt " ~{~A (v~A)~}"
+                     (with-connection *postgresql-credentials*
+                       (cl-utilities:split-sequence
+                        #\Space
+                        (query (:select (:version)) :single)
+                        :count 2)))
+             " database that is spatially enabled by "
             (:a :href "http://postgis.refractions.net"
                 (:img :src "http://postgis.refractions.net/download/logo_suite/stock_text/stock_text_180.gif"
                       :height 30 :style "vertical-align:middle"

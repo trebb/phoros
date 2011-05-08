@@ -752,7 +752,11 @@ send all points."
                            (who:str (session-value 'user-role)))
             "permission on "
             (:span :id "presentation-project-name"
-                   (who:str (session-value 'presentation-project-name))))
+                   (who:str (session-value 'presentation-project-name)))
+            (:span :id "phoros-version"
+                   (who:fmt "v~A"
+                            (handler-bind ((warning #'ignore-warnings))
+                              (asdf:component-version (asdf:find-system :phoros))))))
        (:div :class "controlled-streetmap"
              (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
              (:div :id "streetmap-controls" :class "streetmap-controls"
@@ -816,7 +820,10 @@ send all points."
                       :type "button"
                       :onclick (ps-inline
                                 (chain window
-                                       (open "/phoros-lib/blurb" "About Phoros")))
+                                       (open
+                                        (+ "/phoros-lib/blurb?openlayers-version="
+                                           (@ *open-layers *version_number*))
+                                        "About Phoros")))
                       (:img :src "/phoros-lib/public_html/phoros-logo-plain.png"
                             :alt "Phoros" :style "vertical-align:middle"
                             :height 20))

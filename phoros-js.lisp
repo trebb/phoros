@@ -47,6 +47,14 @@
           :presentation-project-name
           (who-ps-html
            (:p "Presentation project name."))
+          :phoros-version
+          (who-ps-html
+           (:p "Phoros version.")
+           (:p "In a version string A.B.C, changes in A denote
+           incompatible changes in data (you can't access a database
+           set up by a different version of Phoros); changes in B mean
+           user-visible changes in feature set; changes in C denote
+           bug fixes and minor improvements."))
           :h2-controls
           (who-ps-html
            (:p "Current action."))

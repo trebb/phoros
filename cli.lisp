@@ -18,29 +18,29 @@
 
 ;;;; The UNIX command line interface
 
-;; TODO: options that have a function as their :action seem to mask earlier options.  Fix or document.
+;; TODO: options that have a function as their :action seem to mask earlier options.  Fix and remove (*) stuff.
 
 (in-package :phoros)
 
 (defparameter *cli-general-options*
   '((("help" #\h) :action #'cli-help-action
-     :documentation "Print this help and exit.")
+     :documentation "(*) Print this help and exit.")
     (("licence" "license") :action #'cli-licence-action
-     :documentation "Print licence boilerplate and exit.")
+     :documentation "(*) Print licence boilerplate and exit.")
     ("version" :action #'cli-version-action
-     :documentation "Print version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
+     :documentation "(*) Print version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
     ("verbose" :type integer :initial-value 0
      :documentation "Dependent on bits set in this integer, emit various kinds of debugging output. ")
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'check-db-action
-     :documentation "Check connection to databases (including auxiliary if applicable) and exit.")
+     :documentation "(*) Check connection to databases (including auxiliary if applicable) and exit.")
     ("check-dependencies" :action #'check-dependencies-action
-     :documentation "Check presence of dependencies on local system and exit.")
+     :documentation "(*) Check presence of dependencies on local system and exit.")
     ("nuke-all-tables" :action #'nuke-all-tables-action
-     :documentation "Ask for confirmation, then delete anything in database and exit.")
+     :documentation "(*) Ask for confirmation, then delete anything in database and exit.")
     ("create-sys-tables" :action #'create-sys-tables-action
-     :documentation "Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")))
+     :documentation "(*) Ask for confirmation, then create in database a set of sys-* tables (tables shared between all projects).  The database should probably be empty before you try this.")))
 
 (defparameter *cli-db-connection-options*
   '((("host" #\H) :type string :initial-value "localhost"
@@ -72,7 +72,7 @@
 
 (defparameter *cli-get-image-options*
   '(("get-image" :action #'get-image-action
-     :documentation "Get a single image from a .pictures file, print its trigger-time to stdout, and exit.")
+     :documentation "(*) Get a single image from a .pictures file, print its trigger-time to stdout, and exit.")
     ("count" :type integer :initial-value 0
      :documentation "Image number in .pictures file.")
     ("byte-position" :type integer
@@ -88,7 +88,7 @@
 
 (defparameter *cli-camera-hardware-options*
   '(("store-camera-hardware" :action #'store-camera-hardware-action
-     :documentation "Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
+     :documentation "(*) Put new camera-hardware data into the database; print camera-hardware-id to stdout.")
     ("sensor-width-pix" :type integer
      :documentation "Width of camera sensor.")
     ("sensor-height-pix" :type integer
@@ -116,7 +116,7 @@
 
 (defparameter *cli-lens-options*
   '(("store-lens" :action #'store-lens-action
-     :documentation "Put new lens data into the database; print lens-id to stdout.")
+     :documentation "(*) Put new lens data into the database; print lens-id to stdout.")
     ("c" :type string
      :documentation "Nominal focal length in millimetres.")
     ("serial-number" :type string
@@ -128,7 +128,7 @@
 
 (defparameter *cli-generic-device-options*
   '(("store-generic-device" :action #'store-generic-device-action
-     :documentation "Put a newly defined generic-device into the database; print generic-device-id to stdout.")
+     :documentation "(*) Put a newly defined generic-device into the database; print generic-device-id to stdout.")
     ("camera-hardware-id" :type integer
      :documentation "Numeric camera hardware id in database.")
     ("lens-id" :type integer
@@ -136,7 +136,7 @@
 
 (defparameter *cli-device-stage-of-life-options*
   '(("store-device-stage-of-life" :action #'store-device-stage-of-life-action
-     :documentation "Put a newly defined device-stage-of-life into the database; print device-stage-of-life-id to stdout.")
+     :documentation "(*) Put a newly defined device-stage-of-life into the database; print device-stage-of-life-id to stdout.")
     ("recorded-device-id" :type string
      :documentation "Device id stored next to the measuring data.")
     ("event-number" :type string
@@ -156,7 +156,7 @@
 
 (defparameter *cli-device-stage-of-life-end-options*
   '(("store-device-stage-of-life-end" :action #'store-device-stage-of-life-end-action
-     :documentation "Put an end date to a device-stage-of-life in the database; print device-stage-of-life-id to stdout.")
+     :documentation "(*) Put an end date to a device-stage-of-life in the database; print device-stage-of-life-id to stdout.")
     ("device-stage-of-life-id" :type string
      :documentation "Id of the device-stage-of-life to put to an end.")
     ("unmounting-date" :type string
@@ -164,7 +164,7 @@
 
 (defparameter *cli-camera-calibration-options*
   '(("store-camera-calibration" :action #'store-camera-calibration-action
-     :documentation "Put new camera-calibration into the database; print generic-device-id and calibration date to stdout.")
+     :documentation "(*) Put new camera-calibration into the database; print generic-device-id and calibration date to stdout.")
     ("device-stage-of-life-id" :type string
      :documentation "This tells us what hardware this calibration is for.")
     ("date" :type string
@@ -231,20 +231,20 @@
 (defparameter *cli-acquisition-project-options*
   '(("create-acquisition-project"
      :type string :action #'create-acquisition-project-action
-     :documentation "Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")
+     :documentation "(*) Create a fresh set of canonically named data tables.  The string argument is the acquisition project name.  It will be stored in table sys-acquisition-project, field common-table-name, and used as a common part of the data table names.")
     ("delete-acquisition-project"
      :type string :action #'delete-acquisition-project-action
-     :documentation "Ask for confirmation, then delete acquisition project and all its measurements.")
+     :documentation "(*) Ask for confirmation, then delete acquisition project and all its measurements.")
     ("delete-measurement"
      :type integer :action #'delete-measurement-action
-     :documentation "Delete a measurement by its ID.")
+     :documentation "(*) Delete a measurement by its ID.")
     ("list-acquisition-project"
      :type string :optional t :action #'list-acquisition-project-action
-     :documentation "List measurements of one acquisition project if its name is specified, or of all acquisition projects otherwise.")))
+     :documentation "(*) List measurements of one acquisition project if its name is specified, or of all acquisition projects otherwise.")))
 
 (defparameter *cli-store-images-and-points-options*
   '((("store-images-and-points" #\s) :type string :action #'store-images-and-points-action
-     :documentation "Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
+     :documentation "(*) Link images to GPS points; store both into their respective DB tables.  Images become linked to GPS points when their respective times differ by less than epsilon seconds, and when the respective events match.  The string argument is the acquisition project name.")
     (("directory" #\d) :type string
      :documentation "Directory containing one set of measuring data.")
     (("common-root" #\r) :type string
@@ -256,7 +256,7 @@
 
 (defparameter *cli-start-server-options*
   '(("server" :action #'server-action
-     :documentation "Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>")
+     :documentation "(*) Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>")
     ("address" :type string
      :documentation "Address (of local machine) server is to listen to.  Default is listening to all available addresses.")
     ("http-port" :type integer :initial-value 8080
@@ -271,19 +271,19 @@
 (defparameter *cli-presentation-project-options*
   '(("create-presentation-project"
      :type string :action #'create-presentation-project-action
-     :documentation "Create a fresh presentation project which is to expose a set of measurements to certain users.")
+     :documentation "(*) Create a fresh presentation project which is to expose a set of measurements to certain users.")
     ("delete-presentation-project"
      :type string :action #'delete-presentation-project-action
-     :documentation "Ask for confirmation, then delete the presentation project including its table of user-generated points.")
+     :documentation "(*) Ask for confirmation, then delete the presentation project including its table of user-generated points.")
     ("list-presentation-project"
      :type string :optional t :action #'list-presentation-project-action
-     :documentation "List one presentation project if specified, or all presentation projects if not.")
+     :documentation "(*) List one presentation project if specified, or all presentation projects if not.")
     ("add-to-presentation-project"
      :type string :action #'add-to-presentation-project-action
-     :documentation "Add to the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
+     :documentation "(*) Add to the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
     ("remove-from-presentation-project"
      :type string :action #'remove-from-presentation-project-action
-     :documentation "Remove from the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
+     :documentation "(*) Remove from the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
     ("measurement-id" :type integer :list t :optional t
      :documentation "One measurement-id to add or remove.  Repeat if necessary.")
     ("acquisition-project" :type string
@@ -292,7 +292,7 @@
 (defparameter *cli-aux-view-options*
   '(("create-aux-view"
      :type string :action #'create-aux-view-action
-     :documentation "Connect table of auxiliary data with the specified presentation project by creating a view.")
+     :documentation "(*) Connect table of auxiliary data with the specified presentation project by creating a view.")
     ("aux-table"
      :type string
      :documentation "Name of auxiliary table, which may be in any database.  It must have a geometry column.")
@@ -309,7 +309,7 @@
 (defparameter *cli-user-options*
   '(("create-user"
      :type string :action #'create-user-action
-     :documentation "Create or update user (specified by their ID) of certain presentation projects.")
+     :documentation "(*) Create or update user (specified by their ID) of certain presentation projects.")
     ("user-password" :type string :documentation "User's password.")
     ("user-full-name" :type string :documentation "User's real name.")
     ("user-role"
@@ -319,10 +319,10 @@
      :documentation "Presentation project the user is allowed to see.  Repeat if necessary.")
     ("delete-user"
      :type string :action #'delete-user-action
-     :documentation "Delete user.")
+     :documentation "(*) Delete user.")
     ("list-user"
      :type string :optional t :action #'list-user-action
-     :documentation "List the specified user with their presentation projects, or all users if no user is given.")))
+     :documentation "(*) List the specified user with their presentation projects, or all users if no user is given.")))
 
 (defparameter *cli-options*
   (append *cli-general-options*
@@ -409,9 +409,13 @@ according to the --verbose option given."
            (show-option-help options-specification)))
     (format
      *standard-output*
-     "~&Usage: phoros [options] ...~&~A"
+     "~&Usage: phoros [options] ...~&~A~2&"
      (handler-bind ((warning #'ignore-warnings))
        (asdf:system-long-description (asdf:find-system :phoros))))
+    (show-help-section
+     nil nil
+     "Options marked (*) are mutually exclusive and must come before
+     any other options.")
     (show-help-section
      *cli-general-options*
      "General Options")
