@@ -994,23 +994,38 @@ to Estimated Position."
          (loop
             repeat ((getprop this 'map 'get-num-layers))
             do ((getprop this 'map 'layers 0 'destroy)))
-         ((getprop this 'map 'add-layer)
-          (new (chain
-                *open-layers
-                *layer
-                (*image
-                 "Photo"
-                 (photo-path (getprop this 'photo-parameters))
-                 (new ((@ *open-layers *bounds) -.5 -.5
-                       (+ (getprop this 'photo-parameters 'sensor-width-pix)
-                          .5)
-                       (+ (getprop this 'photo-parameters 'sensor-height-pix)
-                          .5)))         ; coordinates shown
-                 (new ((@ *open-layers *size) 512 256))
-                 (create)))))
-         (chain this map (zoom-to-max-extent))
-         (setf (@ this trigger-time-div inner-h-t-m-l)
-               (iso-time-string (getprop this 'photo-parameters 'trigger-time))))
+         (let ((image-div-width
+                (parse-int (chain (get-computed-style (@ this map div) nil)
+                                  width)))
+               (image-div-height
+                (parse-int (chain (get-computed-style (@ this map div) nil)
+                                  height)))
+               (image-width
+                (getprop this 'photo-parameters 'sensor-width-pix))
+               (image-height
+                (getprop this 'photo-parameters 'sensor-height-pix)))
+           ((getprop this 'map 'add-layer)
+            (new (chain
+                  *open-layers
+                  *layer
+                  (*image
+                   "Photo"
+                   (photo-path (getprop this 'photo-parameters))
+                   (new (chain *open-layers
+                               (*bounds
+                                -.5 -.5
+                                (+ image-width .5) (+ image-height .5))))
+                   (new (chain *open-layers
+                               (*size image-div-width
+                                      image-div-height)))
+                   (create
+                    max-resolution (chain
+                                    *math
+                                    (max (/ image-width image-div-width)
+                                         (/ image-height image-div-height))))))))
+           (chain this map (zoom-to-max-extent))
+           (setf (@ this trigger-time-div inner-h-t-m-l)
+                 (iso-time-string (getprop this 'photo-parameters 'trigger-time)))))
 
        (defun zoom-images-to-max-extent ()
          "Zoom out all images."

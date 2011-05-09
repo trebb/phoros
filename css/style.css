@@ -286,6 +286,8 @@ button, select {
     background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
     background-position: center;
     background-repeat: no-repeat;
+    /* width and height are read via CSS DOM where we expect them
+       to be in px. */
     width: 300px;
     height: 256px;
 }
