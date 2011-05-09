@@ -452,13 +452,16 @@ shadow any other control."
            ))
 
        (defun request-photos (event)
-         "Handle the response to a click into *streetmap*; fetch photo data."
+         "Handle the response to a click into *streetmap*; fetch photo data.  Set or update streetmap cursor."
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "remove-work-layers-button")
          (remove-any-layers "Estimated Position")
          (disable-streetmap-nearest-aux-points-layer)
          (reset-controls)
-         (let* ((lonlat
+         (let* ((lonlat-spherical-mercator
+                 (chain *streetmap*
+                        (get-lon-lat-from-pixel (@ event xy))))
+                (lonlat
                  (chain *streetmap*
                         (get-lon-lat-from-pixel (@ event xy))
                         (transform +spherical-mercator+
@@ -470,6 +473,24 @@ shadow any other control."
                                  :latitude (@ lonlat lat)
                                  :zoom ((@ *streetmap* get-zoom))
                                  :count (lisp *number-of-images*))))))
+           (debug-info lonlat-spherical-mercator)
+           (debug-info lonlat)
+           (chain *streetmap*
+                  cursor-layer
+                  (remove-all-features))
+           (chain *streetmap*
+                  cursor-layer
+                  (add-features
+                   (new (chain *open-layers
+                               *feature
+                               (*vector
+                                (new (chain
+                                      *open-layers
+                                      *geometry
+                                      (*point (@ lonlat-spherical-mercator
+                                                 lon)
+                                              (@ lonlat-spherical-mercator
+                                                 lat)))))))))
            (setf photo-request-response
                  ((@ *open-layers *Request *POST*)
                   (create :url "/phoros-lib/local-data"
@@ -634,7 +655,7 @@ to Estimated Position."
                   (setf (@ feature attributes)
                         (@ i properties))
                   (setf (@ feature fid) ;this is supposed to correspond to
-                        n)                  ; option of *aux-point-distance-select*
+                        n)     ; option of *aux-point-distance-select*
                   (chain *streetmap*
                          nearest-aux-points-layer
                          (add-features feature))
@@ -1302,6 +1323,17 @@ accordingly."
                                                    (new (chain *open-layers
                                                                *control
                                                                (*attribution)))))))))
+         (setf (@ *streetmap* cursor-layer)
+               (let ((cursor-layer-style
+                      (create graphic-opacity 1
+                              point-radius 10
+                              external-graphic "/phoros-lib/ol/img/marker-gold.png")))
+                 (new (chain
+                       *open-layers *layer
+                       (*vector
+                        "cursor"
+                        (create
+                         style cursor-layer-style))))))
          (setf (@ *streetmap* survey-layer)
                (let ((survey-layer-style
                       (create stroke-color (chain *open-layers *feature *vector
@@ -1538,6 +1570,8 @@ accordingly."
                   (chain *streetmap*
                          (remove-layer (@ *streetmap*
                                           google-streetmap-layer)))))
+           (chain *streetmap*
+                  (add-layer (@ *streetmap* cursor-layer)))
            (chain *streetmap*
                   (add-layer (@ *streetmap* nearest-aux-points-layer)))
            (chain *streetmap* (add-layer (@ *streetmap* survey-layer)))
