@@ -133,7 +133,8 @@ session."
            (setf (session-value 'presentation-project-id)
                  presentation-project-id)
            (setf (session-value 'presentation-project-bbox)
-                 (presentation-project-bbox presentation-project-id))
+                 (ignore-errors ;in case presentation-project is still empty
+                   (presentation-project-bbox presentation-project-id)))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
                     :action "/phoros-lib/authenticate" :name "login-form"
