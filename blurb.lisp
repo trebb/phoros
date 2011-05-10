@@ -18,7 +18,6 @@
 (in-package :phoros)
 
 (define-easy-handler (blurb :uri "/phoros-lib/blurb") (openlayers-version)
-  (print openlayers-version) (terpri)
   (when
       (session-value 'authenticated-p)
     (who:with-html-output-to-string (s nil :indent t)
