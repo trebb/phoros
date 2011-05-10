@@ -121,12 +121,13 @@ $(PUBLIC_CSS) : doc/style.css public_html
 
 tarball : phoros TimeSteps.history README \
           $(SERVER_CSS) $(OPENLAYERS_DIR) \
-          $(LOGO) $(FAVICON) $(LIBPHOML_DIR)/$(LIBPHOML)
+          $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
+	  $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf - \
 		--transform='s,^,phoros_$(PHOROS_VERSION)/,' \
 		phoros TimeSteps.history README \
 		$(SERVER_CSS) $(OPENLAYERS_DIR) \
-		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
+		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML) \
 		| gzip -f \
 		> phoros_$(PHOROS_VERSION)-bin.tar.gz
