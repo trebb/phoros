@@ -27,6 +27,7 @@ OPENLAYERS_IMG = ol/img
 SERVER_CSS = css/style.css
 LOGO = public_html/phoros-logo-plain.png
 BACKGROUND_IMAGE = public_html/phoros-logo-background.png
+CURSOR_IMAGE = public_html/phoros-cursor.png
 FAVICON = public_html/favicon.ico
 INDEX_HTML = public_html/index.html
 PHOROS_HELP_HTML = public_html/phoros--help.html
@@ -37,7 +38,7 @@ SOURCE = *.lisp *.asd Makefile
 
 phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML) $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
-		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON)
+		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)
 	$(LISP) --lose-on-corruption --disable-ldb --end-runtime-options \
 		--disable-debugger --load make.lisp
 
@@ -84,6 +85,14 @@ $(BACKGROUND_IMAGE) : Makefile public_html
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
 		-resize 150% \
+		$@ 2>&1 | grep convert:
+$(CURSOR_IMAGE) : Makefile public_html
+	 ! convert \
+		-size 14x16 xc:transparent \
+		-font Gentium-Regular \
+		-fill Navy \
+		-pointsize 22 -gravity center -draw "text .21,1 'Φ'" \
+		-pointsize 7 -gravity center -draw "text 1.61,.1 'Σ'" \
 		$@ 2>&1 | grep convert:
 # Font Gentium-Regular is in Debian package ttf-sil-gentium.
 

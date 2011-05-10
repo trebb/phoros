@@ -491,6 +491,22 @@ shadow any other control."
                                                  lon)
                                               (@ lonlat-spherical-mercator
                                                  lat)))))))))
+           (chain *streetmap*
+                  overview-cursor-layer
+                  (remove-all-features))
+           (chain *streetmap*
+                  overview-cursor-layer
+                  (add-features
+                   (new (chain *open-layers
+                               *feature
+                               (*vector
+                                (new (chain
+                                      *open-layers
+                                      *geometry
+                                      (*point (@ lonlat-spherical-mercator
+                                                 lon)
+                                              (@ lonlat-spherical-mercator
+                                                 lat)))))))))
            (setf photo-request-response
                  ((@ *open-layers *Request *POST*)
                   (create :url "/phoros-lib/local-data"
@@ -1323,25 +1339,32 @@ accordingly."
                                                    (new (chain *open-layers
                                                                *control
                                                                (*attribution)))))))))
-         (setf (@ *streetmap* cursor-layer)
-               (let ((cursor-layer-style
-                      (create graphic-opacity 1
-                              point-radius 10
-                              external-graphic "/phoros-lib/ol/img/marker-gold.png")))
+         (let ((cursor-layer-style
+                (create
+                 graphic-width 14
+                 external-graphic "/phoros-lib/public_html/phoros-cursor.png")))
+           (setf (@ *streetmap* cursor-layer)
+                 (new (chain
+                       *open-layers *layer
+                       (*vector
+                        "cursor"
+                        (create
+                         style cursor-layer-style)))))
+           (setf (@ *streetmap* overview-cursor-layer)
                  (new (chain
                        *open-layers *layer
                        (*vector
                         "cursor"
                         (create
                          style cursor-layer-style))))))
-         (setf (@ *streetmap* survey-layer)
-               (let ((survey-layer-style
-                      (create stroke-color (chain *open-layers *feature *vector
-                                                  style "default" stroke-color)
-                              stroke-width 1
-                              point-radius 2
-                              fill-opacity 0
-                              graphic-name "circle")))
+         (let ((survey-layer-style
+                (create stroke-color (chain *open-layers *feature *vector
+                                            style "default" stroke-color)
+                        stroke-width 1
+                        point-radius 2
+                        fill-opacity 0
+                        graphic-name "circle")))
+           (setf (@ *streetmap* survey-layer)
                  (new (chain
                        *open-layers *layer
                        (*vector
@@ -1376,13 +1399,13 @@ accordingly."
                            (*select-feature (@ *streetmap* user-point-layer)
                                             (create toggle t
                                                     multiple t)))))
-         (setf (@ *streetmap* aux-point-layer)
-               (let ((aux-layer-style
-                      (create stroke-color "grey"
-                              stroke-width 1
-                              point-radius 2
-                              fill-opacity 0
-                              graphic-name "circle")))
+         (let ((aux-layer-style
+                (create stroke-color "grey"
+                        stroke-width 1
+                        point-radius 2
+                        fill-opacity 0
+                        graphic-name "circle")))
+           (setf (@ *streetmap* aux-point-layer)
                  (new (chain
                        *open-layers *layer
                        (*vector
@@ -1394,29 +1417,29 @@ accordingly."
                                (create :url "/phoros-lib/aux-points.json")))
                          style aux-layer-style
                          visibility nil))))))
-         (setf (@ *streetmap* nearest-aux-points-layer)
-               (let ((nearest-aux-point-layer-style-map
-                      (new (chain *open-layers
-                                  (*style-map
-                                   (create "default"
-                                           (create stroke-color "grey"
-                                                   stroke-width 1
-                                                   point-radius 5
-                                                   fill-opacity 0
-                                                   graphic-name "circle")
-                                           "select"
-                                           (create stroke-color "black"
-                                                   stroke-width 1
-                                                   point-radius 5
-                                                   fill-opacity 0
-                                                   graphic-name "circle")
-                                           "temporary"
-                                           (create stroke-color "grey"
-                                                   stroke-width 1
-                                                   point-radius 5
-                                                   fill-color "grey"
-                                                   fill-opacity 1
-                                                   graphic-name "circle")))))))
+         (let ((nearest-aux-point-layer-style-map
+                (new (chain *open-layers
+                            (*style-map
+                             (create "default"
+                                     (create stroke-color "grey"
+                                             stroke-width 1
+                                             point-radius 5
+                                             fill-opacity 0
+                                             graphic-name "circle")
+                                     "select"
+                                     (create stroke-color "black"
+                                             stroke-width 1
+                                             point-radius 5
+                                             fill-opacity 0
+                                             graphic-name "circle")
+                                     "temporary"
+                                     (create stroke-color "grey"
+                                             stroke-width 1
+                                             point-radius 5
+                                             fill-color "grey"
+                                             fill-opacity 1
+                                             graphic-name "circle")))))))
+           (setf (@ *streetmap* nearest-aux-points-layer)
                  (new (chain *open-layers
                              *layer
                              (*vector "Nearest Aux Points"
@@ -1441,12 +1464,16 @@ accordingly."
                (new (chain *open-layers
                            *layer
                            (*google "Google Streets"
-                                    (create num-zoom-levels 22)))))
+                                    (create num-zoom-levels 23)))))
          (setf (@ *streetmap* osm-layer)
                (new (chain *open-layers
                            *layer
                            (*osm* "OpenStreetMap"
-                                  nil (create num-zoom-levels 19)))))
+                                  nil (create num-zoom-levels 23)))))
+         (setf (@ *streetmap* overview-osm-layer)
+               (new (chain *open-layers
+                           *layer
+                           (*osm* "OpenStreetMap"))))
          (setf (@ *streetmap* click-streetmap)
                (new (*click-control* (create :trigger request-photos))))
          (chain *streetmap*
@@ -1497,6 +1524,11 @@ accordingly."
                             *control
                             (*overview-map
                              (create
+
+                              layers (array
+                                      (@ *streetmap* overview-osm-layer)
+                                      (@ *streetmap* overview-cursor-layer))
+
                               min-ratio 14
                               max-ratio 16
                               div (chain document
@@ -1571,10 +1603,10 @@ accordingly."
                          (remove-layer (@ *streetmap*
                                           google-streetmap-layer)))))
            (chain *streetmap*
-                  (add-layer (@ *streetmap* cursor-layer)))
-           (chain *streetmap*
                   (add-layer (@ *streetmap* nearest-aux-points-layer)))
            (chain *streetmap* (add-layer (@ *streetmap* survey-layer)))
+           (chain *streetmap*
+                  (add-layer (@ *streetmap* cursor-layer)))
            (chain *streetmap*
                   (add-layer (@ *streetmap* aux-point-layer)))
            (chain *streetmap*
