@@ -32,10 +32,10 @@
   "EPSG code of the coordinate system that we use for communication.")
 
 (defvar *postgresql-credentials* nil
-  "A list: (database user password host &key (port 5432) use-ssl)")
+  "A list: (database user password host &key (port 5432) use-ssl).")
 
 (defvar *postgresql-aux-credentials* nil
-  "A list: (database user password host &key (port 5432) use-ssl)")
+  "A list: (database user password host &key (port 5432) use-ssl).")
 
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
 
@@ -736,13 +736,17 @@ send all points."
        (if *use-multi-file-openlayers*
            (who:htm
             (:script :src "/phoros-lib/openlayers/lib/Firebug/firebug.js")
-            (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js")
-            ;;(:script :src "/phoros-lib/openlayers/lib/proj4js.js") ;TODO: we don't seem to use this
-            )
+            (:script :src "/phoros-lib/openlayers/lib/OpenLayers.js"))
            (who:htm (:script :src "/phoros-lib/ol/OpenLayers.js")))
        (:link :rel "stylesheet"
               :href "/phoros-lib/css/style.css" :type "text/css")
-       (:script :src "/phoros-lib/phoros.js")
+       (:script :src (format         ;variability in script name is
+                      nil            ; supposed to fight browser cache
+                      "/phoros-lib/phoros-~A-~A-~A.js"
+                      (handler-bind ((warning #'ignore-warnings))
+                        (asdf:component-version (asdf:find-system :phoros)))
+                      (session-value 'user-name)
+                      (session-value 'presentation-project-name)))
        (:script :src "http://maps.google.com/maps/api/js?sensor=false"))
       (:body
        :onload (ps (init))
@@ -755,9 +759,10 @@ send all points."
             (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name)))
             (:span :id "phoros-version"
-                   (who:fmt "v~A"
-                            (handler-bind ((warning #'ignore-warnings))
-                              (asdf:component-version (asdf:find-system :phoros))))))
+                   (who:fmt
+                    "v~A"
+                    (handler-bind ((warning #'ignore-warnings))
+                      (asdf:component-version (asdf:find-system :phoros))))))
        (:div :class "controlled-streetmap"
              (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
              (:div :id "streetmap-controls" :class "streetmap-controls"
@@ -776,14 +781,16 @@ send all points."
                    (:h2 (:span :id "h2-controls") (:span :id "creator"))
                    (:select :id "point-attribute" :disabled t
                             :size 1 :name "point-attribute")
-                   (:input :id "point-numeric-description" :class "vanilla-input "
+                   (:input :id "point-numeric-description"
+                           :class "vanilla-input"
                            :disabled t
                            :type "text" :name "point-numeric-description")
                    (:input :id "point-description" :class "vanilla-input"
                            :disabled t
                            :type "text" :name "point-description")
                    (:div (:button :id "delete-point-button" :disabled t
-                                  :type "button" :onclick (ps-inline (delete-point))
+                                  :type "button"
+                                  :onclick (ps-inline (delete-point))
                                   "delete")
                          (:button :disabled t :id "finish-point-button"
                                   :type "button"
@@ -791,12 +798,16 @@ send all points."
                    (:div :id "aux-point-distance-or-point-creation-date"
                          (:code :id "point-creation-date")
                          (:input :id "include-aux-data-p"
-                                 :type "checkbox" :checked t :name "include-aux-data-p"
-                                 :onchange (ps-inline (flip-aux-data-inclusion)))
+                                 :type "checkbox" :checked t
+                                 :name "include-aux-data-p"
+                                 :onchange (ps-inline
+                                            (flip-aux-data-inclusion)))
                          (:select :id "aux-point-distance" :disabled t
                                   :size 1 :name "aux-point-distance"
-                                  :onchange (ps-inline (aux-point-distance-selected))
-                                  :onclick (ps-inline (enable-aux-point-selection))))
+                                  :onchange (ps-inline
+                                             (aux-point-distance-selected))
+                                  :onclick (ps-inline
+                                            (enable-aux-point-selection))))
                    (:div :id "aux-data"
                          (:div :id "aux-numeric-list")
                          (:div :id "aux-text-list")))
@@ -815,7 +826,8 @@ send all points."
                          "start over")))
        (:div :class "help-div"
              (:button :id "download-user-points-button"
-                      :type "button" :onclick "self.location.href = \"/phoros-lib/user-points.json\""
+                      :type "button"
+                      :onclick "self.location.href = \"/phoros-lib/user-points.json\""
                       "download points") ;TODO: offer other formats and maybe projections
              (:button :id "blurb-button"
                       :type "button"
@@ -866,7 +878,7 @@ JSON encoded epipolar-lines."
     (estimated-positions :uri "/phoros-lib/estimated-positions")
     ()
   "Receive a two-part JSON vector comprising (1) a vector containing
-sets of picture-parameters including clicked (\"active\") points
+sets of picture-parameters with clicked (\"active\") points
 stored in :m, :n; and (2) a vector containing sets of
 picture-parameters; respond with a JSON encoded two-part vector
 comprising (1) a point in global coordinates; and (2) a vector of

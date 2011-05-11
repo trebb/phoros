@@ -17,7 +17,7 @@
 
 (in-package :phoros)
 
-(define-easy-handler (phoros.js :uri "/phoros-lib/phoros.js") ()
+(define-easy-handler (phoros.js) ()
   "Serve some Javascript."
   (when (session-value 'authenticated-p)
     (ps*
@@ -252,15 +252,16 @@
          (new (chain *open-layers (*projection "EPSG:900913"))))
 
        (defvar +user-name+ (lisp (session-value 'user-name))
-         "User's (short) name")
+         "User's (short) name.")
        (defvar +user-role+ (lisp (string-downcase (session-value 'user-role)))
-         "User's permissions")
+         "User's permissions.")
 
        (defvar +presentation-project-bounds+ 
          (chain (new (chain *open-layers
                             *bounds
                             (from-string
-                             (lisp (session-value 'presentation-project-bbox)))))
+                             (lisp
+                              (session-value 'presentation-project-bbox)))))
                 (transform +geographic+ +spherical-mercator+))
          "Bounding box of the entire presentation project.")
 
@@ -1347,14 +1348,14 @@ accordingly."
                  (new (chain
                        *open-layers *layer
                        (*vector
-                        "cursor"
+                        "you"
                         (create
                          style cursor-layer-style)))))
            (setf (@ *streetmap* overview-cursor-layer)
                  (new (chain
                        *open-layers *layer
                        (*vector
-                        "cursor"
+                        "you"
                         (create
                          style cursor-layer-style))))))
          (let ((survey-layer-style
@@ -1623,3 +1624,11 @@ accordingly."
             for i from 0 to (lisp (1- *number-of-images*))
             do (initialize-image i))
          (add-help-events))))))
+
+(pushnew (create-regex-dispatcher
+          (format
+           nil
+           "/phoros-lib/phoros-~A-\\S*-\\S*\.js"
+           (handler-bind ((warning #'ignore-warnings))
+             (asdf:component-version (asdf:find-system :phoros)))) 'phoros.js)
+         *dispatch-table*)

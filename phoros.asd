@@ -20,7 +20,7 @@ interface.                              http://phoros.berlios.de"
   ;; 
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
-  "4.1.2"
+  "4.1.3"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011 Bert Burgemeister
@@ -45,13 +45,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "proj4-sh")
                (:file "log")
                (:file "photogrammetry")
+               (:file "cli")
                (:file "phoros")
                (:file "phoros-js")
                (:file "blurb")
                (:file "pictures-file")
                (:file "db-tables")
-               (:file "stuff-db")
-               (:file "cli"))
+               (:file "stuff-db"))
 
   :depends-on (:phoml
                :trivial-shell           ;for proj4-sh
