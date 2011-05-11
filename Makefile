@@ -91,7 +91,7 @@ $(CURSOR_IMAGE) : Makefile public_html
 		-size 14x16 xc:transparent \
 		-font Gentium-Regular \
 		-fill Navy \
-		-pointsize 22 -gravity center -draw "text .21,1 'Φ'" \
+		-pointsize 22 -gravity center -draw "text 0.21,1 'Φ'" \
 		-pointsize 7 -gravity center -draw "text 1.61,.1 'Σ'" \
 		$@ 2>&1 | grep convert:
 # Font Gentium-Regular is in Debian package ttf-sil-gentium.
@@ -139,7 +139,7 @@ git-tag : phoros	    #tag name is :version string in phoros.asd
 
 clean :
 	rm -f *.fasl *.log phoros phoros*.tar.gz \
-		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) \
+		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)\
 		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
 
