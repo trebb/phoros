@@ -1,3 +1,3 @@
 [submodule "phoml"]
 	path = phoml
-	url = git@github.com:trebb/phoml.git
+	url = https://github.com/trebb/phoml.git
