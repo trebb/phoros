@@ -17,6 +17,12 @@
 
 (in-package :phoros)
 
+#-sbcl (defun nan-p (x)
+	  (declare (float x))
+	  (/= x x))
+#+sbcl (defun nan-p (x)
+	 (sb-ext:float-nan-p x))
+
 (defgeneric photogrammetry (mode photo-1 &optional photo-2)
   (:documentation "Call to photogrammetry library.  Dispatch on mode."))
 
@@ -29,8 +35,10 @@
          (call-next-method)
       (del-all))))
 
-(defmethod photogrammetry ((mode (eql :epipolar-line)) clicked-photo &optional other-photo)
-  "Return in an alist an epipolar line in coordinates of other-photo from m and n in clicked-photo."
+(defmethod photogrammetry
+    ((mode (eql :epipolar-line)) clicked-photo &optional other-photo)
+  "Return in an alist an epipolar line in coordinates of other-photo
+from m and n in clicked-photo."
   (add-cam* clicked-photo)
   (add-bpoint* clicked-photo)
   (add-global-car-reference-point* clicked-photo t)
@@ -44,17 +52,23 @@
      collect (pairlis '(:m :n) (list (flip-m-maybe (get-m) other-photo)
                                      (flip-n-maybe (get-n) other-photo)))))
 
-(defmethod photogrammetry ((mode (eql :reprojection)) photo &optional global-point)
+(defmethod photogrammetry
+    ((mode (eql :reprojection)) photo &optional global-point)
   "Calculate reprojection from photo."
   (add-cam* photo)
   (add-global-measurement-point* global-point)
   (add-global-car-reference-point* photo)
   (set-global-reference-frame)
   (calculate)
-  (pairlis '(:m :n)
-           (list (flip-m-maybe (get-m) photo) (flip-n-maybe (get-n) photo))))
+  (let ((m (get-m))
+	(n (get-n)))
+    (assert (not (nan-p m)))		;On some systems, PhoML gives us
+    (assert (not (nan-p n)))		; quiet NaN instead of erring.
+    (pairlis '(:m :n)
+	     (list (flip-m-maybe m photo) (flip-n-maybe n photo)))))
 
-(defmethod photogrammetry ((mode (eql :multi-position-intersection)) photos &optional other-photo)
+(defmethod photogrammetry
+    ((mode (eql :multi-position-intersection)) photos &optional other-photo)
   "Calculate intersection from photos."
   (declare (ignore other-photo))
   (set-global-reference-frame)
@@ -71,7 +85,8 @@
             (get-x-global) (get-y-global) (get-z-global)
             (get-stdx-global) (get-stdy-global) (get-stdz-global))))
 
-(defmethod photogrammetry ((mode (eql :intersection)) photo &optional other-photo)
+(defmethod photogrammetry
+    ((mode (eql :intersection)) photo &optional other-photo)
   "Calculate intersection from two photos that are taken out of the
 same local coordinate system.  (Used for debugging only)."
   (add-cam* photo)
@@ -87,7 +102,8 @@ same local coordinate system.  (Used for debugging only)."
             (get-x-global) (get-y-global) (get-z-global))))
 
 (defmethod photogrammetry ((mode (eql :mono)) photo &optional floor)
-  "Return in an alist the intersection point of the ray through m and n in photo, and floor."
+  "Return in an alist the intersection point of the ray through m and
+n in photo, and floor."
   (add-cam* photo)
   (add-bpoint* photo)
   (add-ref-ground-surface* floor)
@@ -99,12 +115,14 @@ same local coordinate system.  (Used for debugging only)."
            (get-x-global) (get-y-global) (get-z-global))))
 
 (defun flip-m-maybe (m photo)
-  "Flip coordinate m when :mounting-angle in photo suggests it necessary."
+  "Flip coordinate m when :mounting-angle in photo suggests it
+necessary."
   (if (= 180 (cdr (assoc :mounting-angle photo)))
       (- (cdr (assoc :sensor-width-pix photo)) m)
       m))
 (defun flip-n-maybe (n photo)
-  "Flip coordinate n when :mounting-angle in photo suggests it necessary."
+  "Flip coordinate n when :mounting-angle in photo suggests it
+necessary."
   (if (zerop (cdr (assoc :mounting-angle photo)))
       (- (cdr (assoc :sensor-height-pix photo)) n)
       n))
@@ -124,7 +142,8 @@ same local coordinate system.  (Used for debugging only)."
                                          :pix-size
                                          :dx :dy :dz :omega :phi :kappa
                                          :c :xh :yh
-                                         :a-1 :a-2 :a-3 :b-1 :b-2 :c-1 :c-2 :r-0
+                                         :a-1 :a-2 :a-3 :b-1 :b-2
+					 :c-1 :c-2 :r-0
                                          :b-dx :b-dy :b-dz :b-ddx :b-ddy :b-ddz
                                          :b-rotx :b-roty :b-rotz
                                          :b-drotx :b-droty :b-drotz))))
@@ -132,8 +151,11 @@ same local coordinate system.  (Used for debugging only)."
 
 (defun add-bpoint* (photo-alist)
   "Call add-bpoint with arguments taken from photo-alist."
-    (add-bpoint (coerce (flip-m-maybe (cdr (assoc :m photo-alist)) photo-alist) 'double-float)
-                (coerce (flip-n-maybe (cdr (assoc :n photo-alist)) photo-alist) 'double-float)))
+    (add-bpoint
+     (coerce (flip-m-maybe (cdr (assoc :m photo-alist)) photo-alist)
+	     'double-float)
+     (coerce (flip-n-maybe (cdr (assoc :n photo-alist)) photo-alist)
+	     'double-float)))
 
 (defun add-ref-ground-surface* (floor-alist)
   "Call add-ref-ground-surface with arguments taken from floor-alist."
@@ -144,14 +166,23 @@ same local coordinate system.  (Used for debugging only)."
     (apply #'add-ref-ground-surface double-float-args)))
 
 (defun add-global-car-reference-point* (photo-alist &optional cam-set-global-p)
-  "Call add-global-car-reference-point with arguments taken from photo-alist.  When cam-set-global-p is t, call add-global-car-reference-point-cam-set-global instead."
-  (let* ((longitude-radians (proj:degrees-to-radians (car (photogrammetry-arglist photo-alist :longitude))))
-         (latitude-radians (proj:degrees-to-radians (car (photogrammetry-arglist photo-alist :latitude))))
-         (ellipsoid-height (car (photogrammetry-arglist photo-alist :ellipsoid-height)))
-         (destination-cs (car (photogrammetry-arglist photo-alist :cartesian-system)))
+  "Call add-global-car-reference-point with arguments taken from
+photo-alist.  When cam-set-global-p is t, call
+add-global-car-reference-point-cam-set-global instead."
+  (let* ((longitude-radians
+	  (proj:degrees-to-radians
+	   (car (photogrammetry-arglist photo-alist :longitude))))
+         (latitude-radians
+	  (proj:degrees-to-radians
+	   (car (photogrammetry-arglist photo-alist :latitude))))
+         (ellipsoid-height
+	  (car (photogrammetry-arglist photo-alist :ellipsoid-height)))
+         (destination-cs
+	  (car (photogrammetry-arglist photo-alist :cartesian-system)))
          (cartesian-coordinates
-          (proj:cs2cs (list longitude-radians latitude-radians ellipsoid-height)
-                      :destination-cs destination-cs))
+          (proj:cs2cs
+	   (list longitude-radians latitude-radians ellipsoid-height)
+	   :destination-cs destination-cs))
          (other-args
           (mapcar #'(lambda (x) (coerce x 'double-float))
                   (photogrammetry-arglist photo-alist
