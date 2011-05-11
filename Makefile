@@ -21,6 +21,7 @@ LIBPHOML = libphoml.so
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
 OPENLAYERS_DIR = ol		#for compiled/shrunk OpenLayers
+OPENLAYERS_CONFIG = phoros.cfg
 OPENLAYERS_JS = ol/OpenLayers.js
 OPENLAYERS_THEME = ol/theme
 OPENLAYERS_IMG = ol/img
@@ -51,8 +52,11 @@ $(PRISTINE_OPENLAYERS_DIR)/lib/* : $(OPENLAYERS_TARBALL)
 $(OPENLAYERS_JS) : $(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js
 	mkdir -p $(OPENLAYERS_DIR) && cp $< $@
 
-$(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js : $(PRISTINE_OPENLAYERS_DIR)/lib/*
-	cd $(PRISTINE_OPENLAYERS_DIR)/build && ./build.py full.cfg
+$(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js : \
+                  $(PRISTINE_OPENLAYERS_DIR)/lib/* $(OPENLAYERS_CONFIG)
+	cp $(OPENLAYERS_CONFIG) $(PRISTINE_OPENLAYERS_DIR)/build/ && \
+	cd $(PRISTINE_OPENLAYERS_DIR)/build && ./build.py $(OPENLAYERS_CONFIG)
+######  cd $(PRISTINE_OPENLAYERS_DIR)/build && ./build.py full.cfg
 
 .INTERMEDIATE : $(PRISTINE_OPENLAYERS_DIR)/build/OpenLayers.js
 
