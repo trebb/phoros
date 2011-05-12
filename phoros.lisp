@@ -758,6 +758,7 @@ send all points."
             "permission on "
             (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name)))
+            (:span :id "presentation-project-emptiness")
             (:span :id "phoros-version"
                    (who:fmt
                     "v~A"

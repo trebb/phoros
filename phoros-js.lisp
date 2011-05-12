@@ -47,6 +47,10 @@
           :presentation-project-name
           (who-ps-html
            (:p "Presentation project name."))
+          :presentation-project-emptiness
+          (who-ps-html
+           (:p "This presentation project is empty.  You can't do much
+           with it."))
           :phoros-version
           (who-ps-html
            (:p "Phoros version.")
@@ -256,12 +260,15 @@
        (defvar +user-role+ (lisp (string-downcase (session-value 'user-role)))
          "User's permissions.")
 
-       (defvar +presentation-project-bounds+ 
+       (defvar +presentation-project-bbox-text+
+         (lisp (session-value 'presentation-project-bbox)))
+
+       (defvar +presentation-project-bounds+
          (chain (new (chain *open-layers
                             *bounds
                             (from-string
-                             (lisp
-                              (session-value 'presentation-project-bbox)))))
+                             (or +presentation-project-bbox-text+
+                                 "-180,-90,180,90"))))
                 (transform +geographic+ +spherical-mercator+))
          "Bounding box of the entire presentation project.")
 
@@ -1313,6 +1320,8 @@ accordingly."
        
        (defun init ()
          "Prepare user's playground."
+         (unless +presentation-project-bbox-text+
+           (setf (inner-html-with-id "presentation-project-emptiness") "(no data)"))
          (when (write-permission-p)
            (enable-element-with-id "point-attribute")
            (enable-element-with-id "point-description")
