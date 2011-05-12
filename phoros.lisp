@@ -232,47 +232,57 @@ wrapped in an array."
            (latitude-input (cdr (assoc :latitude data)))
            (count (cdr (assoc :count data)))
            (zoom-input (cdr (assoc :zoom data)))
-           ;;(snap-distance (* 10d-5 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
-           (snap-distance (* 10d-1 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
+           (snap-distance (* 10d-5 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
            (point-form
             (format nil "POINT(~F ~F)" longitude-input latitude-input))
            (result
             (ignore-errors
               (with-connection *postgresql-credentials*
-                (loop
-                   for common-table-name in common-table-names
-                   nconc
-                     (query
-                      (:limit
-                       (:order-by
-                        (:select
-                         'date          ;TODO: debug only
-                         'measurement-id 'recorded-device-id 'device-stage-of-life-id ;TODO: debug only
-                         'directory
-                         'filename 'byte-position 'point-id
-                         'trigger-time
-                         ;'coordinates   ;the search target
-                         'longitude 'latitude 'ellipsoid-height
-                         'cartesian-system
-                         'east-sd 'north-sd 'height-sd
-                         'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
-                         'sensor-width-pix 'sensor-height-pix 'pix-size
-                         'mounting-angle
-                         'dx 'dy 'dz 'omega 'phi 'kappa
-                         'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                         'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                         'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
-                         :from
-                         (aggregate-view-name common-table-name)
-                         :where
-                         (:and (:= 'presentation-project-id presentation-project-id)
-                               (:st_dwithin 'coordinates
-                                            (:st_geomfromtext point-form *standard-coordinates*)
-                                            snap-distance)))
-                        (:st_distance 'coordinates
-                                      (:st_geomfromtext point-form *standard-coordinates*)))
-                       count)
-                      :alists))))))
+                (query
+                 (sql-compile
+                  `(:limit
+                    (:order-by
+                     (:union
+                      ,@(loop
+                           for common-table-name in common-table-names
+                           for aggregate-view-name
+                           = (aggregate-view-name common-table-name)
+                           collect  
+                           `(:select
+                             (:as (:st_distance 'coordinates
+                                                (:st_geomfromtext
+                                                 ,point-form
+                                                 ,*standard-coordinates*))
+                                  'distance)
+                             'date      ;TODO: debug only
+                             'measurement-id 'recorded-device-id 'device-stage-of-life-id ;TODO: debug only
+                             'directory
+                             'filename 'byte-position 'point-id
+                             'trigger-time
+                                        ;'coordinates   ;the search target
+                             'longitude 'latitude 'ellipsoid-height
+                             'cartesian-system
+                             'east-sd 'north-sd 'height-sd
+                             'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
+                             'sensor-width-pix 'sensor-height-pix 'pix-size
+                             'mounting-angle
+                             'dx 'dy 'dz 'omega 'phi 'kappa
+                             'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                             'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                             'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
+                             :from
+                             ',aggregate-view-name
+                             :where
+                             (:and (:= 'presentation-project-id
+                                       ,presentation-project-id)
+                                   (:st_dwithin 'coordinates
+                                                (:st_geomfromtext
+                                                 ,point-form
+                                                 ,*standard-coordinates*)
+                                                ,snap-distance)))))
+                     'distance)
+                    ,count))
+                 :alists)))))
       (json:encode-json-to-string result))))
 
 (define-easy-handler
@@ -280,7 +290,8 @@ wrapped in an array."
     ()
   "Receive point sent by user; store it into database."
   (when (session-value 'authenticated-p)
-    (let* ((presentation-project-name (session-value 'presentation-project-name))
+    (let* ((presentation-project-name (session-value
+                                       'presentation-project-name))
            (user-id (session-value 'user-id))
            (user-role (session-value 'user-role))
            (data (json:decode-json-from-string (raw-post-data)))
@@ -451,7 +462,8 @@ junk-keys."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
     (handler-case 
-        (let* ((presentation-project-id (session-value 'presentation-project-id))
+        (let* ((presentation-project-id
+                (session-value 'presentation-project-id))
                (common-table-names
                 (common-table-names presentation-project-id)))
           (encode-geojson-to-string
@@ -467,27 +479,29 @@ junk-keys."
                         = (aggregate-view-name common-table-name)
                         collect
                         `(:select
-                          (:as
-                           (:st_x
-                            (:st_transform 'coordinates ,*standard-coordinates*))
-                           x)
-                          (:as
-                           (:st_y
-                            (:st_transform 'coordinates ,*standard-coordinates*))
-                           y)
-                          (:as
-                           (:st_z
-                            (:st_transform 'coordinates ,*standard-coordinates*))
-                           z)
+                          (:as (:st_x
+                                (:st_transform 'coordinates
+                                               ,*standard-coordinates*))
+                               x)
+                          (:as (:st_y
+                                (:st_transform 'coordinates
+                                               ,*standard-coordinates*))
+                               y)
+                          (:as (:st_z
+                                (:st_transform 'coordinates
+                                               ,*standard-coordinates*))
+                               z)
                           (:as 'point-id 'id) ;becomes fid on client
                           (:as (:random) random)
                           :from ',aggregate-view-name
                           :natural :left-join 'sys-presentation
                           :where
                           (:and
-                           (:= 'presentation-project-id ,presentation-project-id)
+                           (:= 'presentation-project-id
+                               ,presentation-project-id)
                            (:&&
-                            (:st_transform 'coordinates ,*standard-coordinates*)
+                            (:st_transform 'coordinates
+                                           ,*standard-coordinates*)
                             (:st_setsrid  (:type ,(box3d bbox) box3d)
                                           ,*standard-coordinates*))))))
                   random)
@@ -515,18 +529,19 @@ junk-keys."
                `(:limit
                  (:order-by
                   (:select
-                   (:as
-                    (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
-                    'x)
-                   (:as
-                    (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
-                    'y)
-                   (:as
-                    (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
-                    'z)
+                   (:as (:st_x (:st_transform 'coordinates
+                                              ,*standard-coordinates*))
+                        'x)
+                   (:as (:st_y (:st_transform 'coordinates
+                                              ,*standard-coordinates*))
+                        'y)
+                   (:as (:st_z (:st_transform 'coordinates
+                                              ,*standard-coordinates*))
+                        'z)
                    :from ,aux-view-name
                    :where (:&&
-                           (:st_transform 'coordinates ,*standard-coordinates*)
+                           (:st_transform 'coordinates
+                                          ,*standard-coordinates*)
                            (:st_setsrid  (:type ,(box3d bbox) box3d)
                                          ,*standard-coordinates*)))
                   (:random))
@@ -538,14 +553,16 @@ junk-keys."
          bbox c)))))
 
 (define-easy-handler
-    (aux-local-data :uri "/phoros-lib/aux-local-data" :default-request-type :post)
+    (aux-local-data :uri "/phoros-lib/aux-local-data"
+                    :default-request-type :post)
     ()
   "Receive coordinates, respond with the count nearest json objects
 containing arrays aux-numeric, aux-text, and distance to the
 coordinates received, wrapped in an array."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
-    (let* ((aux-view-name (aux-point-view-name (session-value 'presentation-project-name)))
+    (let* ((aux-view-name
+            (aux-point-view-name (session-value 'presentation-project-name)))
            (data (json:decode-json-from-string (raw-post-data)))
            (longitude-input (cdr (assoc :longitude data)))
            (latitude-input (cdr (assoc :latitude data)))
@@ -562,15 +579,15 @@ coordinates received, wrapped in an array."
               `(:limit
                 (:order-by
                  (:select
-                  (:as
-                   (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
-                   'x)
-                  (:as
-                   (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
-                   'y)
-                  (:as
-                   (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
-                   'z)
+                  (:as (:st_x (:st_transform 'coordinates
+                                             ,*standard-coordinates*))
+                       'x)
+                  (:as (:st_y (:st_transform 'coordinates
+                                             ,*standard-coordinates*))
+                       'y)
+                  (:as (:st_z (:st_transform 'coordinates
+                                             ,*standard-coordinates*))
+                       'z)
                   aux-numeric
                   aux-text
                   (:as
@@ -636,15 +653,15 @@ send all points."
                 `(:limit
                   (:order-by
                    (:select
-                    (:as
-                     (:st_x (:st_transform 'coordinates ,*standard-coordinates*))
-                     'x)
-                    (:as
-                     (:st_y (:st_transform 'coordinates ,*standard-coordinates*))
-                     'y)
-                    (:as
-                     (:st_z (:st_transform 'coordinates ,*standard-coordinates*))
-                     'z)
+                    (:as (:st_x (:st_transform 'coordinates
+                                               ,*standard-coordinates*))
+                         'x)
+                    (:as (:st_y (:st_transform 'coordinates
+                                               ,*standard-coordinates*))
+                         'y)
+                    (:as (:st_z (:st_transform 'coordinates
+                                               ,*standard-coordinates*))
+                         'z)
                     (:as 'user-point-id 'id) ;becomes fid on client
                     'stdx-global 'stdy-global 'stdz-global
                     'input-size
@@ -658,7 +675,8 @@ send all points."
                     'aux-text
                     :from ,user-point-table-name :natural :left-join 'sys-user
                     :where (:&&
-                            (:st_transform 'coordinates ,*standard-coordinates*)
+                            (:st_transform 'coordinates
+                                           ,*standard-coordinates*)
                             (:st_setsrid  (:type ,(box3d bounding-box) box3d)
                                           ,*standard-coordinates*)))
                    ,order-criterion)
@@ -913,8 +931,10 @@ data (ex: points too far apart)."
                        :stdx-global :stdy-global :stdz-global
                        :input-size)
                      (list
-                      (proj:radians-to-degrees (first global-point-geographic-radians))
-                      (proj:radians-to-degrees (second global-point-geographic-radians))
+                      (proj:radians-to-degrees
+                       (first global-point-geographic-radians))
+                      (proj:radians-to-degrees
+                       (second global-point-geographic-radians))
                       (third global-point-geographic-radians)
                       (cdr (assoc :stdx-global global-point-cartesian))
                       (cdr (assoc :stdy-global global-point-cartesian))

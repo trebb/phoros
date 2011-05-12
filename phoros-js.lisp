@@ -481,8 +481,6 @@ shadow any other control."
                                  :latitude (@ lonlat lat)
                                  :zoom ((@ *streetmap* get-zoom))
                                  :count (lisp *number-of-images*))))))
-           (debug-info lonlat-spherical-mercator)
-           (debug-info lonlat)
            (chain *streetmap*
                   cursor-layer
                   (remove-all-features))
