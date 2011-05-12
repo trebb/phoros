@@ -455,6 +455,10 @@ that contains one set of measuring data.  root-dir must be equal for
 all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
   (assert-phoros-db-major-version)
+  (assert     ;not strictly necessary, but may save the user some time
+   (select-dao 'sys-acquisition-project
+               (:= 'common-table-name common-table-name))
+   () "There is no acquisition project named ~A." common-table-name)
   (create-data-table-definitions common-table-name)
   (initialize-leap-seconds)
   (let* ((images
@@ -472,10 +476,10 @@ all pojects."
          (gps-start-pointers (loop
                                 for i in gps-points
                                 collect (cons (car i) 0)))
-         (dir-below-root-dir
-          (enough-namestring (string-right-trim "/\\ " dir-path) root-dir))
          (mapped-image-counter (length images))
-         (cartesian-system (assert-gps-points-sanity gps-points)))
+         (cartesian-system (assert-gps-points-sanity gps-points))
+         (dir-below-root-dir
+          (enough-namestring (string-right-trim "/\\ " dir-path) root-dir)))
     (cl-log:log-message
      :db-dat "I assume this measure was taken approximately ~A."
      (timestring (round estimated-time)))
@@ -491,7 +495,12 @@ all pojects."
                   (cdr (assoc image-event-number gps-start-pointers
                               :test #'equal))))
              (assert gps-start-pointer ()
-                     "Can't find an event number of ~S (as suggested by the sys tables relevant to the current image) among ~{~S~#^, ~} (as derived from the names of the GPS event files).  Consider using --aggregate-events if you can't recitfy your data."
+                     "Can't find an event number of ~S ~
+                      (as suggested by the sys tables relevant to the ~
+                      current image) among ~{~S~#^, ~} ~
+                      (as derived from the names of the GPS event files).  ~
+                      Consider using --aggregate-events if you can't ~
+                      recitfy your data."
                      image-event-number (mapcar #'car gps-start-pointers))
              (loop
                 for gps-pointer from gps-start-pointer
@@ -509,7 +518,8 @@ all pojects."
                  (or (point-id matching-point) ; We've hit a point twice.
                      (sequence-next (point-id-sequence-name matching-point))))
                 (measurement-id (get-measurement-id common-table-name
-                                                    dir-below-root-dir cartesian-system)))
+                                                    dir-below-root-dir
+                                                    cartesian-system)))
             (setf (point-id i) point-id
                   (point-id matching-point) point-id
                   (measurement-id matching-point) measurement-id
@@ -529,11 +539,15 @@ all pojects."
          (decf mapped-image-counter)
          (cl-log:log-message
           :orphan
-          "Couldn't map to any point: ~A~A, byte ~S. ~:[~; It didn't have a decent trigger time anyway.~]"
-          dir-path (filename i) (image-byte-position i) (fake-trigger-time-p i)))
+          "Couldn't map to any point: ~A~A, byte ~S. ~
+           ~:[~; It didn't have a decent trigger time anyway.~]"
+          dir-path (filename i) (image-byte-position i)
+          (fake-trigger-time-p i)))
     (cl-log:log-message
      :db-dat
-     "Tried to map ~D images to GPS points.  The attempt has been successful in ~:[~D~;all~] cases.~1@*~:[  See file orphans.log for details on the failures.~;~]"
+     "Tried to map ~D images to GPS points.  ~
+      The attempt has been successful in ~:[~D~;all~] cases.~
+      ~1@*~:[  See file orphans.log for details on the failures.~;~]"
      (length images) (= (length images) mapped-image-counter)
      mapped-image-counter)))
 
@@ -846,7 +860,8 @@ device-stage-of-life-id and date of the altered record."
     (let ((new-row-p (save-dao record)))
       (cl-log:log-message
        :db-sys
-       "sys-camera-calibration: ~:[Updated~;Stored new~] record for ~A, device-stage-of-life-id ~A"
+       "sys-camera-calibration: ~:[Updated~;Stored new~] record ~
+        for ~A, device-stage-of-life-id ~A"
        new-row-p (date record) (device-stage-of-life-id record)))
     (values (device-stage-of-life-id record)
             (date record))))
