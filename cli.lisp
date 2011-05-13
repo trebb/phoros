@@ -472,7 +472,13 @@ according to the --verbose option given."
      "Store Measure Data")
     (show-help-section
      *cli-start-server-options*
-     "Become A HTTP Presentation Server")
+     "Become A HTTP Presentation Server"
+     "Phoros is a Web server in its own right, but you can also put it
+      behind a proxy server to make it part of a larger Web site.
+      E.g, for Apache, load module proxy_http and use this
+      configuration:"
+     "ProxyPass /phoros http://127.0.0.1:8080/phoros"
+     "ProxyPassReverse /phoros http://127.0.0.1:8080/phoros")
     (show-help-section
      *cli-presentation-project-options*
      "Manage Presentation Projects"
