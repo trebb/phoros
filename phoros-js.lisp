@@ -742,7 +742,8 @@ to Estimated Position."
                              (*rule (create
                                      filter polyline-filter 
                                      symbolizer (create
-                                                 graphic-name "square"))))))
+                                                 graphic-name "square"
+                                                 point-radius 4))))))
                 (polygon-rule
                  (new (chain *open-layers
                              (*rule (create
@@ -760,6 +761,10 @@ to Estimated Position."
                        *open-layers
                        (*style (create stroke-color "OrangeRed"
                                        fill-color "OrangeRed"
+                                       label-align "cb"
+                                       label-y-offset 5
+                                       font-color "OrangeRed"
+                                       font-family "'andale mono', 'lucida console', monospace"
                                        stroke-opacity .5
                                        stroke-width 2
                                        point-radius 5
@@ -1477,7 +1482,8 @@ accordingly."
                (new (chain *open-layers
                            *layer
                            (*osm* "OpenStreetMap"
-                                  nil (create num-zoom-levels 23)))))
+                                  nil (create num-zoom-levels 23
+                                              attribution "Data CC-By-SA by openstreetmap.org")))))
          (setf (@ *streetmap* overview-osm-layer)
                (new (chain *open-layers
                            *layer

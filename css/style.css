@@ -95,11 +95,11 @@ button, select {
 }
 #point-description {
     width: 206px;
-    height: 21px;
+    height: 17px;
 }
 #point-numeric-description {
     width: 120px;
-    height: 21px;
+    height: 17px;
     float: right;
 }
 #point-attribute {
