@@ -125,7 +125,12 @@ session."
         ((and (equal (session-value 'presentation-project-name)
                      presentation-project-name)
               (session-value 'authenticated-p))
-         (redirect "/phoros/lib/view" :add-session-id t))
+         (redirect
+          (format nil
+                  "/phoros/lib/view-~A"
+                  (handler-bind ((warning #'ignore-warnings))
+                    (asdf:component-version (asdf:find-system :phoros))))
+          :add-session-id t))
         (t
          (progn
            (setf (session-value 'presentation-project-name)
@@ -190,7 +195,12 @@ session."
                   (session-value 'user-full-name) user-full-name
                   (session-value 'user-id) user-id
                   (session-value 'user-role) user-role)            
-            (redirect "/phoros/lib/view" :add-session-id t))
+            (redirect
+             (format nil
+                     "/phoros/lib/view-~A"
+                     (handler-bind ((warning #'ignore-warnings))
+                       (asdf:component-version (asdf:find-system :phoros))))
+             :add-session-id t))
           "Rejected."))))
 
 (define-easy-handler logout-handler ()
@@ -740,7 +750,13 @@ send all points."
          *dispatch-table*)
 
 (define-easy-handler
-    (view :uri "/phoros/lib/view" :default-request-type :post) ()
+    (view
+     :uri (format nil
+                  "/phoros/lib/view-~A"
+                  (handler-bind ((warning #'ignore-warnings))
+                    (asdf:component-version (asdf:find-system :phoros))))
+     :default-request-type :post)
+    ()
   "Serve the client their main workspace."
   (if
    (session-value 'authenticated-p)
