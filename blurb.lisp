@@ -17,7 +17,7 @@
 
 (in-package :phoros)
 
-(define-easy-handler (blurb :uri "/phoros-lib/blurb") (openlayers-version)
+(define-easy-handler (blurb :uri "/phoros/lib/blurb") (openlayers-version)
   (when
       (session-value 'authenticated-p)
     (who:with-html-output-to-string (s nil :indent t)
@@ -32,7 +32,7 @@
                  :onclick (ps-inline (chain self (close))) "close")
         (:p "This is "
             (:a :href "http://phoros.berlios.de"
-                (:img :src "/phoros-lib/public_html/phoros-logo-plain.png"
+                (:img :src "/phoros/lib/public_html/phoros-logo-plain.png"
                       :height 30 :style "vertical-align:middle"
                       :alt "Phoros"))
             (who:fmt "Phoros version ~A," (phoros-version))

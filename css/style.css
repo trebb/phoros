@@ -149,7 +149,7 @@ button, select {
 .help-div {
     float: left;
     cursor: default;
-    background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
+    background-image: url(/phoros/lib/public_html/phoros-logo-background.png);
     background-position: 40px 90px;
     background-repeat: no-repeat;
     width: 256px;
@@ -244,7 +244,7 @@ button, select {
     cursor: pointer;
 }
 #zoom-images-to-max-extent {
-    background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
@@ -283,7 +283,7 @@ button, select {
     display: none; 
 }
 .image {
-    background-image: url(/phoros-lib/public_html/phoros-logo-background.png);
+    background-image: url(/phoros/lib/public_html/phoros-logo-background.png);
     background-position: center;
     background-repeat: no-repeat;
     /* width and height are read via CSS DOM where we expect them
@@ -297,49 +297,49 @@ button, select {
     margin: 1px;
 }
 .olControlPanWestItemInactive {
-    background: url(/phoros-lib/ol/img/west-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/west-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanEastItemInactive {
-    background: url(/phoros-lib/ol/img/east-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/east-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanNorthItemInactive {
-    background: url(/phoros-lib/ol/img/north-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/north-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanSouthItemInactive {
-    background: url(/phoros-lib/ol/img/south-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/south-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomInItemInactive {
-    background: url(/phoros-lib/ol/img/zoom-plus-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/zoom-plus-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomOutItemInactive {
-    background: url(/phoros-lib/ol/img/zoom-minus-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/zoom-minus-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomToMaxExtentItemInactive {
-    background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
@@ -349,7 +349,7 @@ button, select {
     display: none;
 }
 .streetmapZoomToMaxExtentItemInactive {
-    background: url(/phoros-lib/ol/img/zoom-world-mini.png) no-repeat;
+    background: url(/phoros/lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
