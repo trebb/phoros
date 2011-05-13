@@ -347,7 +347,7 @@ current-owner or, without arguments, new stuff."
        (defun photo-path (photo-parameters)
          "Create from stuff found in photo-parameters a path for use in
 an image url."
-         (+ "/phoros-lib/photo/" (@ photo-parameters directory) "/"
+         (+ "/phoros/lib/photo/" (@ photo-parameters directory) "/"
             (@ photo-parameters filename) "/"
             (@ photo-parameters byte-position) ".png"))
 
@@ -515,7 +515,7 @@ shadow any other control."
                                                  lat)))))))))
            (setf photo-request-response
                  ((@ *open-layers *Request *POST*)
-                  (create :url "/phoros-lib/local-data"
+                  (create :url "/phoros/lib/local-data"
                           :data content
                           :headers (create "Content-type" "text/plain"
                                            "Content-length" (@ content length))
@@ -559,7 +559,7 @@ data."
                                 (write global-position-etc)))
            (setf (@ *streetmap* aux-local-data-request-response)
                  ((@ *open-layers *Request *POST*)
-                  (create :url "/phoros-lib/aux-local-data"
+                  (create :url "/phoros/lib/aux-local-data"
                           :data content
                           :headers (create "Content-type" "text/plain"
                                            "Content-length"
@@ -870,7 +870,7 @@ to Estimated Position."
                   (chain *json-parser*
                          (write global-position-etc))))
              ((@ *open-layers *Request *POST*)
-              (create :url "/phoros-lib/store-point"
+              (create :url "/phoros/lib/store-point"
                       :data content
                       :headers (create "Content-type" "text/plain"
                                        "Content-length" (@ content length))
@@ -908,7 +908,7 @@ to Estimated Position."
                  (chain *json-parser*
                         (write point-data))))
            ((@ *open-layers *Request *POST*)
-            (create :url "/phoros-lib/update-point"
+            (create :url "/phoros/lib/update-point"
                     :data content
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
@@ -924,7 +924,7 @@ to Estimated Position."
                  (chain *json-parser*
                         (write user-point-id)))
            ((@ *open-layers *Request *POST*)
-            (create :url "/phoros-lib/delete-point"
+            (create :url "/phoros/lib/delete-point"
                     :data content
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
@@ -991,7 +991,7 @@ to Estimated Position."
                                                 (@ i photo-parameters))))
                         (@ i epipolar-request-response)
                         ((@ *open-layers *Request *POST*)
-                         (create :url "/phoros-lib/epipolar-line"
+                         (create :url "/phoros/lib/epipolar-line"
                                  :data content
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
@@ -1017,7 +1017,7 @@ to Estimated Position."
                                                        x 'photo-parameters)))))))))
                   (setf (@ clicked-image estimated-positions-request-response)
                         ((@ *open-layers *Request *POST*)
-                         (create :url "/phoros-lib/estimated-positions"
+                         (create :url "/phoros/lib/estimated-positions"
                                  :data content
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
@@ -1253,7 +1253,7 @@ image-index in array *images*."
                                  collect (@ i photo-parameters))))))
          (setf *user-point-in-images-response*
                ((@ *open-layers *Request *POST*)
-                (create :url "/phoros-lib/user-point-positions"
+                (create :url "/phoros/lib/user-point-positions"
                         :data content
                         :headers (create "Content-type" "text/plain"
                                          "Content-length" (@ content length))
@@ -1350,7 +1350,7 @@ accordingly."
          (let ((cursor-layer-style
                 (create
                  graphic-width 14
-                 external-graphic "/phoros-lib/public_html/phoros-cursor.png")))
+                 external-graphic "/phoros/lib/public_html/phoros-cursor.png")))
            (setf (@ *streetmap* cursor-layer)
                  (new (chain
                        *open-layers *layer
@@ -1381,7 +1381,7 @@ accordingly."
                          strategies (array (new (*bbox-strategy*)))
                          protocol
                          (new (*http-protocol*
-                               (create :url "/phoros-lib/points.json")))
+                               (create :url "/phoros/lib/points.json")))
                          style survey-layer-style))))))
          (setf (@ *streetmap* user-point-layer)
                (new (chain
@@ -1392,7 +1392,7 @@ accordingly."
                        strategies (array (new *bbox-strategy*))
                        protocol
                        (new (*http-protocol*
-                             (create :url "/phoros-lib/user-points.json")))
+                             (create :url "/phoros/lib/user-points.json")))
                        style-map (user-point-style-map nil))))))
          (setf (@ *streetmap* user-points-hover-control)
                (new (chain *open-layers
@@ -1422,7 +1422,7 @@ accordingly."
                          strategies (array (new (*bbox-strategy*)))
                          protocol
                          (new (*http-protocol*
-                               (create :url "/phoros-lib/aux-points.json")))
+                               (create :url "/phoros/lib/aux-points.json")))
                          style aux-layer-style
                          visibility nil))))))
          (let ((nearest-aux-point-layer-style-map
@@ -1635,7 +1635,7 @@ accordingly."
 (pushnew (create-regex-dispatcher
           (format
            nil
-           "/phoros-lib/phoros-~A-\\S*-\\S*\.js"
+           "/phoros/lib/phoros-~A-\\S*-\\S*\.js"
            (handler-bind ((warning #'ignore-warnings))
              (asdf:component-version (asdf:find-system :phoros)))) 'phoros.js)
          *dispatch-table*)
