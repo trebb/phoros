@@ -30,7 +30,7 @@ pre, code {
     white-space: pre;
 }
 pre, code {
-    font: 1em 'andale mono', 'lucida console', monospace;
+    font-family: 'andale mono', 'lucida console', monospace;
     line-height:1.5;
 }
 a[href] {
@@ -85,7 +85,7 @@ button, select {
     float:right;
 }
 .vanilla-input {
-    font: 1em 'andale mono', 'lucida console', monospace;
+    font-family: 'andale mono', 'lucida console', monospace;
     padding: 0px;
     margin: 0px;
 }
@@ -198,7 +198,7 @@ button, select {
     background-color: black;
 }
 .streetmap-mouse-position {
-    font: 1em 'andale mono', 'lucida console', monospace;
+    font-family: 'andale mono', 'lucida console', monospace;
     color: white;
     clear: both;
     float: left;
