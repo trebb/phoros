@@ -89,4 +89,11 @@
                               (:select (:postgis_version))
                               :single)))))
             "."
-            ))))))
+            )
+        (:h2 "Command Line Interface")
+        (:p "Most of the administrative tasks are done through the
+        command line interface. The output of")
+        (:code "./phoros --help")
+        (:p "is given below for reference.")
+        (:pre (who:str (with-output-to-string (*standard-output*)
+                         (cli-help-action)))))))))
