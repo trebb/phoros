@@ -306,6 +306,17 @@
      :type string :list t :optional t
      :documentation "Name of a text column in the auxiliary data table.  Repeat if necessary.")))
 
+(defparameter *cli-user-points-options*
+  '(("store-user-points"
+     :type string :action #'store-user-points-action
+     :documentation "(*) Store user points previously saved (using --get-user-points or download button in Web interface) into the presentation project named by the string argument.")
+    ("get-user-points"
+     :type string :action #'get-user-points-action
+     :documentation "(*) Save user points of presentation project.")
+    ("json-file"
+     :type string
+     :documentation "Path to GeoJSON file.")))
+
 (defparameter *cli-user-options*
   '(("create-user"
      :type string :action #'create-user-action
@@ -337,6 +348,7 @@
           *cli-start-server-options*
           *cli-presentation-project-options*
           *cli-aux-view-options*
+          *cli-user-points-options*
           *cli-user-options*))
 
 (defun main ()
@@ -475,7 +487,7 @@ according to the --verbose option given."
      "Become A HTTP Presentation Server"
      "Phoros is a Web server in its own right, but you can also put it
       behind a proxy server to make it part of a larger Web site.
-      E.g, for Apache, load module proxy_http and use this
+      E.g., for Apache, load module proxy_http and use this
       configuration:"
      "ProxyPass /phoros http://127.0.0.1:8080/phoros"
      "ProxyPassReverse /phoros http://127.0.0.1:8080/phoros")
@@ -501,6 +513,11 @@ according to the --verbose option given."
      "In simple cases (auxiliary data from one table which has a
      geometry column and some numeric and/or text columns), the
      following options can be used to create such view.")
+    (show-help-section
+     *cli-user-points-options*
+     "Manage User Points"
+     "Backup/restore of user points; especially useful for getting
+     them through database upgrades.")
     (show-help-section
      *cli-user-options*
      "Manage Presentation Project Users")))
@@ -535,8 +552,7 @@ the key argument, or the whole dotted string."
          Proj4 library: ~A~&  PhoML version ~A~&"
         (handler-bind ((warning #'ignore-warnings))
           (asdf:system-description (asdf:find-system :phoros)))
-        (handler-bind ((warning #'ignore-warnings))
-          (asdf:component-version (asdf:find-system :phoros)))
+        (phoros-version)
         (lisp-implementation-type) (lisp-implementation-version)
         (proj:version)
         (phoml:get-version-number))))))
@@ -974,6 +990,52 @@ a view."
            (aux-point-view-name presentation-project-name)
            aux-table coordinates-column
            numeric-column text-column))))))
+
+(defun store-user-points-action (presentation-project)
+  "Store user points from a GeoJSON file into database."
+    (with-cli-options (host port database (user "") (password "") use-ssl
+                            log-dir
+                            json-file)
+      (launch-logger log-dir)
+      (with-connection (list database user password host :port port
+                             :use-ssl (s-sql:from-sql-name use-ssl))
+        (multiple-value-bind
+              (points-stored points-already-in-db points-tried)
+            (store-user-points presentation-project json-file)
+          (cl-log:log-message
+           :db-dat
+           "Tried to store the ~D user points I found in file ~A ~
+            into presentation project ~A in database ~A at ~A:~D.  ~
+            ~:[~:[~D~;None~*~]~;All~2*~] of them ~:[were~;was~] ~
+            already present.  ~
+            ~:[~:[~:[~D points have~;1 point has~*~]~;Nothing has~2*~]~
+               ~;All points tried have~3*~] ~
+            been added to the user point table."
+           points-tried
+           json-file
+           presentation-project database host port
+           (= points-already-in-db points-tried)
+           (zerop points-already-in-db)
+           points-already-in-db
+           (<= points-already-in-db 1)
+           (= points-stored points-tried)
+           (zerop points-stored)
+           (= 1 points-stored)
+           points-stored)))))
+
+(defun get-user-points-action (presentation-project)
+  "Save user points of presentation project into a GeoJSON file."
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          json-file)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (with-open-file (stream json-file
+                              :direction :output
+                              :if-exists :supersede)
+        (princ (get-user-points (user-point-table-name presentation-project))
+               stream)))))
     
 (defun create-user-action (presentation-project-user)
   "Define a new user."

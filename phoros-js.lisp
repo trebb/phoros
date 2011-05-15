@@ -75,7 +75,12 @@
            (:p "Delete current point."))
           :download-user-points-button
           (who-ps-html
-           (:p "Download all user points as GeoJSON-fomatted text file."))
+           (:p "Download all user points as GeoJSON-fomatted text
+           file.  Do this regularly if you don't want to lose your
+           work due to server crashes or major Phoros updates.")
+           (:p "Points saved this way can be fed back into your
+           project using the command line interface (on server or on
+           any other host where the database is reachable)."))
           :point-attribute
           (who-ps-html
            (:p "One of a few possible user point attributes.")
@@ -1639,9 +1644,7 @@ accordingly."
          (add-help-events))))))
 
 (pushnew (create-regex-dispatcher
-          (format
-           nil
-           "/phoros/lib/phoros-~A-\\S*-\\S*\.js"
-           (handler-bind ((warning #'ignore-warnings))
-             (asdf:component-version (asdf:find-system :phoros)))) 'phoros.js)
+          (format nil "/phoros/lib/phoros-~A-\\S*-\\S*\.js"
+                  (phoros-version))
+          'phoros.js)
          *dispatch-table*)

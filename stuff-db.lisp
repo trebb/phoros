@@ -551,6 +551,105 @@ all pojects."
      (length images) (= (length images) mapped-image-counter)
      mapped-image-counter)))
 
+(defun assert-user-points-version (user-points-version)
+  "Check if user-points-version is compatible with the current
+user-point table definition."
+  (cond                ;insert more interesting clauses when necessary
+    ((null user-points-version)
+     (warn "Storing user-points which don't have a version number."))
+    (t)))
+
+(defun store-user-points (common-table-name json-file-path)
+  "Store in DB user points given in file at json-file-path, which
+supposedly was created by Phoros.  Return number of points stored,
+number of points that were already in DB, and number of points found
+in JSON file."
+  (assert-phoros-db-major-version)
+  (let* ((user-point-table-name (user-point-table-name common-table-name))
+         (raw-input (with-open-file (stream json-file-path)
+                      (json:decode-json stream)))
+         (raw-input-version (cdr (assoc :phoros-version raw-input)))
+         (raw-features (cdr (assoc :features raw-input))))
+    (assert-user-points-version raw-input-version)
+    (loop
+       for i in raw-features
+       for coordinates = (cdr (assoc :coordinates (cdr (assoc :geometry i))))
+       for point-form = (format nil "SRID=4326; POINT(~{~S ~})" coordinates)
+       for properties = (cdr (assoc :properties i))
+       for user-name = (cdr (assoc :user-name properties))
+       for attribute = (cdr (assoc :attribute properties))
+       for description = (cdr (assoc :description properties))
+       for numeric-description = (cdr (assoc :numeric-description properties))
+       for creation-date = (cdr (assoc :creation-date properties))
+       for stdx-global = (cdr (assoc :stdx-global properties))
+       for stdy-global = (cdr (assoc :stdy-global properties))
+       for stdz-global = (cdr (assoc :stdz-global properties))
+       for input-size = (cdr (assoc :input-size properties))
+       for aux-numeric = (cdr (assoc :aux-numeric properties))
+       for aux-text = (cdr (assoc :aux-text properties))
+       for aux-numeric-comparison =
+         (if aux-numeric
+             (format nil "(~A = (CAST (ARRAY[~{~S~#^,~}] AS NUMERIC[])))"
+                     (s-sql:to-sql-name 'aux-numeric) aux-numeric)
+             (sql (:is-null 'aux-numeric)))
+       for aux-text-comparison =
+         (if aux-text
+             (sql (:= 'aux-text (apply #'vector aux-text)))
+             (sql (:is-null 'aux-text)))
+       with points-stored = 0
+       with points-already-in-db = 0
+       sum 1 into points-tried
+       do
+         (if
+          (query
+           (:select
+            t
+            :from user-point-table-name :natural :left-join 'sys-user
+            :where (:and (:= 'coordinates (:st_geomfromewkt point-form))
+                         (:= 'user-name user-name)
+                         (:= 'attribute attribute)
+                         (:= 'description description)
+                         (:= 'numeric-description numeric-description)
+                         (:= (:to-char 'creation-date
+                                       *user-point-creation-date-format*)
+                             creation-date)
+                         (:= 'stdx-global stdx-global)
+                         (:= 'stdy-global stdy-global)
+                         (:= 'stdz-global stdz-global)
+                         (:= 'input-size input-size)
+                         (:raw aux-numeric-comparison)
+                         (:raw aux-text-comparison))))
+          (incf points-already-in-db)
+          (progn
+            (assert
+             (= 1
+                (execute
+                 (:insert-into user-point-table-name :set
+                               'coordinates (:st_geomfromewkt point-form)
+                               'user-id (:select 'user-id
+                                                 :from 'sys-user
+                                                 :where (:= 'user-name
+                                                            user-name))
+                               'attribute attribute
+                               'description description
+                               'numeric-description numeric-description
+                               'creation-date creation-date
+                               'stdx-global stdx-global
+                               'stdy-global stdy-global
+                               'stdz-global stdz-global
+                               'input-size input-size
+                               'aux-numeric (if aux-numeric
+                                                (apply #'vector aux-numeric)
+                                                :null)
+                               'aux-text (if aux-text
+                                             (apply #'vector aux-text)
+                                             :null))))
+             () "Point not stored.  This should not happen.")
+            (incf points-stored)))
+       finally (return (values points-stored
+                               points-already-in-db
+                               points-tried)))))
+
 (defun store-camera-hardware
     (&key (sensor-width-pix (error "sensor-width-pix needed."))
      (sensor-height-pix (error "sensor-height-pix needed."))

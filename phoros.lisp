@@ -60,6 +60,9 @@
 (defparameter *number-of-features-per-layer* 500
   "What we think a browser can swallow.")
 
+(defparameter *user-point-creation-date-format* "IYYY-MM-DD HH24:MI:SS TZ"
+  "SQL date format used for display and GeoJSON export of user points.")
+
 (defun check-db (db-credentials)
   "Check postgresql connection.  Return t if successful; show error on
 *error-output* otherwise.  db-credentials is a list like so: (database
@@ -126,10 +129,7 @@ session."
                      presentation-project-name)
               (session-value 'authenticated-p))
          (redirect
-          (format nil
-                  "/phoros/lib/view-~A"
-                  (handler-bind ((warning #'ignore-warnings))
-                    (asdf:component-version (asdf:find-system :phoros))))
+          (format nil "/phoros/lib/view-~A" (phoros-version))
           :add-session-id t))
         (t
          (progn
@@ -195,12 +195,8 @@ session."
                   (session-value 'user-full-name) user-full-name
                   (session-value 'user-id) user-id
                   (session-value 'user-role) user-role)            
-            (redirect
-             (format nil
-                     "/phoros/lib/view-~A"
-                     (handler-bind ((warning #'ignore-warnings))
-                       (asdf:component-version (asdf:find-system :phoros))))
-             :add-session-id t))
+            (redirect (format nil "/phoros/lib/view-~A" (phoros-version))
+                      :add-session-id t))
           "Rejected."))))
 
 (define-easy-handler logout-handler ()
@@ -457,7 +453,8 @@ junk-keys."
                        (dolist (key '(:x :y :z :id))
                          (remf point-with-properties key))
                        (json:encode-json-plist point-with-properties s))))))
-           features))))))
+           features)))
+      (json:encode-object-member :phoros-version (phoros-version) s))))
 
 (defun box3d (bbox)
   "Return a WKT-compliant BOX3D string from string bbox."
@@ -641,6 +638,46 @@ coordinates received, wrapped in an array."
                          all-coordinates)))
          :single!))))))
 
+(defun get-user-points (user-point-table-name &key
+                        (bounding-box "-180,-90,180,90")
+                        (limit :null)
+                        (order-criterion 'id))
+  "Get limit points from user-point-table-name in GeoJSON format."
+  (encode-geojson-to-string
+   (nsubst
+    nil :null
+    (query
+     (s-sql:sql-compile
+      `(:limit
+        (:order-by
+         (:select
+          (:as (:st_x (:st_transform 'coordinates
+                                     ,*standard-coordinates*))
+               'x)
+          (:as (:st_y (:st_transform 'coordinates
+                                     ,*standard-coordinates*))
+               'y)
+          (:as (:st_z (:st_transform 'coordinates
+                                     ,*standard-coordinates*))
+               'z)
+          (:as 'user-point-id 'id)      ;becomes fid in OpenLayers
+          'stdx-global 'stdy-global 'stdz-global
+          'input-size
+          'attribute 'description 'numeric-description
+          'user-name
+          (:as (:to-char 'creation-date
+                         ,*user-point-creation-date-format*)
+               'creation-date)
+          'aux-numeric 'aux-text
+          :from ,user-point-table-name :natural :left-join 'sys-user
+          :where (:&& (:st_transform 'coordinates
+                                     ,*standard-coordinates*)
+                      (:st_setsrid  (:type ,(box3d bounding-box) box3d)
+                                    ,*standard-coordinates*)))
+         ,order-criterion)
+        ,limit))
+     :plists))))
+
 (define-easy-handler (user-points :uri "/phoros/lib/user-points.json") (bbox)
   "Send *number-of-features-per-layer* randomly chosen GeoJSON-encoded
 points from inside bbox to client.  If there is no bbox parameter,
@@ -654,44 +691,11 @@ send all points."
               (user-point-table-name
                (user-point-table-name (session-value
                                        'presentation-project-name))))
-          (encode-geojson-to-string
-           (with-connection *postgresql-credentials*
-             (nsubst
-              nil :null
-              (query
-               (s-sql:sql-compile
-                `(:limit
-                  (:order-by
-                   (:select
-                    (:as (:st_x (:st_transform 'coordinates
-                                               ,*standard-coordinates*))
-                         'x)
-                    (:as (:st_y (:st_transform 'coordinates
-                                               ,*standard-coordinates*))
-                         'y)
-                    (:as (:st_z (:st_transform 'coordinates
-                                               ,*standard-coordinates*))
-                         'z)
-                    (:as 'user-point-id 'id) ;becomes fid on client
-                    'stdx-global 'stdy-global 'stdz-global
-                    'input-size
-                    'attribute
-                    'description
-                    'numeric-description
-                    'user-name
-                    (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
-                         'creation-date)
-                    'aux-numeric
-                    'aux-text
-                    :from ,user-point-table-name :natural :left-join 'sys-user
-                    :where (:&&
-                            (:st_transform 'coordinates
-                                           ,*standard-coordinates*)
-                            (:st_setsrid  (:type ,(box3d bounding-box) box3d)
-                                          ,*standard-coordinates*)))
-                   ,order-criterion)
-                  ,limit))
-               :plists)))))
+          (with-connection *postgresql-credentials*
+            (get-user-points user-point-table-name
+                             :bounding-box bounding-box
+                             :limit limit
+                             :order-criterion order-criterion)))
       (condition (c)
         (cl-log:log-message
          :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
@@ -750,12 +754,8 @@ send all points."
          *dispatch-table*)
 
 (define-easy-handler
-    (view
-     :uri (format nil
-                  "/phoros/lib/view-~A"
-                  (handler-bind ((warning #'ignore-warnings))
-                    (asdf:component-version (asdf:find-system :phoros))))
-     :default-request-type :post)
+    (view :uri (format nil "/phoros/lib/view-~A" (phoros-version))
+          :default-request-type :post)
     ()
   "Serve the client their main workspace."
   (if
@@ -777,8 +777,7 @@ send all points."
        (:script :src (format         ;variability in script name is
                       nil            ; supposed to fight browser cache
                       "/phoros/lib/phoros-~A-~A-~A.js"
-                      (handler-bind ((warning #'ignore-warnings))
-                        (asdf:component-version (asdf:find-system :phoros)))
+                      (phoros-version)
                       (session-value 'user-name)
                       (session-value 'presentation-project-name)))
        (:script :src "http://maps.google.com/maps/api/js?sensor=false"))
@@ -793,11 +792,7 @@ send all points."
             (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name)))
             (:span :id "presentation-project-emptiness")
-            (:span :id "phoros-version"
-                   (who:fmt
-                    "v~A"
-                    (handler-bind ((warning #'ignore-warnings))
-                      (asdf:component-version (asdf:find-system :phoros))))))
+            (:span :id "phoros-version" (who:fmt "v~A" (phoros-version))))
        (:div :class "controlled-streetmap"
              (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
              (:div :id "streetmap-controls" :class "streetmap-controls"
