@@ -81,8 +81,8 @@ button, select {
 #logout-button {
     float:right;
 }
-#phoros-version {
-    float:right;
+.h1-right {
+    float: right;
 }
 .vanilla-input {
     font-family: 'andale mono', 'lucida console', monospace;

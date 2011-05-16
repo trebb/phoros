@@ -25,11 +25,16 @@
        :xmlns "http://www.w3.org/1999/xhtml"
        (:head
         (:title "Phoros")
-        (:link :rel "stylesheet" :href "css/style.css" :type "text/css"))
+        (:link :rel "stylesheet"
+               :href (format nil "/phoros/lib/css-~A/style.css"
+                             (phoros-version))
+               :type "text/css"))
        (:body 
         (:h1 :id "title" "Phoros: A Tool for Photogrammetric Road Survey")
         (:button :type "button"
-                 :onclick (ps-inline (chain self (close))) "close")
+                 :style "float:right"
+                 :onclick (ps-inline (chain self (close)))
+                 "close")
         (:p "This is "
             (:a :href "http://phoros.berlios.de"
                 (:img :src "/phoros/lib/public_html/phoros-logo-plain.png"

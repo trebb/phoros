@@ -212,7 +212,9 @@ session."
                       'string
                       "Phoros: logged out" )))
             (:link :rel "stylesheet"
-                   :href "/phoros/lib/css/style.css" :type "text/css"))
+                   :href (format nil "/phoros/lib/css-~A/style.css"
+                                 (phoros-version))
+                   :type "text/css"))
            (:body
             (:h1 :id "title" "Phoros: logged out")
             (:p "Log back in to project "
@@ -742,7 +744,8 @@ send all points."
 (pushnew (create-folder-dispatcher-and-handler "/phoros/lib/ol/" "ol/")
          *dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros/lib/css/" "css/") ;TODO: merge this style.css into public_html/style.css
+(pushnew (create-folder-dispatcher-and-handler
+          (format nil "/phoros/lib/css-~A/" (phoros-version)) "css/") ;TODO: merge this style.css into public_html/style.css
          *dispatch-table*)
 
 (pushnew (create-folder-dispatcher-and-handler
@@ -773,7 +776,9 @@ send all points."
             (:script :src "/phoros/lib/openlayers/lib/OpenLayers.js"))
            (who:htm (:script :src "/phoros/lib/ol/OpenLayers.js")))
        (:link :rel "stylesheet"
-              :href "/phoros/lib/css/style.css" :type "text/css")
+              :href (format nil "/phoros/lib/css-~A/style.css"
+                            (phoros-version))
+              :type "text/css")
        (:script :src (format         ;variability in script name is
                       nil            ; supposed to fight browser cache
                       "/phoros/lib/phoros-~A-~A-~A.js"
@@ -792,7 +797,8 @@ send all points."
             (:span :id "presentation-project-name"
                    (who:str (session-value 'presentation-project-name)))
             (:span :id "presentation-project-emptiness")
-            (:span :id "phoros-version" (who:fmt "v~A" (phoros-version))))
+            (:span :id "phoros-version" :class "h1-right"
+                   (who:fmt "v~A" (phoros-version))))
        (:div :class "controlled-streetmap"
              (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
              (:div :id "streetmap-controls" :class "streetmap-controls"
