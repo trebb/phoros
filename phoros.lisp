@@ -157,7 +157,10 @@ session."
                                                  :login-form
                                                  :user-name
                                                  (focus))))))
-             (:p (who:str *login-intro*)))))))))
+             (loop for i in *login-intro*
+                do
+                  (who:htm
+                   (:p (who:str i)))))))))))
 
 (pushnew (create-regex-dispatcher "/phoros/(?!lib/)" 'phoros-handler)
          *dispatch-table*)
