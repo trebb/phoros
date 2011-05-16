@@ -605,7 +605,8 @@ in JSON file."
            (:select
             t
             :from user-point-table-name :natural :left-join 'sys-user
-            :where (:and (:= 'coordinates (:st_geomfromewkt point-form))
+            :where (:and (:st_equals 'coordinates
+                                     (:st_geomfromewkt point-form))
                          (:= 'user-name user-name)
                          (:= 'attribute attribute)
                          (:= 'description description)
