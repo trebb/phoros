@@ -19,7 +19,7 @@
 (in-package :phoros)
 
 (defun nuke-all-tables ()
-  "Drop all tables (except PostGIS helper tables) and sequences in current database."
+  "Drop all tables (except PostGIS helper tables) and sequences in current database.  TODO: also drop our functions and types."
   (let ((user-tables (list-tables))
         (sequences (list-sequences))
         (views (list-views))
@@ -496,7 +496,7 @@ connected to. This can only be done once per database."
           "Can't use a Phoros database structure of version ~D.  It should be version ~D.  Either create a new database structure using this version of Phoros, or use Phoros version ~2:*~D.x.x."
           (phoros-db-major-version) (phoros-version :major t)))
 
-(defun create-sys-tables ()
+(defun create-sys-tables ()      ;TODO name should better reflect task
   "Create in current database a set of sys-* tables, i.e. tables that
 are used by all projects.  The database should probably be empty."
   (setf (phoros-db-major-version) (phoros-version :major t))
@@ -510,7 +510,18 @@ are used by all projects.  The database should probably be empty."
   (create-table 'sys-lens)
   (create-table 'sys-generic-device)
   (create-table 'sys-device-stage-of-life)
-  (create-table 'sys-camera-calibration))
+  (create-table 'sys-camera-calibration)
+  (execute
+   "CREATE OR REPLACE
+      FUNCTION bendedness
+               (point1 GEOMETRY, point2 GEOMETRY, point3 GEOMETRY)
+      RETURNS DOUBLE PRECISION AS $$
+      BEGIN
+        RETURN abs(st_azimuth(point2, point3) - st_azimuth(point1, point2));
+      END;
+      $$ LANGUAGE plpgsql;")
+  (execute
+   "CREATE TYPE point_bag AS (id int, coordinates GEOMETRY);"))
 
 (defun !!index (table field &key (index-type :btree)) 
   (format nil "CREATE INDEX ~0@*~A_~1@*~A_index ON ~0@*~A USING ~2@*~A (~1@*~A)"
@@ -838,7 +849,10 @@ are used by all projects.  The database should probably be empty."
 
   (defun aux-point-view-name (presentation-project-name)
     (make-symbol (format nil "~A~A-aux-point"
-                         table-prefix presentation-project-name))))
+                         table-prefix presentation-project-name)))
+  (defun thread-aux-points-function-name (presentation-project-name)
+    (make-symbol (format nil "~A~A-thread-aux-points"
+                          table-prefix presentation-project-name))))
 
 (defun create-data-table-definitions (common-table-name)
   "Define or redefine a bunch of dao-classes which can hold measuring
@@ -982,10 +996,15 @@ presentation-project-name."
 (defun create-aux-view (presentation-project-name aux-table-name
                         &key (coordinates-column :the-geom)
                         numeric-columns text-columns)
-  "Create a view into aux-table-name.  coordinates-column goes into column
-coordinates, numeric-columns and text-columns go into arrays in aux-numeric
-and aux-text respectively.  TODO: should we assert-phoros-db-major-version?"
-  (let ((aux-point-view-name (aux-point-view-name presentation-project-name)))
+  "Create a view into aux-table-name and a SQL function for threading
+aux-points into a linestring.  coordinates-column goes into column
+coordinates, numeric-columns and text-columns go into arrays in
+aux-numeric and aux-text respectively.  TODO: should we
+assert-phoros-db-major-version?"
+  (let ((aux-point-view-name
+         (aux-point-view-name presentation-project-name))
+        (thread-aux-points-function-name
+         (thread-aux-points-function-name presentation-project-name)))
     (execute
      (format
       nil
@@ -998,7 +1017,74 @@ and aux-text respectively.  TODO: should we assert-phoros-db-major-version?"
       coordinates-column
       (mapcar #'s-sql:to-sql-name numeric-columns)
       (mapcar #'s-sql:to-sql-name text-columns)
-      (s-sql:to-sql-name aux-table-name)))))
+      (s-sql:to-sql-name aux-table-name)))
+    (execute
+     (format
+      nil
+      "CREATE FUNCTION ~A(point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT) ~
+       RETURNS GEOMETRY AS ~
+       $$ ~
+       DECLARE ~
+         line GEOMETRY; ~
+         new_point point_bag%ROWTYPE; ~
+         tried_point point_bag%ROWTYPE; ~
+         previous_point point_bag%ROWTYPE; ~
+       BEGIN ~
+         CREATE TEMPORARY TABLE point_bag ~
+           (id SERIAL primary key, coordinates GEOMETRY) ~
+           ON COMMIT DROP; ~
+         INSERT INTO point_bag (coordinates) ~
+           SELECT coordinates ~
+             FROM ~A ~
+             WHERE st_distance(st_transform (coordinates, ~A), ~
+                               st_transform (point, ~:*~A))  ~
+                   < sample_radius  ~
+             ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~
+                      st_transform (point, ~:*~A)) ~
+             LIMIT sample_size; ~
+         previous_point :=  ~
+           (SELECT ROW(id, coordinates)  ~
+              FROM point_bag  ~
+              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~
+                                   st_transform (point, ~:*~A)) LIMIT 1); ~
+         DELETE FROM point_bag WHERE id = previous_point.id; ~
+         new_point :=  ~
+           (SELECT ROW(id, coordinates) ~
+              FROM point_bag ~
+              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~
+                                   st_transform (previous_point.coordinates, ~:*~A)) ~
+              LIMIT 1); ~
+         line := st_makeline(previous_point.coordinates, ~
+                             new_point.coordinates); ~
+         DELETE FROM point_bag WHERE id = new_point.id; ~
+         LOOP ~
+           previous_point.coordinates := st_pointn(line,1); ~
+           new_point := ~
+             (SELECT ROW(id, coordinates) ~
+                FROM point_bag ~
+                ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~
+                                     st_transform (previous_point.coordinates, ~:*~A)) ~
+                LIMIT 1); ~
+           EXIT WHEN new_point IS NULL; ~
+           IF bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~
+              < bendedness(st_pointn(line, st_npoints(line) - 1), st_pointn(line, st_npoints(line)), new_point.coordinates) ~
+              AND ~
+              bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~
+              < radians(91) ~
+           THEN ~
+               line := st_addpoint(line, new_point.coordinates, 0); ~
+               DELETE FROM point_bag WHERE id = new_point.id; ~
+           END IF; ~
+           line := st_reverse(line); ~
+           DELETE FROM point_bag WHERE id = tried_point.id; ~
+           tried_point := new_point; ~
+         END LOOP; ~
+         RETURN line; ~
+       END; ~
+       $$ LANGUAGE plpgsql;"
+      (s-sql:to-sql-name thread-aux-points-function-name)
+      (s-sql:to-sql-name aux-point-view-name)
+      *standard-coordinates*))))
 
 (defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.
