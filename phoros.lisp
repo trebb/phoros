@@ -427,10 +427,10 @@ of presentation project with presentation-project-id."
        "While fetching common-table-names of presentation-project-id ~D: ~A"
        presentation-project-id c))))
 
-(defun encode-geojson-to-string (features &rest junk-keys)
+(defun encode-geojson-to-string (features &key junk-keys)
   "Encode a list of property lists into a GeoJSON FeatureCollection.
-Each property list must contain keys for coordinates, :x, :y, :z; and
-for a numeric point :id, followed by zero or more pieces of extra
+Each property list must contain keys for coordinates, :x, :y, :z; it
+may contain a numeric point :id and zero or more pieces of extra
 information.  The extra information is stored as GeoJSON Feature
 properties.  Exclude property list elements with keys that are in
 junk-keys."
@@ -519,7 +519,7 @@ junk-keys."
                   random)
                  ,*number-of-features-per-layer*))
               :plists))
-           :random))
+           :junk-keys '(:random)))
       (condition (c)
         (cl-log:log-message
          :error "While fetching points from inside bbox ~S: ~A"
@@ -611,6 +611,54 @@ coordinates received, wrapped in an array."
                  'distance)             ;TODO: convert into metres
                 ,count))
              :plists))))))))
+
+(define-easy-handler
+    (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
+                          :default-request-type :post)
+    ()
+  "Receive longitude, latitude, count, radius, and step-size; respond
+with the a JSON object comprising the elements linestring (a WKT
+linestring stitched together of count nearest auxiliary points from
+within radius around coordinates), current-point (the point on
+linestring closest to coordinates), and previous-point and next-point
+\(points on linestring step-size before and after current-point
+respectively)."
+  (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
+    (let* ((thread-aux-points-function-name
+            (thread-aux-points-function-name (session-value
+                                              'presentation-project-name)))
+           (data (json:decode-json-from-string (raw-post-data)))
+           (longitude-input (cdr (assoc :longitude data)))
+           (latitude-input (cdr (assoc :latitude data)))
+           (count (cdr (assoc :count data)))
+           (radius (cdr (assoc :radius data)))
+           (step-size 1e-5)             ;TODO: remove
+           ;; (step-size (cdr (assoc :step-size data)))
+           (point-form 
+            (format nil "POINT(~F ~F)" longitude-input latitude-input))
+           (sql-response
+            (ignore-errors
+              (with-connection *postgresql-credentials*
+                (query
+                 (sql-compile
+                  `(:select '* :from
+                            (,thread-aux-points-function-name
+                             (:st_geomfromtext ,point-form ,*standard-coordinates*)
+                             ,radius
+                             ,count
+                             ,step-size)))
+                 :plist)))))
+      (with-output-to-string (s)
+        (json:with-object (s)
+          (json:encode-object-member
+           :linestring (getf sql-response :threaded-points) s)
+          (json:encode-object-member
+           :current-point (getf sql-response :current-point) s)
+          (json:encode-object-member
+           :previous-point (getf sql-response :back-point) s)
+          (json:encode-object-member
+           :next-point (getf sql-response :forward-point) s))))))
 
 (defun presentation-project-bbox (presentation-project-id)
   "Return bounding box of the entire presentation-project as a string
@@ -1054,7 +1102,7 @@ respond with a JSON object comprising the elements
                        (setf (getf photo-point :y)
                              (cdr (assoc :n photo-coordinates)))
                        photo-point)))
-                :longitude :latitude :ellipsoid-height))))
+                :junk-keys '(:longitude :latitude :ellipsoid-height)))))
       (with-output-to-string (s)
         (json:with-object (s)
           (json:encode-object-member :user-point-count user-point-count s)

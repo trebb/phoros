@@ -312,6 +312,13 @@
        (setf (@ *geojson-format* prototype internal-projection)
         +geographic+)
 
+       (defvar *wkt-parser*
+         (new (chain *open-layers
+                     *format
+                     (*wkt*
+                      (create external-projection +geographic+
+                              internal-projection +spherical-mercator+)))))
+
        (defvar *http-protocol* (chain *open-layers *protocol *http*))
        (setf (chain *http-protocol* prototype format) (new *geojson-format*))
 
@@ -454,7 +461,8 @@ shadow any other control."
          "Handle the response triggered by request-photos."
          (let ((photo-parameters
                 (chain *json-parser*
-                       (read (@ photo-request-response response-text)))))
+                       (read (@ *streetmap*
+                                photo-request-response response-text)))))
            (loop
               for p across photo-parameters
               for i across *images*
@@ -465,25 +473,28 @@ shadow any other control."
            ))
 
        (defun request-photos (event)
-         "Handle the response to a click into *streetmap*; fetch photo data.  Set or update streetmap cursor."
+         "Handle the response to a click into *streetmap*; fetch photo
+          data.  Set or update streetmap cursor."
+         (request-photos-for-point (chain *streetmap*
+                                          (get-lon-lat-from-pixel (@ event xy)))))
+
+       (defun request-photos-for-point (lonlat-spherical-mercator)
+         "Fetch photo data near lonlat-spherical-marcator; set or
+          update streetmap cursor."
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "remove-work-layers-button")
          (remove-any-layers "Estimated Position")
          (disable-streetmap-nearest-aux-points-layer)
          (reset-controls)
-         (let* ((lonlat-spherical-mercator
-                 (chain *streetmap*
-                        (get-lon-lat-from-pixel (@ event xy))))
-                (lonlat
-                 (chain *streetmap*
-                        (get-lon-lat-from-pixel (@ event xy))
-                        (transform +spherical-mercator+
-                                   +geographic+)))
+         (let* ((lonlat-geographic
+                 (chain lonlat-spherical-mercator
+                        (clone)
+                        (transform +spherical-mercator+ +geographic+)))
                 (content
                  (chain *json-parser*
                         (write
-                         (create :longitude (@ lonlat lon)
-                                 :latitude (@ lonlat lat)
+                         (create :longitude (@ lonlat-geographic lon)
+                                 :latitude (@ lonlat-geographic lat)
                                  :zoom ((@ *streetmap* get-zoom))
                                  :count (lisp *number-of-images*))))))
            (chain *streetmap*
@@ -518,7 +529,7 @@ shadow any other control."
                                                  lon)
                                               (@ lonlat-spherical-mercator
                                                  lat)))))))))
-           (setf photo-request-response
+           (setf (@ *streetmap* photo-request-response)
                  ((@ *open-layers *Request *POST*)
                   (create :url "/phoros/lib/local-data"
                           :data content
@@ -570,6 +581,24 @@ data."
                                            "Content-length"
                                            (@ content length))
                           :success draw-nearest-aux-points)))))
+
+       (defun request-aux-data-linestring (global-position radius count)
+         "Draw into streetmap a piece of linestring threaded along the
+count nearest points of auxiliary data inside radius."
+         (let ((global-position-etc global-position)
+               content)
+           (setf (@ global-position-etc radius) radius)
+           (setf (@ global-position-etc count) count)
+           (setf content (chain *json-parser*
+                                (write global-position-etc)))
+           (setf (@ *streetmap* aux-data-linestring-request-response)
+                 ((@ *open-layers *Request *POST*)
+                  (create :url "/phoros/lib/aux-local-linestring.json"
+                          :data content
+                          :headers (create "Content-type" "text/plain"
+                                           "Content-length"
+                                           (@ content length))
+                          :success draw-aux-data-linestring)))))
 
        (defun draw-estimated-positions ()
          "Draw into streetmap and into all images points at Estimated
@@ -703,6 +732,22 @@ to Estimated Position."
                     (elt (@ *streetmap* nearest-aux-points-layer features)
                          0))))
            (enable-element-with-id "aux-point-distance")))
+
+       (defun draw-aux-data-linestring ()
+         "Draw a piece of linestring along a few auxiliary points into
+          streetmap."
+         (let* ((data
+                 (@ *streetmap*
+                    aux-data-linestring-request-response
+                    response-text))
+                (linestring
+                 (chain *json-parser* (read data) linestring))
+                (feature
+                 (chain *wkt-parser* (read linestring))))
+           (debug-info linestring)
+           (chain *streetmap*
+                  aux-data-linestring-layer
+                  (add-features feature))))
 
        (defun user-point-style-map (label-property)
          "Create a style map where styles dispatch on feature property
@@ -1478,6 +1523,14 @@ accordingly."
                            *control
                            (*select-feature
                             (@ *streetmap* nearest-aux-points-layer)))))
+         (setf (@ *streetmap* aux-data-linestring-layer)
+                 (new (chain *open-layers
+                             *layer
+                             (*vector "Aux Data Linestring"
+                                      (create
+                                       display-in-layer-switcher t
+                                       ;style-map nearest-aux-point-layer-style-map
+                                       visibility t)))))
          (setf (@ *streetmap* google-streetmap-layer) 
                (new (chain *open-layers
                            *layer
@@ -1628,6 +1681,8 @@ accordingly."
                   (add-layer (@ *streetmap* cursor-layer)))
            (chain *streetmap*
                   (add-layer (@ *streetmap* aux-point-layer)))
+           (chain *streetmap*
+                  (add-layer (@ *streetmap* aux-data-linestring-layer)))
            (chain *streetmap*
                   (add-layer (@ *streetmap* user-point-layer)))
            (setf (@ overview-map element)

@@ -487,13 +487,20 @@ phoros-version."
   "Set the version number of the database structure we are currently
 connected to. This can only be done once per database."
   (execute
-   (:create-sequence 'sys-phoros-major-version :min-value -1 :max-value major-version :start major-version))
+   (:create-sequence 'sys-phoros-major-version
+                     :min-value -1
+                     :max-value major-version
+                     :start major-version))
   (phoros-db-major-version))
 
 (defun assert-phoros-db-major-version ()
-  "Check if phoros version and version of the database we are connected to match."
+  "Check if phoros version and version of the database we are
+connected to match."
   (assert (= (phoros-db-major-version) (phoros-version :major t)) ()
-          "Can't use a Phoros database structure of version ~D.  It should be version ~D.  Either create a new database structure using this version of Phoros, or use Phoros version ~2:*~D.x.x."
+          "Can't use a Phoros database structure of version ~D.  ~
+           It should be version ~D.  ~
+           Either create a new database structure using this version of ~
+           Phoros, or use Phoros version ~2:*~D.x.x."
           (phoros-db-major-version) (phoros-version :major t)))
 
 (defun create-sys-tables ()      ;TODO name should better reflect task
@@ -520,6 +527,8 @@ are used by all projects.  The database should probably be empty."
         RETURN abs(st_azimuth(point2, point3) - st_azimuth(point1, point2));
       END;
       $$ LANGUAGE plpgsql;")
+  (execute
+   "DROP TYPE IF EXISTS point_bag;")
   (execute
    "CREATE TYPE point_bag AS (id int, coordinates GEOMETRY);"))
 
@@ -991,7 +1000,10 @@ presentation-project-name."
 (defun delete-aux-view (presentation-project-name)
   "Delete the view into auxiliary point table that belongs to
 presentation-project-name."
-  (execute (:drop-view (aux-point-view-name presentation-project-name))))
+  (execute (:drop-view (aux-point-view-name presentation-project-name)))
+  (execute
+   (format nil "DROP FUNCTION IF EXISTS ~A(GEOMETRY, DOUBLE PRECISION, INT, DOUBLE PRECISION);"
+           (s-sql:to-sql-name (thread-aux-points-function-name presentation-project-name)))))
 
 (defun create-aux-view (presentation-project-name aux-table-name
                         &key (coordinates-column :the-geom)
@@ -1008,10 +1020,10 @@ assert-phoros-db-major-version?"
     (execute
      (format
       nil
-      "CREATE VIEW ~A ~
-       AS (SELECT ~A AS coordinates, ~
-           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric, ~
-           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text ~
+      "CREATE VIEW ~A @~
+       AS (SELECT ~A AS coordinates, @~
+           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric, @~
+           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text @~
            FROM ~A)"
       (s-sql:to-sql-name aux-point-view-name)
       coordinates-column
@@ -1021,66 +1033,74 @@ assert-phoros-db-major-version?"
     (execute
      (format
       nil
-      "CREATE FUNCTION ~A(point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT) ~
-       RETURNS GEOMETRY AS ~
-       $$ ~
-       DECLARE ~
-         line GEOMETRY; ~
-         new_point point_bag%ROWTYPE; ~
-         tried_point point_bag%ROWTYPE; ~
-         previous_point point_bag%ROWTYPE; ~
-       BEGIN ~
-         CREATE TEMPORARY TABLE point_bag ~
-           (id SERIAL primary key, coordinates GEOMETRY) ~
-           ON COMMIT DROP; ~
-         INSERT INTO point_bag (coordinates) ~
-           SELECT coordinates ~
-             FROM ~A ~
-             WHERE st_distance(st_transform (coordinates, ~A), ~
-                               st_transform (point, ~:*~A))  ~
-                   < sample_radius  ~
-             ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~
-                      st_transform (point, ~:*~A)) ~
-             LIMIT sample_size; ~
-         previous_point :=  ~
-           (SELECT ROW(id, coordinates)  ~
-              FROM point_bag  ~
-              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~
-                                   st_transform (point, ~:*~A)) LIMIT 1); ~
-         DELETE FROM point_bag WHERE id = previous_point.id; ~
-         new_point :=  ~
-           (SELECT ROW(id, coordinates) ~
-              FROM point_bag ~
-              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~
-                                   st_transform (previous_point.coordinates, ~:*~A)) ~
-              LIMIT 1); ~
-         line := st_makeline(previous_point.coordinates, ~
-                             new_point.coordinates); ~
-         DELETE FROM point_bag WHERE id = new_point.id; ~
-         LOOP ~
-           previous_point.coordinates := st_pointn(line,1); ~
-           new_point := ~
-             (SELECT ROW(id, coordinates) ~
-                FROM point_bag ~
-                ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~
-                                     st_transform (previous_point.coordinates, ~:*~A)) ~
-                LIMIT 1); ~
-           EXIT WHEN new_point IS NULL; ~
-           IF bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~
-              < bendedness(st_pointn(line, st_npoints(line) - 1), st_pointn(line, st_npoints(line)), new_point.coordinates) ~
-              AND ~
-              bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~
-              < radians(91) ~
-           THEN ~
-               line := st_addpoint(line, new_point.coordinates, 0); ~
-               DELETE FROM point_bag WHERE id = new_point.id; ~
-           END IF; ~
-           line := st_reverse(line); ~
-           DELETE FROM point_bag WHERE id = tried_point.id; ~
-           tried_point := new_point; ~
-         END LOOP; ~
-         RETURN line; ~
-       END; ~
+      "CREATE or replace FUNCTION ~A ~@
+         (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT, step_size DOUBLE PRECISION, ~@
+           OUT threaded_points TEXT, OUT current_point TEXT, OUT back_point TEXT, OUT forward_point TEXT) ~@
+       AS ~@
+       $$ ~@
+       DECLARE ~@
+         current_point_position DOUBLE PRECISION; ~@
+         line GEOMETRY; ~@
+         new_point point_bag%ROWTYPE; ~@
+         tried_point point_bag%ROWTYPE; ~@
+         previous_point point_bag%ROWTYPE; ~@
+       BEGIN ~@
+         CREATE TEMPORARY TABLE point_bag ~@
+           (id SERIAL primary key, coordinates GEOMETRY) ~@
+           ON COMMIT DROP; ~@
+         INSERT INTO point_bag (coordinates) ~@
+           SELECT coordinates ~@
+             FROM ~A ~@
+             WHERE st_distance(st_transform (coordinates, ~A), ~@
+                               st_transform (point, ~:*~A))  ~@
+                   < sample_radius  ~@
+             ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~@
+                      st_transform (point, ~:*~A)) ~@
+             LIMIT sample_size; ~@
+         previous_point :=  ~@
+           (SELECT ROW(id, coordinates)  ~@
+              FROM point_bag  ~@
+              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~@
+                                   st_transform (point, ~:*~A)) LIMIT 1); ~@
+         DELETE FROM point_bag WHERE id = previous_point.id; ~@
+         new_point :=  ~@
+           (SELECT ROW(id, coordinates) ~@
+              FROM point_bag ~@
+              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~@
+                                   st_transform (previous_point.coordinates, ~:*~A)) ~@
+              LIMIT 1); ~@
+         line := st_makeline(previous_point.coordinates, ~@
+                             new_point.coordinates); ~@
+         DELETE FROM point_bag WHERE id = new_point.id; ~@
+         LOOP ~@
+           previous_point.coordinates := st_pointn(line,1); ~@
+           new_point := ~@
+             (SELECT ROW(id, coordinates) ~@
+                FROM point_bag ~@
+                ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~@
+                                     st_transform (previous_point.coordinates, ~:*~A)) ~@
+                LIMIT 1); ~@
+           EXIT WHEN new_point IS NULL; ~@
+           IF bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~@
+              < bendedness(st_pointn(line, st_npoints(line) - 1), st_pointn(line, st_npoints(line)), new_point.coordinates) ~@
+              AND ~@
+              bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~@
+              < radians(91) ~@
+           THEN ~@
+               line := st_addpoint(line, new_point.coordinates, 0); ~@
+               DELETE FROM point_bag WHERE id = new_point.id; ~@
+           END IF; ~@
+           line := st_reverse(line); ~@
+           DELETE FROM point_bag WHERE id = tried_point.id; ~@
+           tried_point := new_point; ~@
+         END LOOP; ~@
+         current_point_position := st_line_locate_point(line, point); ~@
+         current_point := st_astext(st_line_interpolate_point(line, current_point_position)); ~@
+         back_point := st_astext(st_line_interpolate_point(line, (current_point_position - (step_size / st_length(line))))); ~@
+         forward_point := st_astext(st_line_interpolate_point(line, (current_point_position + (step_size / st_length(line))))); ~@
+         threaded_points := st_astext(line); ~@
+         RETURN; ~@
+       END; ~@
        $$ LANGUAGE plpgsql;"
       (s-sql:to-sql-name thread-aux-points-function-name)
       (s-sql:to-sql-name aux-point-view-name)
