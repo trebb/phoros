@@ -388,6 +388,7 @@ according to the --verbose option given."
            *cli-options* *command-line-arguments*))))
     (destructuring-bind (&key verbose &allow-other-keys)
         (car options)
+      (setf *postgresql-warnings* (logbitp 11 verbose))
       ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist
       ;; obeyed by both hunchentoot and Phoros' own logging:
       (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 verbose))
@@ -593,6 +594,12 @@ the key argument, or the whole dotted string."
         (format *error-output* "~&OK~%"))
     (error (e) (format *error-output* "~A~&" e))))
 
+(defun muffle-postgresql-warnings ()
+  "For current DB, silence PostgreSQL's warnings about implicitly
+created stuff."
+  (unless *postgresql-warnings*
+    (execute "SET client_min_messages TO ERROR;")))
+
 (defun nuke-all-tables-action (&rest rest)
   "Drop the bomb.  Ask for confirmation first."
   (declare (ignore rest))
@@ -623,6 +630,7 @@ the key argument, or the whole dotted string."
            database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
+        (muffle-postgresql-warnings)
         (create-sys-tables))
       (cl-log:log-message
        :db-sys "Created a fresh set of system tables in database ~A at ~A:~D."
@@ -635,6 +643,7 @@ the key argument, or the whole dotted string."
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
+      (muffle-postgresql-warnings)
       (create-acquisition-project common-table-name))
     (cl-log:log-message
      :db-dat
@@ -654,6 +663,7 @@ the key argument, or the whole dotted string."
            common-table-name database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
+        (muffle-postgresql-warnings)
         (let ((project-did-exist-p
                (delete-acquisition-project common-table-name)))
           (cl-log:log-message
@@ -873,6 +883,7 @@ trigger-time to stdout."
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
+      (muffle-postgresql-warnings)
       (let ((fresh-project-p
              (create-presentation-project presentation-project-name)))
         (cl-log:log-message
@@ -894,6 +905,7 @@ trigger-time to stdout."
            presentation-project-name database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
+        (muffle-postgresql-warnings)
         (let ((project-did-exist-p
                (delete-presentation-project presentation-project-name)))
           (cl-log:log-message
@@ -971,14 +983,14 @@ a view."
                 aux-view-exists-p
                 (aux-point-view-name presentation-project-name)
                 aux-database aux-host aux-port))
+          (muffle-postgresql-warnings)
           (when aux-view-exists-p
             (delete-aux-view presentation-project-name))
-          (handler-bind ((warning #'ignore-warnings)) ;TODO: muffle more postgresql warnings
-            (create-aux-view
-             presentation-project-name aux-table
-             :coordinates-column (s-sql:to-sql-name coordinates-column)
-             :numeric-columns numeric-column
-             :text-columns text-column))
+          (create-aux-view
+           presentation-project-name aux-table
+           :coordinates-column (s-sql:to-sql-name coordinates-column)
+           :numeric-columns numeric-column
+           :text-columns text-column)
           (cl-log:log-message
            :db-dat
            "~:[Created~;Updated~] in database ~A at ~A:~D a view called ~A ~
@@ -1064,8 +1076,8 @@ a view."
 
 (defun delete-user-action (presentation-project-user)
   "Delete a presentation project user."
-  (with-cli-options ( host port database (user "") (password "") use-ssl
-                           log-dir)
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))

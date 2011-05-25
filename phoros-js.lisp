@@ -184,19 +184,22 @@
            get an estimated position."))
           :walk-mode
           (who-ps-html
-           (:p "Check this to snap your current position onto a line along points of auxiliary data."))
+           (:p "Check this to snap your current position onto a line
+           along points of auxiliary data."))
           :decrease-step-size
           (who-ps-html
            (:p "Decrease step size.  Double-click to decrease harder."))
           :step-size
           (who-ps-html
-           (:p "Step size in metres.  Click to increase; double-click to increase harder."))
+           (:p "Step size in metres.  Click to increase; double-click
+           to increase harder."))
           :increase-step-size
           (who-ps-html
            (:p "Increase step size.  Double-click to increase harder."))
           :step-button
           (who-ps-html
-           (:p "Move your position by one step on a line along points of auxiliary data.  Double-click to change direction."))
+           (:p "Move your position by one step on a line along points
+           of auxiliary data.  Double-click to change direction."))
           :image-layer-switcher
           (who-ps-html
            (:p "Toggle display of image."))
@@ -823,7 +826,7 @@ to Estimated Position."
                            (transform +spherical-mercator+ +geographic+)))))
            (request-aux-data-linestring (@ next-point-geometry x)
                                         (@ next-point-geometry y)
-                                        (* *linestrin-step-ratio*
+                                        (* *linestring-step-ratio*
                                            (step-size-degrees))
                                         (step-size-degrees))))
 

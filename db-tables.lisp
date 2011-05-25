@@ -1017,130 +1017,168 @@ assert-phoros-db-major-version?"
          (aux-point-view-name presentation-project-name))
         (thread-aux-points-function-name
          (thread-aux-points-function-name presentation-project-name)))
-    ;; (execute
-    ;;  (format
-    ;;   nil
-    ;;   "CREATE VIEW ~A @~
-    ;;    AS (SELECT ~A AS coordinates, @~
-    ;;        ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric, @~
-    ;;        ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text @~
-    ;;        FROM ~A)"
-    ;;   (s-sql:to-sql-name aux-point-view-name)
-    ;;   coordinates-column
-    ;;   (mapcar #'s-sql:to-sql-name numeric-columns)
-    ;;   (mapcar #'s-sql:to-sql-name text-columns)
-    ;;   (s-sql:to-sql-name aux-table-name)))
-    (execute
-     (format
-      nil
-      "CREATE or replace FUNCTION ~A ~@
-         (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT, step_size DOUBLE PRECISION, old_azimuth DOUBLE PRECISION, ~@
-           OUT threaded_points TEXT, OUT current_point TEXT, OUT back_point TEXT, OUT forward_point TEXT, OUT new_azimuth DOUBLE PRECISION) ~@
-       AS ~@
-       $$ ~@
-       DECLARE ~@
-         point_bag_size INT; ~@
-         current_point_position DOUBLE PRECISION; ~@
-         line GEOMETRY; ~@
-         new_point point_bag%ROWTYPE; ~@
-         tried_point point_bag%ROWTYPE; ~@
-         previous_point point_bag%ROWTYPE; ~@
-         starting_point GEOMETRY; ~@
-         reversal_count INT DEFAULT 0; ~@
-       BEGIN ~@
-         starting_point := ~@
-           (SELECT coordinates ~@
-              FROM ~1@*~A ~@
-              ORDER BY st_distance(st_transform (~1@*~A.coordinates, ~A), ~@
-                                   st_transform (point, ~:*~A)) ~@
-              LIMIT 1); ~@
-         CREATE TEMPORARY TABLE point_bag ~@
-           (id SERIAL primary key, coordinates GEOMETRY) ~@
-           ON COMMIT DROP; ~@
-         INSERT INTO point_bag (coordinates) ~@
-           SELECT coordinates ~@
-             FROM ~1@*~A ~@
-             WHERE st_distance(st_transform (coordinates, ~A), ~@
-                               st_transform (starting_point, ~:*~A))  ~@
-                   < sample_radius  ~@
-             ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~@
-                      st_transform (starting_point, ~:*~A)) ~@
-             LIMIT sample_size; ~@
-         point_bag_size := (SELECT count(*) from point_bag); ~@
-         IF point_bag_size < 4 ~@
-         THEN
-           DROP TABLE point_bag; ~@
-           CREATE TEMPORARY TABLE point_bag ~@
-             (id SERIAL primary key, coordinates GEOMETRY) ~@
-             ON COMMIT DROP; ~@
-           INSERT INTO point_bag (coordinates) ~@
-             SELECT coordinates ~@
-               FROM ~1@*~A ~@
-               ORDER BY st_distance(st_transform (coordinates, ~A), ~@
-                        st_transform (starting_point, ~:*~A)) ~@
-               LIMIT 4; ~@
-         END IF; ~@
-         previous_point :=  ~@
-           (SELECT ROW(id, coordinates)  ~@
-              FROM point_bag  ~@
-              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~@
-                                   st_transform (starting_point, ~:*~A)) ~@
-              LIMIT 1); ~@
-         DELETE FROM point_bag WHERE id = previous_point.id; ~@
-         new_point :=  ~@
-           (SELECT ROW(id, coordinates) ~@
-              FROM point_bag ~@
-              ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~@
-                                   st_transform (previous_point.coordinates, ~:*~A)) ~@
-              LIMIT 1); ~@
-         line := st_makeline(previous_point.coordinates, ~@
-                             new_point.coordinates); ~@
-         new_azimuth := st_azimuth(previous_point.coordinates, new_point.coordinates); ~@
-         IF abs(new_azimuth - old_azimuth) > radians(90) ~@
-         THEN ~@
-           new_azimuth := st_azimuth(new_point.coordinates, previous_point.coordinates); ~@
-           line := st_reverse(line); ~@
-         END IF;
-         DELETE FROM point_bag WHERE id = new_point.id; ~@
-         LOOP ~@
-           previous_point.coordinates := st_pointn(line,1); ~@
-           new_point := ~@
-             (SELECT ROW(id, coordinates) ~@
-                FROM point_bag ~@
-                ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~@
-                                     st_transform (previous_point.coordinates, ~:*~A)) ~@
-                LIMIT 1); ~@
-           EXIT WHEN new_point IS NULL; ~@
-           IF bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~@
-              < bendedness(st_pointn(line, st_npoints(line) - 1), st_pointn(line, st_npoints(line)), new_point.coordinates) ~@
-              AND ~@
-              bendedness(st_pointn(line, 2), st_pointn(line, 1), new_point.coordinates) ~@
-              < radians(91) ~@
-           THEN ~@
-               line := st_addpoint(line, new_point.coordinates, 0); ~@
-               DELETE FROM point_bag WHERE id = new_point.id; ~@
-           END IF; ~@
-           line := st_reverse(line); ~@
-           reversal_count := reversal_count + 1 ; ~@
-           DELETE FROM point_bag WHERE id = tried_point.id; ~@
-           tried_point := new_point; ~@
-         END LOOP; ~@
-         RAISE NOTICE 'reversal_count %', reversal_count; ~@
-         IF mod(reversal_count, 2) = 1 ~@
-         THEN ~@
-           line := st_reverse(line); ~@
-         END IF; ~@
-         current_point_position := st_line_locate_point(line, point); ~@
-         current_point := st_astext(st_line_interpolate_point(line, current_point_position)); ~@
-         back_point := st_astext(st_line_interpolate_point(line, (current_point_position - (step_size / st_length(line))))); ~@
-         forward_point := st_astext(st_line_interpolate_point(line, (current_point_position + (step_size / st_length(line))))); ~@
-         threaded_points := st_astext(line); ~@
-         RETURN; ~@
-       END; ~@
-       $$ LANGUAGE plpgsql;"
-      (s-sql:to-sql-name thread-aux-points-function-name)
-      (s-sql:to-sql-name aux-point-view-name)
-      *standard-coordinates*))))
+    (execute (format nil "
+CREATE VIEW ~A
+AS (SELECT ~A AS coordinates,
+    ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric,
+    ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text
+    FROM ~A)"
+                     (s-sql:to-sql-name aux-point-view-name)
+                     coordinates-column
+                     (mapcar #'s-sql:to-sql-name numeric-columns)
+                     (mapcar #'s-sql:to-sql-name text-columns)
+                     (s-sql:to-sql-name aux-table-name)))
+    (execute (format nil "~
+CREATE OR REPLACE FUNCTION ~A
+  (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT,
+   step_size DOUBLE PRECISION, old_azimuth DOUBLE PRECISION,
+   OUT threaded_points TEXT,
+   OUT current_point TEXT,
+   OUT back_point TEXT, OUT forward_point TEXT,
+   OUT new_azimuth DOUBLE PRECISION)
+AS
+$$
+DECLARE
+  point_bag_size INT;
+  current_point_position DOUBLE PRECISION;
+  line GEOMETRY;
+  new_point point_bag%ROWTYPE;
+  tried_point point_bag%ROWTYPE;
+  previous_point point_bag%ROWTYPE;
+  starting_point GEOMETRY;
+  reversal_count INT DEFAULT 0;
+BEGIN
+  -- Muffle warnings about implicitly created stuff:
+  SET client_min_messages TO ERROR;
+
+  starting_point :=
+    (SELECT coordinates
+       FROM ~1@*~A
+       ORDER BY st_distance(st_transform (~1@*~A.coordinates, ~A),
+                            st_transform (point, ~:*~A))
+       LIMIT 1);
+
+  CREATE TEMPORARY TABLE point_bag
+    (id SERIAL primary key, coordinates GEOMETRY)
+    ON COMMIT DROP;
+
+  INSERT INTO point_bag (coordinates)
+    SELECT coordinates
+      FROM ~1@*~A
+      WHERE st_distance(st_transform (coordinates, ~A),
+                        st_transform (starting_point, ~:*~A)) 
+            < sample_radius 
+      ORDER BY st_distance(st_transform (coordinates, ~:*~A),
+               st_transform (starting_point, ~:*~A))
+      LIMIT sample_size;
+
+  point_bag_size := (SELECT count(*) from point_bag);
+
+  IF point_bag_size < 4
+  THEN
+    DROP TABLE point_bag;
+    CREATE TEMPORARY TABLE point_bag
+      (id SERIAL primary key, coordinates GEOMETRY)
+      ON COMMIT DROP;
+    INSERT INTO point_bag (coordinates)
+      SELECT coordinates
+        FROM ~1@*~A
+        ORDER BY st_distance(st_transform (coordinates, ~A),
+                 st_transform (starting_point, ~:*~A))
+        LIMIT 4;
+  END IF;
+
+  previous_point := 
+    (SELECT ROW(id, coordinates) 
+       FROM point_bag 
+       ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A),
+                            st_transform (starting_point, ~:*~A))
+       LIMIT 1);
+
+  DELETE FROM point_bag WHERE id = previous_point.id;
+
+  new_point := 
+    (SELECT ROW(id, coordinates)
+       FROM point_bag
+       ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A),
+                            st_transform (previous_point.coordinates, ~:*~A))
+       LIMIT 1);
+
+  line := st_makeline(previous_point.coordinates,
+                      new_point.coordinates);
+
+  new_azimuth :=
+    st_azimuth(previous_point.coordinates, new_point.coordinates);
+
+  IF abs(new_azimuth - old_azimuth) > radians(90)
+  THEN
+    new_azimuth :=
+      st_azimuth(new_point.coordinates, previous_point.coordinates);
+    line := st_reverse(line);
+  END IF;
+
+  DELETE FROM point_bag WHERE id = new_point.id;
+
+  LOOP
+    previous_point.coordinates := st_pointn(line,1);
+
+    new_point :=
+      (SELECT ROW(id, coordinates)
+         FROM point_bag
+         ORDER BY st_distance(st_transform (coordinates, ~:*~A),
+                              st_transform (previous_point.coordinates, ~:*~A))
+         LIMIT 1);
+
+    EXIT WHEN new_point IS NULL;
+
+    IF bendedness(st_pointn(line, 2), st_pointn(line, 1), 
+                  new_point.coordinates)
+       < bendedness(st_pointn(line, st_npoints(line) - 1), 
+                    st_pointn(line, st_npoints(line)), new_point.coordinates)
+       AND
+       bendedness(st_pointn(line, 2), st_pointn(line, 1),
+                   new_point.coordinates)
+       < radians(91)
+    THEN
+        line := st_addpoint(line, new_point.coordinates, 0);
+        DELETE FROM point_bag WHERE id = new_point.id;
+    END IF;
+
+    line := st_reverse(line);
+
+    reversal_count := reversal_count + 1 ;
+
+    DELETE FROM point_bag WHERE id = tried_point.id;
+
+    tried_point := new_point;
+  END LOOP;
+
+  IF mod(reversal_count, 2) = 1
+  THEN
+    line := st_reverse(line);
+  END IF;
+
+  current_point_position :=
+    st_line_locate_point(line, point);
+
+  current_point :=
+    st_astext(st_line_interpolate_point(line, current_point_position));
+
+  back_point :=
+    st_astext(st_line_interpolate_point(line, (current_point_position
+                                               - (step_size / st_length(line)))));
+
+  forward_point :=
+    st_astext(st_line_interpolate_point(line, (current_point_position
+                                               + (step_size / st_length(line)))));
+  threaded_points := st_astext(line);
+
+  RETURN;
+END;
+$$ LANGUAGE plpgsql;"
+                     (s-sql:to-sql-name thread-aux-points-function-name)
+                     (s-sql:to-sql-name aux-point-view-name)
+                     *standard-coordinates*))))
 
 (defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.
@@ -1151,8 +1189,9 @@ common-table-name."
   (handler-case (create-sys-tables) ;Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (assert-phoros-db-major-version)
-  (when (select-dao 'sys-acquisition-project (:= 'common-table-name
-                                                 (s-sql:to-sql-name common-table-name)))
+  (when (select-dao 'sys-acquisition-project
+                    (:= 'common-table-name
+                        (s-sql:to-sql-name common-table-name)))
     (error "There is already a row with a common-table-name of ~A in table ~A."
            common-table-name
            (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
@@ -1172,10 +1211,14 @@ nil if there wasn't any."
                           (:= 'common-table-name common-table-name)))))
     (when project
       (delete-dao project)
-      (execute (:drop-view :if-exists (aggregate-view-name common-table-name)))
-      (execute (:drop-table :if-exists (image-data-table-name common-table-name)))
-      (execute (:drop-table :if-exists (point-data-table-name common-table-name)))
-      (execute (:drop-sequence :if-exists (point-id-seq-name common-table-name))))))
+      (execute (:drop-view
+                :if-exists (aggregate-view-name common-table-name)))
+      (execute (:drop-table
+                :if-exists (image-data-table-name common-table-name)))
+      (execute (:drop-table
+                :if-exists (point-data-table-name common-table-name)))
+      (execute (:drop-sequence
+                :if-exists (point-id-seq-name common-table-name))))))
 
 (defun delete-measurement (measurement-id)
   "Delete measurement with measurement-id if any; return nil if not."
@@ -1285,14 +1328,15 @@ acquisition-project (denoted by its common-table-name)."
                     :column))
                (add-measurement measurement-id)))
             (t (error
-                "Don't know what to add.  Need either measurement-id or acquisition-project."))))))
+                "Don't know what to add.  ~
+                 Need either measurement-id or acquisition-project."))))))
 
 (defun remove-from-presentation-project (presentation-project-name
                                          &key measurement-ids acquisition-project)
   "Remove from presentation project presentation-project-name either a
 list of measurements (with measurement-id) or all measurements
-currently in acquisition-project with (denoted by its common-table-name).  Return
-nil if there weren't anything to remove."
+currently in acquisition-project with (denoted by its
+common-table-name).  Return nil if there weren't anything to remove."
   (assert-phoros-db-major-version)
   (let* ((presentation-project
           (car (select-dao 'sys-presentation-project
@@ -1324,6 +1368,7 @@ nil if there weren't anything to remove."
                   :column))
              (remove-measurement measurement-id)))
           (t (error
-              "Don't know what to remove.  Need either measurement-id or acquisition-project."))))))
+              "Don't know what to remove.  ~
+               Need either measurement-id or acquisition-project."))))))
            
            

@@ -49,6 +49,9 @@
 (defparameter *login-intro* nil
   "A few friendly words to be shown below the login form.")
 
+(defparameter *postgresql-warnings* nil
+  "If t, show PostgreSQL's WARNINGs and NOTICEs.")
+
 (defparameter *use-multi-file-openlayers* nil
   "If t, use OpenLayers uncompiled from openlayers/*, which makes
   debugging easier.  Otherwise use a single-file shrunk
