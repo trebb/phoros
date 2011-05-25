@@ -143,7 +143,7 @@ button, select {
 }
 .phoros-controls-vertical-strut {
     float: right;
-    height: 305px;
+    height: 285px;
     width: 0px;
 }
 .help-div {
@@ -211,28 +211,29 @@ button, select {
     clear: both;
     float: left;
 }
-.image-main-controls {
+.image-main-controls, .walk-mode-controls {
     height: 18px;
     background-color: #00008B;
+    margin-top: 2px;
     clear: right;
 }
-#remove-work-layers-button {
+#remove-work-layers-button, #step-button {
     color: #00008B;
     cursor: pointer;
     font-size: smaller;
     font-weight: bold;
     background-color: white;
-    float: left;
+    float: right;
     height: 12px;
     padding-left: 3px;
     padding-right: 3px;
-    padding-bottom: 1px;
-    margin-top: 3px;
-    margin-bottom: 3px;
+    padding-bottom: 2px;
+    margin-top: 2px;
+    margin-bottom: 2px;
     margin-left: 10px;
     margin-right: 5px;
 }
-#auto-zoom {
+#auto-zoom, #walk-mode {
     font-size: smaller;
     color: white;
     float: left;
@@ -240,7 +241,14 @@ button, select {
     margin-left: 5px;
     margin-right: 10px;
 }
-#zoom-to-point-p {
+#step-size {
+    font-family: 'andale mono', 'lucida console', monospace;
+    color: white;
+    float: left;
+    height: 18px;
+    cursor: pointer;
+}
+#zoom-to-point-p, #walk-p {
     cursor: pointer;
 }
 #zoom-images-to-max-extent {
@@ -324,14 +332,14 @@ button, select {
     height: 18px;
     width: 18px;
 }
-.olControlZoomInItemInactive {
+.olControlZoomInItemInactive, #increase-step-size {
     background: url(/phoros/lib/ol/img/zoom-plus-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
-.olControlZoomOutItemInactive {
+.olControlZoomOutItemInactive, #decrease-step-size {
     background: url(/phoros/lib/ol/img/zoom-minus-mini.png) no-repeat;
     cursor: pointer;
     float: left;

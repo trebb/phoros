@@ -182,6 +182,21 @@
           (who-ps-html
            (:p "Check this to automatically zoom into images once they
            get an estimated position."))
+          :walk-mode
+          (who-ps-html
+           (:p "Check this to snap your current position onto a line along points of auxiliary data."))
+          :decrease-step-size
+          (who-ps-html
+           (:p "Decrease step size.  Double-click to decrease harder."))
+          :step-size
+          (who-ps-html
+           (:p "Step size in metres.  Click to increase; double-click to increase harder."))
+          :increase-step-size
+          (who-ps-html
+           (:p "Increase step size.  Double-click to increase harder."))
+          :step-button
+          (who-ps-html
+           (:p "Move your position by one step on a line along points of auxiliary data.  Double-click to change direction."))
           :image-layer-switcher
           (who-ps-html
            (:p "Toggle display of image."))
@@ -291,6 +306,11 @@
 
        (defvar *global-position* undefined
          "Coordinates of the current estimated position")
+
+       (defvar *linestring-step-ratio* 4
+         "Look for auxiliary points to include into linestring within
+         a radius of *linestring-step-ratio* multilied by multiplied by
+         step-size.")
 
        (defvar *current-nearest-aux-point*
          (create attributes (create aux-numeric undefined
@@ -475,8 +495,18 @@ shadow any other control."
        (defun request-photos (event)
          "Handle the response to a click into *streetmap*; fetch photo
           data.  Set or update streetmap cursor."
-         (request-photos-for-point (chain *streetmap*
-                                          (get-lon-lat-from-pixel (@ event xy)))))
+         (let ((clicked-lonlat
+                (chain *streetmap* (get-lon-lat-from-pixel (@ event xy)))))
+           (if (checkbox-status-with-id "walk-p")
+               (progn
+                 (chain clicked-lonlat  ;in-place
+                        (transform +spherical-mercator+ +geographic+))
+                 (request-aux-data-linestring (@ clicked-lonlat lon)
+                                              (@ clicked-lonlat lat)
+                                              (* *linestring-step-ratio*
+                                                 (step-size-degrees))
+                                              (step-size-degrees)))
+               (request-photos-for-point clicked-lonlat))))
 
        (defun request-photos-for-point (lonlat-spherical-mercator)
          "Fetch photo data near lonlat-spherical-marcator; set or
@@ -582,15 +612,16 @@ data."
                                            (@ content length))
                           :success draw-nearest-aux-points)))))
 
-       (defun request-aux-data-linestring (global-position radius count)
+       (defun request-aux-data-linestring (longitude latitude radius step-size)
          "Draw into streetmap a piece of linestring threaded along the
-count nearest points of auxiliary data inside radius."
-         (let ((global-position-etc global-position)
-               content)
-           (setf (@ global-position-etc radius) radius)
-           (setf (@ global-position-etc count) count)
-           (setf content (chain *json-parser*
-                                (write global-position-etc)))
+          nearest points of auxiliary data inside radius."
+         (let* ((payload (create longitude longitude
+                                 latitude latitude
+                                 radius radius
+                                 step-size step-size
+                                 azimuth (@ *streetmap*
+                                            linestring-central-azimuth)))
+                (content (chain *json-parser* (write payload))))
            (setf (@ *streetmap* aux-data-linestring-request-response)
                  ((@ *open-layers *Request *POST*)
                   (create :url "/phoros/lib/aux-local-linestring.json"
@@ -740,14 +771,77 @@ to Estimated Position."
                  (@ *streetmap*
                     aux-data-linestring-request-response
                     response-text))
-                (linestring
+                (linestring-wkt
                  (chain *json-parser* (read data) linestring))
-                (feature
-                 (chain *wkt-parser* (read linestring))))
-           (debug-info linestring)
+                (current-point-wkt
+                 (chain *json-parser* (read data) current-point))
+                (previous-point-wkt
+                 (chain *json-parser* (read data) previous-point))
+                (next-point-wkt
+                 (chain *json-parser* (read data) next-point))
+                (azimuth
+                 (chain *json-parser* (read data) azimuth))
+                (linestring
+                 (chain *wkt-parser* (read linestring-wkt)))
+                (current-point
+                 (chain *wkt-parser* (read current-point-wkt)))
+                (previous-point
+                 (chain *wkt-parser* (read previous-point-wkt)))
+                (next-point
+                 (chain *wkt-parser* (read next-point-wkt))))
+           (setf (@ *streetmap* linestring-central-azimuth) azimuth)
+           (request-photos-for-point
+            (new (chain *open-layers
+                        (*lon-lat (@ current-point geometry x)
+                                  (@ current-point geometry y)))))
+           (setf (@ *streetmap* step-back-point) previous-point)
+           (setf (@ *streetmap* step-forward-point) next-point)
+           (chain *streetmap* aux-data-linestring-layer (remove-all-features))
            (chain *streetmap*
                   aux-data-linestring-layer
-                  (add-features feature))))
+                  (add-features linestring))))
+
+       (defun step (&optional back-p)
+         "Do a step along aux-data-linestring."
+         (let ((next-point-geometry
+                (if back-p
+                    (progn
+                      (if (< (- (@ *streetmap* linestring-central-azimuth) pi) 0)
+                          (setf (@ *streetmap* linestring-central-azimuth)
+                                (+ (@ *streetmap* linestring-central-azimuth) pi))
+                          (setf (@ *streetmap* linestring-central-azimuth)
+                                (- (@ *streetmap* linestring-central-azimuth) pi)))
+                      (chain *streetmap*
+                             step-back-point
+                             (clone)
+                             geometry
+                             (transform +spherical-mercator+ +geographic+)))
+                    (chain *streetmap*
+                           step-forward-point
+                           (clone)
+                           geometry
+                           (transform +spherical-mercator+ +geographic+)))))
+           (request-aux-data-linestring (@ next-point-geometry x)
+                                        (@ next-point-geometry y)
+                                        (* *linestrin-step-ratio*
+                                           (step-size-degrees))
+                                        (step-size-degrees))))
+
+       (defun step-size-degrees ()
+         "Return inner-html of element step-size (metres)
+converted into map units (degrees).  You should be close to the
+equator."
+         (/ (inner-html-with-id "step-size") 1855.325 60))
+
+       (defun decrease-step-size ()
+         (when (> (inner-html-with-id "step-size") 0.5)
+           (setf (inner-html-with-id "step-size")
+                 (/ (inner-html-with-id "step-size") 2))))
+
+       (defun increase-step-size ()
+         (when (< (inner-html-with-id "step-size") 4999)
+           (setf (inner-html-with-id "step-size")
+                 (* (inner-html-with-id "step-size") 2))))
 
        (defun user-point-style-map (label-property)
          "Create a style map where styles dispatch on feature property

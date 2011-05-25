@@ -1017,51 +1017,75 @@ assert-phoros-db-major-version?"
          (aux-point-view-name presentation-project-name))
         (thread-aux-points-function-name
          (thread-aux-points-function-name presentation-project-name)))
-    (execute
-     (format
-      nil
-      "CREATE VIEW ~A @~
-       AS (SELECT ~A AS coordinates, @~
-           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric, @~
-           ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text @~
-           FROM ~A)"
-      (s-sql:to-sql-name aux-point-view-name)
-      coordinates-column
-      (mapcar #'s-sql:to-sql-name numeric-columns)
-      (mapcar #'s-sql:to-sql-name text-columns)
-      (s-sql:to-sql-name aux-table-name)))
+    ;; (execute
+    ;;  (format
+    ;;   nil
+    ;;   "CREATE VIEW ~A @~
+    ;;    AS (SELECT ~A AS coordinates, @~
+    ;;        ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric, @~
+    ;;        ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text @~
+    ;;        FROM ~A)"
+    ;;   (s-sql:to-sql-name aux-point-view-name)
+    ;;   coordinates-column
+    ;;   (mapcar #'s-sql:to-sql-name numeric-columns)
+    ;;   (mapcar #'s-sql:to-sql-name text-columns)
+    ;;   (s-sql:to-sql-name aux-table-name)))
     (execute
      (format
       nil
       "CREATE or replace FUNCTION ~A ~@
-         (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT, step_size DOUBLE PRECISION, ~@
-           OUT threaded_points TEXT, OUT current_point TEXT, OUT back_point TEXT, OUT forward_point TEXT) ~@
+         (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT, step_size DOUBLE PRECISION, old_azimuth DOUBLE PRECISION, ~@
+           OUT threaded_points TEXT, OUT current_point TEXT, OUT back_point TEXT, OUT forward_point TEXT, OUT new_azimuth DOUBLE PRECISION) ~@
        AS ~@
        $$ ~@
        DECLARE ~@
+         point_bag_size INT; ~@
          current_point_position DOUBLE PRECISION; ~@
          line GEOMETRY; ~@
          new_point point_bag%ROWTYPE; ~@
          tried_point point_bag%ROWTYPE; ~@
          previous_point point_bag%ROWTYPE; ~@
+         starting_point GEOMETRY; ~@
+         reversal_count INT DEFAULT 0; ~@
        BEGIN ~@
+         starting_point := ~@
+           (SELECT coordinates ~@
+              FROM ~1@*~A ~@
+              ORDER BY st_distance(st_transform (~1@*~A.coordinates, ~A), ~@
+                                   st_transform (point, ~:*~A)) ~@
+              LIMIT 1); ~@
          CREATE TEMPORARY TABLE point_bag ~@
            (id SERIAL primary key, coordinates GEOMETRY) ~@
            ON COMMIT DROP; ~@
          INSERT INTO point_bag (coordinates) ~@
            SELECT coordinates ~@
-             FROM ~A ~@
+             FROM ~1@*~A ~@
              WHERE st_distance(st_transform (coordinates, ~A), ~@
-                               st_transform (point, ~:*~A))  ~@
+                               st_transform (starting_point, ~:*~A))  ~@
                    < sample_radius  ~@
              ORDER BY st_distance(st_transform (coordinates, ~:*~A), ~@
-                      st_transform (point, ~:*~A)) ~@
+                      st_transform (starting_point, ~:*~A)) ~@
              LIMIT sample_size; ~@
+         point_bag_size := (SELECT count(*) from point_bag); ~@
+         IF point_bag_size < 4 ~@
+         THEN
+           DROP TABLE point_bag; ~@
+           CREATE TEMPORARY TABLE point_bag ~@
+             (id SERIAL primary key, coordinates GEOMETRY) ~@
+             ON COMMIT DROP; ~@
+           INSERT INTO point_bag (coordinates) ~@
+             SELECT coordinates ~@
+               FROM ~1@*~A ~@
+               ORDER BY st_distance(st_transform (coordinates, ~A), ~@
+                        st_transform (starting_point, ~:*~A)) ~@
+               LIMIT 4; ~@
+         END IF; ~@
          previous_point :=  ~@
            (SELECT ROW(id, coordinates)  ~@
               FROM point_bag  ~@
               ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A), ~@
-                                   st_transform (point, ~:*~A)) LIMIT 1); ~@
+                                   st_transform (starting_point, ~:*~A)) ~@
+              LIMIT 1); ~@
          DELETE FROM point_bag WHERE id = previous_point.id; ~@
          new_point :=  ~@
            (SELECT ROW(id, coordinates) ~@
@@ -1071,6 +1095,12 @@ assert-phoros-db-major-version?"
               LIMIT 1); ~@
          line := st_makeline(previous_point.coordinates, ~@
                              new_point.coordinates); ~@
+         new_azimuth := st_azimuth(previous_point.coordinates, new_point.coordinates); ~@
+         IF abs(new_azimuth - old_azimuth) > radians(90) ~@
+         THEN ~@
+           new_azimuth := st_azimuth(new_point.coordinates, previous_point.coordinates); ~@
+           line := st_reverse(line); ~@
+         END IF;
          DELETE FROM point_bag WHERE id = new_point.id; ~@
          LOOP ~@
            previous_point.coordinates := st_pointn(line,1); ~@
@@ -1091,9 +1121,15 @@ assert-phoros-db-major-version?"
                DELETE FROM point_bag WHERE id = new_point.id; ~@
            END IF; ~@
            line := st_reverse(line); ~@
+           reversal_count := reversal_count + 1 ; ~@
            DELETE FROM point_bag WHERE id = tried_point.id; ~@
            tried_point := new_point; ~@
          END LOOP; ~@
+         RAISE NOTICE 'reversal_count %', reversal_count; ~@
+         IF mod(reversal_count, 2) = 1 ~@
+         THEN ~@
+           line := st_reverse(line); ~@
+         END IF; ~@
          current_point_position := st_line_locate_point(line, point); ~@
          current_point := st_astext(st_line_interpolate_point(line, current_point_position)); ~@
          back_point := st_astext(st_line_interpolate_point(line, (current_point_position - (step_size / st_length(line))))); ~@

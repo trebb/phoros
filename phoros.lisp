@@ -60,6 +60,9 @@
 (defparameter *number-of-features-per-layer* 500
   "What we think a browser can swallow.")
 
+(defparameter *number-of-points-per-aux-linestring* 100
+  "What we think a browser can swallow.")
+
 (defparameter *user-point-creation-date-format* "IYYY-MM-DD HH24:MI:SS TZ"
   "SQL date format used for display and GeoJSON export of user points.")
 
@@ -616,9 +619,9 @@ coordinates received, wrapped in an array."
     (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
                           :default-request-type :post)
     ()
-  "Receive longitude, latitude, count, radius, and step-size; respond
+  "Receive longitude, latitude, radius, and step-size; respond
 with the a JSON object comprising the elements linestring (a WKT
-linestring stitched together of count nearest auxiliary points from
+linestring stitched together of the nearest auxiliary points from
 within radius around coordinates), current-point (the point on
 linestring closest to coordinates), and previous-point and next-point
 \(points on linestring step-size before and after current-point
@@ -631,24 +634,28 @@ respectively)."
            (data (json:decode-json-from-string (raw-post-data)))
            (longitude-input (cdr (assoc :longitude data)))
            (latitude-input (cdr (assoc :latitude data)))
-           (count (cdr (assoc :count data)))
            (radius (cdr (assoc :radius data)))
-           (step-size 1e-5)             ;TODO: remove
-           ;; (step-size (cdr (assoc :step-size data)))
+           (step-size (cdr (assoc :step-size data)))
+           (azimuth (if (numberp (cdr (assoc :azimuth data)))
+                        (cdr (assoc :azimuth data))
+                        0))
            (point-form 
             (format nil "POINT(~F ~F)" longitude-input latitude-input))
            (sql-response
             (ignore-errors
               (with-connection *postgresql-credentials*
-                (query
-                 (sql-compile
-                  `(:select '* :from
-                            (,thread-aux-points-function-name
-                             (:st_geomfromtext ,point-form ,*standard-coordinates*)
-                             ,radius
-                             ,count
-                             ,step-size)))
-                 :plist)))))
+                (nsubst
+                 nil :null
+                 (query
+                  (sql-compile
+                   `(:select '* :from
+                             (,thread-aux-points-function-name
+                              (:st_geomfromtext ,point-form ,*standard-coordinates*)
+                              ,radius
+                              ,*number-of-points-per-aux-linestring*
+                              ,step-size
+                              ,azimuth)))
+                  :plist))))))
       (with-output-to-string (s)
         (json:with-object (s)
           (json:encode-object-member
@@ -658,7 +665,9 @@ respectively)."
           (json:encode-object-member
            :previous-point (getf sql-response :back-point) s)
           (json:encode-object-member
-           :next-point (getf sql-response :forward-point) s))))))
+           :next-point (getf sql-response :forward-point) s)
+          (json:encode-object-member
+           :azimuth (getf sql-response :new-azimuth) s))))))
 
 (defun presentation-project-bbox (presentation-project-id)
   "Return bounding box of the entire presentation-project as a string
@@ -902,10 +911,29 @@ send all points."
                    (:h2 "Multiple Points Selected")
                    (:p "You have selected multiple user points.")
                    (:p "Unselect all but one to edit or view its properties."))
+             (:div :class "walk-mode-controls"
+                   (:div :id "walk-mode"
+                         (:input :id "walk-p" :class "tight-input"
+                                 :type "checkbox" :checked nil
+                                 "snap+walk"))
+                   (:div :id "decrease-step-size"
+                         :onclick (ps-inline (decrease-step-size)))
+                   (:div :id "step-size"
+                         :onclick (ps-inline (increase-step-size))
+                         "4")
+                   (:div :id "increase-step-size"
+                         :onclick (ps-inline (increase-step-size))
+                         :ondblclick (ps-inline (increase-step-size)
+                                                (increase-step-size)))
+                   (:div :id "step-button" :disabled t
+                         :onclick (ps-inline (step))
+                         :ondblclick (ps-inline (step t))
+                         "step"))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
-                                 :type "checkbox" :checked t "auto zoom"))
+                                 :type "checkbox" :checked t
+                                 "auto zoom"))
                    (:div :id "zoom-images-to-max-extent"
                          :onclick (ps-inline (zoom-images-to-max-extent)))
                    (:div :id "remove-work-layers-button" :disabled t
