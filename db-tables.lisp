@@ -1032,6 +1032,7 @@ AS (SELECT ~A AS coordinates,
 CREATE OR REPLACE FUNCTION ~A
   (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT,
    step_size DOUBLE PRECISION, old_azimuth DOUBLE PRECISION,
+   max_bend DOUBLE PRECISION,
    OUT threaded_points TEXT,
    OUT current_point TEXT,
    OUT back_point TEXT, OUT forward_point TEXT,
@@ -1138,7 +1139,7 @@ BEGIN
        AND
        bendedness(st_pointn(line, 2), st_pointn(line, 1),
                    new_point.coordinates)
-       < radians(91)
+       < max_bend
     THEN
         line := st_addpoint(line, new_point.coordinates, 0);
         DELETE FROM point_bag WHERE id = new_point.id;

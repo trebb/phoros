@@ -498,18 +498,25 @@ shadow any other control."
        (defun request-photos (event)
          "Handle the response to a click into *streetmap*; fetch photo
           data.  Set or update streetmap cursor."
-         (let ((clicked-lonlat
-                (chain *streetmap* (get-lon-lat-from-pixel (@ event xy)))))
-           (if (checkbox-status-with-id "walk-p")
-               (progn
-                 (chain clicked-lonlat  ;in-place
-                        (transform +spherical-mercator+ +geographic+))
-                 (request-aux-data-linestring (@ clicked-lonlat lon)
-                                              (@ clicked-lonlat lat)
-                                              (* *linestring-step-ratio*
-                                                 (step-size-degrees))
-                                              (step-size-degrees)))
-               (request-photos-for-point clicked-lonlat))))
+         (setf (@ *streetmap* clicked-lonlat)
+               (chain *streetmap*
+                      (get-lon-lat-from-pixel (@ event xy))))
+         (if (checkbox-status-with-id "walk-p")
+             (request-aux-data-linestring-for-point (@ *streetmap* clicked-lonlat))
+             (request-photos-for-point (@ *streetmap* clicked-lonlat))))
+
+       (defun request-aux-data-linestring-for-point (lonlat-spherical-mercator)
+         "Fetch a linestring along auxiyliary points near
+          lonlat-spherical-mercator."
+         (let ((lonlat-geographic
+                (chain lonlat-spherical-mercator
+                       (clone)
+                       (transform +spherical-mercator+ +geographic+))))
+           (request-aux-data-linestring (@ lonlat-geographic lon)
+                                        (@ lonlat-geographic lat)
+                                        (* *linestring-step-ratio*
+                                           (step-size-degrees))
+                                        (step-size-degrees))))
 
        (defun request-photos-for-point (lonlat-spherical-mercator)
          "Fetch photo data near lonlat-spherical-marcator; set or
@@ -805,30 +812,35 @@ to Estimated Position."
                   (add-features linestring))))
 
        (defun step (&optional back-p)
-         "Do a step along aux-data-linestring."
-         (let ((next-point-geometry
-                (if back-p
-                    (progn
-                      (if (< (- (@ *streetmap* linestring-central-azimuth) pi) 0)
-                          (setf (@ *streetmap* linestring-central-azimuth)
-                                (+ (@ *streetmap* linestring-central-azimuth) pi))
-                          (setf (@ *streetmap* linestring-central-azimuth)
-                                (- (@ *streetmap* linestring-central-azimuth) pi)))
-                      (chain *streetmap*
-                             step-back-point
-                             (clone)
-                             geometry
-                             (transform +spherical-mercator+ +geographic+)))
-                    (chain *streetmap*
-                           step-forward-point
-                           (clone)
-                           geometry
-                           (transform +spherical-mercator+ +geographic+)))))
-           (request-aux-data-linestring (@ next-point-geometry x)
-                                        (@ next-point-geometry y)
-                                        (* *linestring-step-ratio*
-                                           (step-size-degrees))
-                                        (step-size-degrees))))
+         "Enable walk-mode if necessary, and do a step along
+          aux-data-linestring."
+         (if (checkbox-status-with-id "walk-p")
+             (let ((next-point-geometry
+                    (if back-p
+                        (progn
+                          (if (< (- (@ *streetmap* linestring-central-azimuth) pi) 0)
+                              (setf (@ *streetmap* linestring-central-azimuth)
+                                    (+ (@ *streetmap* linestring-central-azimuth) pi))
+                              (setf (@ *streetmap* linestring-central-azimuth)
+                                    (- (@ *streetmap* linestring-central-azimuth) pi)))
+                          (chain *streetmap*
+                                 step-back-point
+                                 (clone)
+                                 geometry
+                                 (transform +spherical-mercator+ +geographic+)))
+                        (chain *streetmap*
+                               step-forward-point
+                               (clone)
+                               geometry
+                               (transform +spherical-mercator+ +geographic+)))))
+               (request-aux-data-linestring (@ next-point-geometry x)
+                                            (@ next-point-geometry y)
+                                            (* *linestring-step-ratio*
+                                               (step-size-degrees))
+                                            (step-size-degrees)))
+             (progn
+               (setf (checkbox-status-with-id "walk-p") t) ;doesn't seem to trigger event
+               (flip-walk-mode))))    ; so we have to do it explicitly
 
        (defun step-size-degrees ()
          "Return inner-html of element step-size (metres)
@@ -1430,9 +1442,16 @@ image-index in array *images*."
          (setf (checkbox-status-with-id "include-aux-data-p") t)
          (flip-aux-data-inclusion))
 
+       (defun flip-walk-mode ()
+         "Query status of checkbox walk-p and induce first walking
+          step if it's just been turned on."
+         (when (checkbox-status-with-id "walk-p")
+           (request-aux-data-linestring-for-point (@ *streetmap*
+                                                     clicked-lonlat))))
+
        (defun flip-aux-data-inclusion ()
          "Query status of checkbox include-aux-data-p and act
-accordingly."
+          accordingly."
          (if (checkbox-status-with-id "include-aux-data-p")
              (chain *streetmap*
                     nearest-aux-points-layer
@@ -1625,7 +1644,7 @@ accordingly."
                              *layer
                              (*vector "Aux Data Linestring"
                                       (create
-                                       display-in-layer-switcher t
+                                       display-in-layer-switcher nil
                                        ;style-map nearest-aux-point-layer-style-map
                                        visibility t)))))
          (setf (@ *streetmap* google-streetmap-layer) 

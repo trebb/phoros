@@ -646,18 +646,20 @@ respectively)."
             (format nil "POINT(~F ~F)" longitude-input latitude-input))
            (sql-response
             (ignore-errors
-              (with-connection *postgresql-credentials*
+              (with-connection *postgresql-aux-credentials*
                 (nsubst
                  nil :null
                  (query
                   (sql-compile
                    `(:select '* :from
                              (,thread-aux-points-function-name
-                              (:st_geomfromtext ,point-form ,*standard-coordinates*)
+                              (:st_geomfromtext
+                               ,point-form ,*standard-coordinates*)
                               ,radius
                               ,*number-of-points-per-aux-linestring*
                               ,step-size
-                              ,azimuth)))
+                              ,azimuth
+                              ,(proj:degrees-to-radians 91))))
                   :plist))))))
       (with-output-to-string (s)
         (json:with-object (s)
@@ -915,23 +917,29 @@ send all points."
                    (:p "You have selected multiple user points.")
                    (:p "Unselect all but one to edit or view its properties."))
              (:div :class "walk-mode-controls"
-                   (:div :id "walk-mode"
-                         (:input :id "walk-p" :class "tight-input"
-                                 :type "checkbox" :checked nil
-                                 "snap+walk"))
-                   (:div :id "decrease-step-size"
-                         :onclick (ps-inline (decrease-step-size)))
-                   (:div :id "step-size"
-                         :onclick (ps-inline (increase-step-size))
-                         "4")
-                   (:div :id "increase-step-size"
-                         :onclick (ps-inline (increase-step-size))
-                         :ondblclick (ps-inline (increase-step-size)
-                                                (increase-step-size)))
-                   (:div :id "step-button" :disabled t
-                         :onclick (ps-inline (step))
-                         :ondblclick (ps-inline (step t))
-                         "step"))
+                   (when (with-connection *postgresql-aux-credentials*
+                           (view-exists-p (aux-point-view-name
+                                           (session-value 'presentation-project-name))))
+                     (who:htm
+                      (:div :id "walk-mode"
+                            (:input :id "walk-p" :class "tight-input"
+                                    :type "checkbox" :checked nil
+                                    :onchange (ps-inline
+                                               (flip-walk-mode))
+                                    "snap+walk"))
+                      (:div :id "decrease-step-size"
+                            :onclick (ps-inline (decrease-step-size)))
+                      (:div :id "step-size"
+                            :onclick (ps-inline (increase-step-size))
+                            "4")
+                      (:div :id "increase-step-size"
+                            :onclick (ps-inline (increase-step-size))
+                            :ondblclick (ps-inline (increase-step-size)
+                                                   (increase-step-size)))
+                      (:div :id "step-button" :disabled t
+                            :onclick (ps-inline (step))
+                            :ondblclick (ps-inline (step t))
+                            "step"))))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
