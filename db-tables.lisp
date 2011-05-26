@@ -1235,6 +1235,30 @@ dao if one was created, or nil if it existed already."
     (create-user-table-definition project-name)
     (create-table 'user-point)
     (insert-dao (make-instance 'sys-presentation-project
+                               :presentation-project-name project-name))
+    (execute (format nil "
+CREATE OR REPLACE FUNCTION ~A() RETURNS trigger
+AS
+$$
+BEGIN
+  -- Define your trigger actions below:
+  --
+  RAISE NOTICE 'trigger fired: ~:*~A';
+  --
+  -- End of your trigger action definitions.
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;"
+                     (s-sql:to-sql-name (user-point-table-name project-name))))
+    (execute (format nil "DROP TRIGGER IF EXISTS ~A ON ~:*~A;"
+                     (s-sql:to-sql-name (user-point-table-name project-name))))
+    (execute (format nil "
+CREATE TRIGGER ~A
+  AFTER INSERT OR UPDATE OR DELETE
+  ON ~:*~A
+  EXECUTE PROCEDURE ~:*~A();"
+                     (s-sql:to-sql-name (user-point-table-name project-name))))
+    (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))))
 
 (defun delete-presentation-project (project-name)
