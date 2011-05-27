@@ -100,5 +100,6 @@
         command line interface. The output of")
         (:code "./phoros --help")
         (:p "is given below for reference.")
-        (:pre (who:str (with-output-to-string (*standard-output*)
-                         (cli-help-action)))))))))
+        (:pre (who:str (who:escape-string-minimal
+                        (with-output-to-string (*standard-output*)
+                          (cli-help-action))))))))))
