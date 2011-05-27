@@ -1236,20 +1236,7 @@ dao if one was created, or nil if it existed already."
     (create-table 'user-point)
     (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))
-    (execute (format nil "
-CREATE OR REPLACE FUNCTION ~A() RETURNS trigger
-AS
-$$
-BEGIN
-  -- Define your trigger actions below:
-  --
-  RAISE NOTICE 'trigger fired: ~:*~A';
-  --
-  -- End of your trigger action definitions.
-  RETURN NULL;
-END;
-$$ LANGUAGE plpgsql;"
-                     (s-sql:to-sql-name (user-point-table-name project-name))))
+    (create-presentation-project-trigger-function project-name)
     (execute (format nil "DROP TRIGGER IF EXISTS ~A ON ~:*~A;"
                      (s-sql:to-sql-name (user-point-table-name project-name))))
     (execute (format nil "
@@ -1260,6 +1247,36 @@ CREATE TRIGGER ~A
                      (s-sql:to-sql-name (user-point-table-name project-name))))
     (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))))
+
+(defun create-presentation-project-trigger-function
+    (presentation-project
+     &optional (plpgsql-body
+                (format
+                 nil "  RAISE NOTICE 'trigger fired: ~A';"
+                 (s-sql:to-sql-name (user-point-table-name
+                                     presentation-project))))
+     &rest plpgsql-body-args)
+  "(Re)create in current database an SQL trigger function with
+plpgsql-body (a format string that uses plpgsql-body-args)."
+  (execute (format
+            nil "
+CREATE OR REPLACE FUNCTION ~A() RETURNS trigger
+AS
+$$
+BEGIN
+  ------------------------------------------
+  -- Define your trigger actions below:
+  ------------------------------------------
+~?~&~:
+  ------------------------------------------
+  -- End of your trigger action definitions.
+  ------------------------------------------
+  RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;"
+            (s-sql:to-sql-name (user-point-table-name presentation-project))
+            plpgsql-body
+            plpgsql-body-args)))
 
 (defun delete-presentation-project (project-name)
   "Delete the presentation project project-name.  Return nil if there

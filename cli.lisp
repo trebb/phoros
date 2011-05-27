@@ -286,8 +286,15 @@
      :documentation "(*) Remove from the presentation project given either certain measurements or all measurements currently in a certain acquisition project.")
     ("measurement-id" :type integer :list t :optional t
      :documentation "One measurement-id to add or remove.  Repeat if necessary.")
-    ("acquisition-project" :type string
-     :documentation "The acquisition project whose measurements are to add or remove.")))
+    ("acquisition-project"
+     :type string
+     :documentation "The acquisition project whose measurements are to add or remove.")
+    ("redefine-trigger-function"
+     :type string :action #'redefine-trigger-function-action
+     :documentation "(*) Change body of the trigger function that is fired on changes to the user point table connected to the specified presentation project.")
+    ("plpgsql-body"
+     :type string
+     :documentation "Path to a file containing the body of a PL/pgSQL trigger function.  Any ocurrence of the string ~0@*~A will be replaced by the name of the user point table.  Omit this option to reset that function to just emit a notice.")))
 
 (defparameter *cli-aux-view-options*
   '(("create-aux-view"
@@ -499,7 +506,9 @@ according to the --verbose option given."
      visited under a dedicated URL
      \(http://<host>:<port>/phoros/<presentation-project>).
      Its extent may or may not be equal to the extent of an
-     acquisition project.")
+     acquisition project."
+     "Presentation projects have a table of user points which is
+     associated with a trigger.")
     (show-help-section
      *cli-aux-view-options*
      "Connect A Presentation Project To A Table Of Auxiliary Data"
@@ -953,6 +962,40 @@ trigger-time to stdout."
       from presentation project ~A in database ~A at ~A:~D."
      measurement-id acquisition-project
      presentation-project-name database host port)))
+
+(defun redefine-trigger-function-action (presentation-project-name)
+  "Recreate an SQL trigger function that is fired on changes to the
+user point table."
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          plpgsql-body)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((body-text
+             (make-array '(1) :adjustable t :fill-pointer 0
+                         :element-type 'character)))
+        (if plpgsql-body
+            (with-open-file (stream plpgsql-body)
+              (loop
+                 for c = (read-char stream nil)
+                 while c
+                 do (vector-push-extend c body-text))
+              (create-presentation-project-trigger-function
+               presentation-project-name
+               body-text
+               (s-sql:to-sql-name (user-point-table-name
+                                   presentation-project-name))))
+            (create-presentation-project-trigger-function
+             presentation-project-name))
+        (cl-log:log-message
+         :db-dat
+         "Defined trigger function associatad with user point table of ~
+          presentation project ~A in database ~A at ~A:~D to ~
+          ~:[perform a minimal default action~;perform the body given ~
+             in file ~:*~A, which is ~A~]."
+         presentation-project-name database host port
+         plpgsql-body body-text)))))
 
 (defun create-aux-view-action (presentation-project-name)
   "Connect presentation project to an auxiliary data table by means of
