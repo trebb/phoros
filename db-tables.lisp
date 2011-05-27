@@ -1290,11 +1290,12 @@ wasn't any."
       (execute
        (:drop-sequence :if-exists (user-point-id-seq-name project-name))))))
 
-(defun create-user (name &key
-                    (password (error "password needed."))
-                    (full-name (error "full-name needed."))
-                    (user-role "read")
-                    presentation-projects)
+(defun* create-user (name &key
+                          presentation-projects
+                          &mandatory-key
+                          password
+                          full-name
+                          user-role)
   "Create a fresh user entry or update an existing one with matching
 name.  Assign it presentation-projects, deleting any previously
 existing assignments."

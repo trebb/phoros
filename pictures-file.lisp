@@ -365,9 +365,9 @@ in postmodern.  For a grayscale image do nothing."
               (funcall complete-odd-row-odd-column row column))))))
   png)
                             
-(defun send-png (output-stream path start
-                 &key (bayer-pattern (error "bayer-pattern needed."))
-                 (color-raiser #(1 1 1)))
+(defun* send-png (output-stream path start
+                                &key (color-raiser #(1 1 1))
+                                &mandatory-key bayer-pattern)
   "Read an image at position start in .pictures file at path and send
 it to the binary output-stream.  Return UNIX trigger-time of image."
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
@@ -416,9 +416,9 @@ at path."
                                                 "dataSize=" picture-start)
        finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
 
-(defun send-nth-png (n output-stream path
-                     &key (bayer-pattern (error "bayer-pattern needed."))
-                     color-raiser)
+(defun* send-nth-png (n output-stream path
+                     &key color-raiser
+                     &mandatory-key bayer-pattern)
   "Read image number n (zero-indexed) in .pictures file at path and
 send it to the binary output-stream.  Return UNIX trigger-time of
 image."

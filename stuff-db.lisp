@@ -651,17 +651,18 @@ in JSON file."
                                points-already-in-db
                                points-tried)))))
 
-(defun store-camera-hardware
-    (&key (sensor-width-pix (error "sensor-width-pix needed."))
-     (sensor-height-pix (error "sensor-height-pix needed."))
-     (pix-size (error "pix-size needed."))
-     (channels (error "channels needed."))
-     (pix-depth (error "pix-depth needed."))
-     (color-raiser (error "color-raiser needed."))
-     (bayer-pattern (error "bayer-pattern needed."))
-     (serial-number (error "serial-number needed."))
-     (description (error "description needed."))
-     (try-overwrite t))
+(defun* store-camera-hardware (&key
+                               (try-overwrite t)
+                               &mandatory-key
+                               sensor-width-pix
+                               sensor-height-pix
+                               pix-size
+                               channels
+                               pix-depth
+                               color-raiser
+                               bayer-pattern
+                               serial-number
+                               description)
   "Store a new record in table sys-camera-hardware, or try updating an
 existing one.  Return camera-hardware-id of the altered record."
   (assert-phoros-db-major-version)
@@ -701,11 +702,11 @@ existing one.  Return camera-hardware-id of the altered record."
        new-row-p (camera-hardware-id record)))
     (camera-hardware-id record)))
 
-(defun store-lens
-    (&key (c (error "c needed."))
-     (serial-number (error "serial-number needed."))
-     (description (error "description needed."))
-     (try-overwrite t))
+(defun* store-lens (&key (try-overwrite t)
+                         &mandatory-key
+                         c
+                         serial-number
+                         description)
   "Store a new record in table sys-lens, or try updating an existing
 one.  Return lens-id of the altered record."
   (assert-phoros-db-major-version)
@@ -749,17 +750,17 @@ generic-device-id of the new record."
        new-row-p (generic-device-id record)))
     (generic-device-id record)))
 
-(defun store-device-stage-of-life
-    (&key (recorded-device-id (error "recorded-device-id needed."))
-     (event-number (error "event-number needed."))
-     (generic-device-id (error "generic-device-id needed."))
-     (vehicle-name (error "vehicle-name needed."))
-     (casing-name (error "casing-name needed."))
-     (computer-name (error "computer-name needed."))
-     (computer-interface-name (error "computer-interface-name needed."))
-     (mounting-date (error "mounting-date needed."))
-     (unmounting-date :null)
-     (try-overwrite t))
+(defun* store-device-stage-of-life (&key (unmounting-date :null)
+                                   (try-overwrite t)
+                                   &mandatory-key
+                                   recorded-device-id
+                                   event-number
+                                   generic-device-id
+                                   vehicle-name
+                                   casing-name
+                                   computer-name
+                                   computer-interface-name
+                                   mounting-date)
   "Store a new record in table sys-device-stage-of-life, or try
 updating an existing one.  Return device-stage-of-life-id of the
 altered record."
@@ -800,9 +801,8 @@ altered record."
        new-row-p (device-stage-of-life-id record)))
     (device-stage-of-life-id record)))
 
-(defun store-device-stage-of-life-end
-    (&key (device-stage-of-life-id (error "device-stage-of-life-id needed."))
-     (unmounting-date (error "unmounting-date needed.")))
+(defun* store-device-stage-of-life-end (&mandatory-key device-stage-of-life-id
+                                                       unmounting-date)
   "Update record in table sys-device-stage-of-life with an unmounting
 date.  Return device-stage-of-life-id of the altered record."
   (assert-phoros-db-major-version)
@@ -814,51 +814,50 @@ date.  Return device-stage-of-life-id of the altered record."
     (update-dao record)
     (device-stage-of-life-id record)))
 
-(defun store-camera-calibration
-    (&key
-     (device-stage-of-life-id (error "device-stage-of-life-id needed."))
-     (date (error "date needed."))
-     (person (error "person needed."))
-     (main-description (error "main-description needed."))
-     (debug (error "debug needed."))
-     (photogrammetry-version (error "photogrammetry-version needed."))
-     (mounting-angle (error "mounting-angle needed."))
-     (inner-orientation-description (error "inner-orientation-description needed."))
-     (c (error "c needed."))
-     (xh (error "xh needed."))
-     (yh (error "yh needed."))
-     (a1 (error "a1 needed."))
-     (a2 (error "a2 needed."))
-     (a3 (error "a3 needed."))
-     (b1 (error "b1 needed."))
-     (b2 (error "b2 needed."))
-     (c1 (error "c1 needed."))
-     (c2 (error "c2 needed."))
-     (r0 (error "r0 needed."))
-     (outer-orientation-description (error "outer-orientation-description needed."))
-     (dx (error "dx needed."))
-     (dy (error "dy needed."))
-     (dz (error "dz needed."))
-     (omega (error "omega needed."))
-     (phi (error "phi needed."))
-     (kappa (error "kappa needed."))
-     (boresight-description (error "boresight-description needed."))
-     (b-dx (error "b-dx needed."))
-     (b-dy (error "b-dy needed."))
-     (b-dz (error "b-dz needed."))
-     (b-ddx (error "b-ddx needed."))
-     (b-ddy (error "b-ddy needed."))
-     (b-ddz (error "b-ddz needed."))
-     (b-rotx (error "b-rotx needed."))
-     (b-roty (error "b-roty needed."))
-     (b-rotz (error "b-rotz needed."))
-     (b-drotx (error "b-drotx needed."))
-     (b-droty (error "b-droty needed."))
-     (b-drotz (error "b-drotz needed."))
-     (nx (error "nx needed."))
-     (ny (error "ny needed."))
-     (nz (error "nz needed."))
-     (d (error "d needed.")))
+(defun* store-camera-calibration (&mandatory-key
+                                  device-stage-of-life-id
+                                  date
+                                  person
+                                  main-description
+                                  debug
+                                  photogrammetry-version
+                                  mounting-angle
+                                  inner-orientation-description
+                                  c
+                                  xh
+                                  yh
+                                  a1
+                                  a2
+                                  a3
+                                  b1
+                                  b2
+                                  c1
+                                  c2
+                                  r0
+                                  outer-orientation-description
+                                  dx
+                                  dy
+                                  dz
+                                  omega
+                                  phi
+                                  kappa
+                                  boresight-description
+                                  b-dx
+                                  b-dy
+                                  b-dz
+                                  b-ddx
+                                  b-ddy
+                                  b-ddz
+                                  b-rotx
+                                  b-roty
+                                  b-rotz
+                                  b-drotx
+                                  b-droty
+                                  b-drotz
+                                  nx
+                                  ny
+                                  nz
+                                  d)
   "Store a new record of camera-calibration in table
 sys-device-stage-of-life, or update an existing one.  Return
 device-stage-of-life-id and date of the altered record."

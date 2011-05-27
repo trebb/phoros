@@ -20,7 +20,7 @@ interface.                              http://phoros.berlios.de"
   ;; 
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
-  "5.0.0"
+  "5.0.1"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011 Bert Burgemeister
@@ -42,6 +42,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
   :serial t
 
   :components ((:file "package")
+               (:file "util")
                (:file "proj4-sh")
                (:file "log")
                (:file "photogrammetry")
