@@ -612,6 +612,7 @@ created stuff."
            database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
+        (muffle-postgresql-warnings)
         (nuke-all-tables))
       (cl-log:log-message
        :db-sys "Nuked database ~A at ~A:~D.  Back to square one!"
@@ -996,12 +997,15 @@ a view."
            "~:[Created~;Updated~] in database ~A at ~A:~D a view called ~A ~
             into table (of auxiliary data) ~A.  Coordinates column is ~A.  ~
             ~:[No numeric columns.~;Numeric column(s): ~:*~{~A~#^, ~}.~]  ~
-            ~:[No text columns.~;Text column(s): ~:*~{~A~#^, ~}.~]"
+            ~:[No text columns.~;Text column(s): ~:*~{~A~#^, ~}.~]  ~
+            Also, ~0@*~:[created~;recreated~] in the same database a ~
+            function called ~9@*~A."
            aux-view-exists-p
            aux-database aux-host aux-port
            (aux-point-view-name presentation-project-name)
            aux-table coordinates-column
-           numeric-column text-column))))))
+           numeric-column text-column
+           (thread-aux-points-function-name presentation-project-name)))))))
 
 (defun store-user-points-action (presentation-project)
   "Store user points from a GeoJSON file into database."
