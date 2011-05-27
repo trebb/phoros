@@ -295,6 +295,9 @@
                 (transform +geographic+ +spherical-mercator+))
          "Bounding box of the entire presentation project.")
 
+       (defvar +aux-data-p+
+         (lisp (session-value 'aux-data-p)))
+
        (defvar *images* (array) "Collection of the photos currently shown.")
 
        (defvar *streetmap* undefined
@@ -1490,7 +1493,14 @@ image-index in array *images*."
        (defun init ()
          "Prepare user's playground."
          (unless +presentation-project-bbox-text+
-           (setf (inner-html-with-id "presentation-project-emptiness") "(no data)"))
+           (setf (inner-html-with-id "presentation-project-emptiness")
+                 "(no data)"))
+         (unless +aux-data-p+
+           (disable-element-with-id "walk-p")
+           (hide-element-with-id "decrease-step-size")
+           (hide-element-with-id "step-size")
+           (hide-element-with-id "increase-step-size")
+           (hide-element-with-id "step-button"))
          (when (write-permission-p)
            (enable-element-with-id "point-attribute")
            (enable-element-with-id "point-description")

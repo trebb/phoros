@@ -146,6 +146,10 @@ session."
            (setf (session-value 'presentation-project-bbox)
                  (ignore-errors ;in case presentation-project is still empty
                    (presentation-project-bbox presentation-project-id)))
+           (setf (session-value 'aux-data-p)
+                 (with-connection *postgresql-aux-credentials*
+                   (view-exists-p (aux-point-view-name
+                                   presentation-project-name))))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:form :method "post" :enctype "multipart/form-data"
                     :action "/phoros/lib/authenticate" :name "login-form"
@@ -917,29 +921,25 @@ send all points."
                    (:p "You have selected multiple user points.")
                    (:p "Unselect all but one to edit or view its properties."))
              (:div :class "walk-mode-controls"
-                   (when (with-connection *postgresql-aux-credentials*
-                           (view-exists-p (aux-point-view-name
-                                           (session-value 'presentation-project-name))))
-                     (who:htm
-                      (:div :id "walk-mode"
-                            (:input :id "walk-p" :class "tight-input"
-                                    :type "checkbox" :checked nil
-                                    :onchange (ps-inline
-                                               (flip-walk-mode))
-                                    "snap+walk"))
-                      (:div :id "decrease-step-size"
-                            :onclick (ps-inline (decrease-step-size)))
-                      (:div :id "step-size"
-                            :onclick (ps-inline (increase-step-size))
-                            "4")
-                      (:div :id "increase-step-size"
-                            :onclick (ps-inline (increase-step-size))
-                            :ondblclick (ps-inline (increase-step-size)
-                                                   (increase-step-size)))
-                      (:div :id "step-button" :disabled t
-                            :onclick (ps-inline (step))
-                            :ondblclick (ps-inline (step t))
-                            "step"))))
+                   (:div :id "walk-mode"
+                         (:input :id "walk-p" :class "tight-input"
+                                 :type "checkbox" :checked nil
+                                 :onchange (ps-inline
+                                            (flip-walk-mode))
+                                 "snap+walk"))
+                   (:div :id "decrease-step-size"
+                         :onclick (ps-inline (decrease-step-size)))
+                   (:div :id "step-size"
+                         :onclick (ps-inline (increase-step-size))
+                         "4")
+                   (:div :id "increase-step-size"
+                         :onclick (ps-inline (increase-step-size))
+                         :ondblclick (ps-inline (increase-step-size)
+                                                (increase-step-size)))
+                   (:div :id "step-button" :disabled nil
+                         :onclick (ps-inline (step))
+                         :ondblclick (ps-inline (step t))
+                         "step"))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
                          (:input :id "zoom-to-point-p" :class "tight-input"
