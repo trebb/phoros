@@ -294,7 +294,7 @@
      :documentation "(*) Change body of the trigger function that is fired on changes to the user point table connected to the specified presentation project.")
     ("plpgsql-body"
      :type string
-     :documentation "Path to a file containing the body of a PL/pgSQL trigger function.  Any ocurrence of the string ~0@*~A will be replaced by the name of the user point table.  Omit this option to reset that function to just emit a notice.")))
+     :documentation "Path to a file containing the body of a PL/pgSQL trigger function.  Any ocurrence of the strings ~0@*~A and ~1@*~A will be replaced by the name of the user point table/of the user line table respectively.  Omit this option to reset that function to just emit a notice.")))
 
 (defparameter *cli-aux-view-options*
   '(("create-aux-view"
@@ -507,8 +507,9 @@ according to the --verbose option given."
      \(http://<host>:<port>/phoros/<presentation-project>).
      Its extent may or may not be equal to the extent of an
      acquisition project."
-     "Presentation projects have a table of user points which is
-     associated with a trigger.")
+     "Presentation projects have a table of user points and a table of
+     user lines.  The former is associated with a trigger which may be
+     defined to induce writing into the latter.")
     (show-help-section
      *cli-aux-view-options*
      "Connect A Presentation Project To A Table Of Auxiliary Data"
@@ -985,6 +986,8 @@ user point table."
                presentation-project-name
                body-text
                (s-sql:to-sql-name (user-point-table-name
+                                   presentation-project-name))
+               (s-sql:to-sql-name (user-line-table-name
                                    presentation-project-name))))
             (create-presentation-project-trigger-function
              presentation-project-name))

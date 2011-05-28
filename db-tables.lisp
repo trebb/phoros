@@ -518,6 +518,10 @@ are used by all projects.  The database should probably be empty."
   (create-table 'sys-generic-device)
   (create-table 'sys-device-stage-of-life)
   (create-table 'sys-camera-calibration)
+  (create-plpgsql-helpers))
+
+(defun create-plpgsql-helpers ()
+  "Create in current database a few SQL types and functions."
   (execute
    "CREATE OR REPLACE
       FUNCTION bendedness
@@ -856,6 +860,10 @@ are used by all projects.  The database should probably be empty."
     (make-symbol (format nil "~A~A-point-id-seq"
                          table-prefix presentation-project-name)))
 
+  (defun user-line-table-name (presentation-project-name)
+    (make-symbol (format nil "~A~A-line"
+                         table-prefix presentation-project-name)))
+
   (defun aux-point-view-name (presentation-project-name)
     (make-symbol (format nil "~A~A-aux-point"
                          table-prefix presentation-project-name)))
@@ -1008,11 +1016,11 @@ presentation-project-name."
 (defun create-aux-view (presentation-project-name aux-table-name
                         &key (coordinates-column :the-geom)
                         numeric-columns text-columns)
-  "Create a view into aux-table-name and a SQL function for threading
+  "Create a view into aux-table-name and an SQL function for threading
 aux-points into a linestring.  coordinates-column goes into column
 coordinates, numeric-columns and text-columns go into arrays in
-aux-numeric and aux-text respectively.  TODO: should we
-assert-phoros-db-major-version?"
+aux-numeric and aux-text respectively."
+  (create-plpgsql-helpers)
   (let ((aux-point-view-name
          (aux-point-view-name presentation-project-name))
         (thread-aux-points-function-name
@@ -1245,6 +1253,10 @@ CREATE TRIGGER ~A
   ON ~:*~A
   EXECUTE PROCEDURE ~:*~A();"
                      (s-sql:to-sql-name (user-point-table-name project-name))))
+    (execute (sql-compile
+              `(:create-table ,(user-line-table-name project-name)
+                              ((description :type text :primary-key t)
+                               (line :type geometry)))))
     (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))))
 

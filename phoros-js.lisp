@@ -67,9 +67,8 @@
            (:p "Try reading the text under mouse pointer."))
           :finish-point-button
           (who-ps-html
-           (:p "Store point with its attribute, description and
-           numeric description into database.  Afterwards, increment
-           the numeric description if possible."))
+           (:p "Store user point with its attribute, description and
+           numeric-description into database."))
           :delete-point-button
           (who-ps-html
            (:p "Delete current point."))
@@ -83,13 +82,16 @@
            any other host where the database is reachable)."))
           :point-attribute
           (who-ps-html
+           (:h3 "\"attribute\"")
            (:p "One of a few possible user point attributes.")
            (:p "TODO: currently only the hard-coded ones are available."))
           :point-description
           (who-ps-html
+           (:h3 "\"description\"")
            (:p "Optional verbal description of user point."))
           :point-numeric-description
           (who-ps-html
+           (:h3 "\"numeric-description\"")
            (:p "Optional additional description of user point.  It is
            occasionally used as a label for the representions of this
            point in streetmap and in images.")

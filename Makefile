@@ -123,13 +123,13 @@ $(PHOROS_HELP_HTML) : doc/phoros--help.org $(PHOROS_HELP_OUTPUT) $(LOGO)
 $(PUBLIC_CSS) : doc/style.css public_html
 	cp $< $@
 
-tarball : phoros TimeSteps.history README \
+tarball : phoros TimeSteps.history README trigger-example.sql \
           $(SERVER_CSS) $(OPENLAYERS_DIR) \
           $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
 	  $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf - \
 		--transform='s,^,phoros_$(PHOROS_VERSION)/,' \
-		phoros TimeSteps.history README \
+		phoros TimeSteps.history README trigger-example.sql \
 		$(SERVER_CSS) $(OPENLAYERS_DIR) \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML) \
