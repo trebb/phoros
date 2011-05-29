@@ -1292,6 +1292,17 @@ $$ LANGUAGE plpgsql;"
             plpgsql-body
             plpgsql-body-args)))
 
+(defun fire-presentation-project-trigger-function (presentation-project)
+  "Tickle user point table of presentation-project so it fires its
+trigger."
+  (let ((user-point-table (user-point-table-name presentation-project)))
+    (execute
+     (:update user-point-table
+              :set 'user-point-id 'user-point-id
+              :where (:= 'user-point-id
+                         (:limit (:select 'user-point-id
+                                          :from user-point-table) 1))))))
+
 (defun delete-presentation-project (project-name)
   "Delete the presentation project project-name.  Return nil if there
 wasn't any."

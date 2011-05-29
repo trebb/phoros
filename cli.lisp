@@ -973,13 +973,14 @@ trigger-time to stdout."
 
 (defun redefine-trigger-function-action (presentation-project-name)
   "Recreate an SQL trigger function that is fired on changes to the
-user point table."
+user point table, and fire it once."
   (with-cli-options (host port database (user "") (password "") use-ssl
                           log-dir
                           plpgsql-body)
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
+      (muffle-postgresql-warnings)
       (let ((body-text
              (make-array '(1) :adjustable t :fill-pointer 0
                          :element-type 'character)))
@@ -998,12 +999,14 @@ user point table."
                                    presentation-project-name))))
             (create-presentation-project-trigger-function
              presentation-project-name))
+        (fire-presentation-project-trigger-function presentation-project-name)
         (cl-log:log-message
          :db-dat
-         "Defined trigger function associatad with user point table of ~
+         "Defined (and fired once) ~
+          a trigger function associatad with user point table of ~
           presentation project ~A in database ~A at ~A:~D to ~
-          ~:[perform a minimal default action~;perform the body given ~
-             in file ~:*~A, which is ~A~]."
+          ~:[perform a minimal default action.~;perform the body given ~
+             in file ~:*~A, whose content is is:~&~A~]"
          presentation-project-name database host port
          plpgsql-body body-text)))))
 
