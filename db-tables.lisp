@@ -862,11 +862,15 @@ are used by all projects.  The database should probably be empty."
 
   (defun user-line-table-name (presentation-project-name)
     (make-symbol (format nil "~A~A-line"
-                         table-prefix presentation-project-name)))
+                         table-prefix presentation-project-name))))
 
+(let ((table-prefix "phoros-"))
+  ;; This stuff may reside in a foreign database so we show explicitly
+  ;; what it belongs to.
   (defun aux-point-view-name (presentation-project-name)
     (make-symbol (format nil "~A~A-aux-point"
                          table-prefix presentation-project-name)))
+
   (defun thread-aux-points-function-name (presentation-project-name)
     (make-symbol (format nil "~A~A-thread-aux-points"
                           table-prefix presentation-project-name))))

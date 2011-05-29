@@ -302,7 +302,7 @@
      :documentation "(*) Connect table of auxiliary data with the specified presentation project by creating a view.")
     ("aux-table"
      :type string
-     :documentation "Name of auxiliary table, which may be in any database.  It must have a geometry column.")
+     :documentation "Name of auxiliary table.  It may reside either in Phoros' native database or in an auxiliary database (which is common to all projects).  It must have a geometry column.")
     ("coordinates-column"
      :type string :initial-value "the-geom"
      :documentation "Name of the geometry column in the auxiliary data table.")
@@ -484,9 +484,12 @@ according to the --verbose option given."
     (show-help-section
      *cli-acquisition-project-options*
      "Manage Acquisition Projects"
-     "An acquisition project is a set of measurements which share a
-     set of data tables and views all of which have names beginning
-     with dat-<acquisition-project-name>-.")
+     (format nil
+             "An acquisition project is a set of measurements which
+     share a set of data tables and views named like ~(~A, ~A, ~A~)."
+             (point-data-table-name '<acquisition-project-name>)
+             (image-data-table-name '<acquisition-project-name>)
+             (aggregate-view-name '<acquisition-project-name>)))
     (show-help-section
      *cli-store-images-and-points-options*
      "Store Measure Data")
@@ -513,15 +516,17 @@ according to the --verbose option given."
     (show-help-section
      *cli-aux-view-options*
      "Connect A Presentation Project To A Table Of Auxiliary Data"
-     "Arbitrary data from tables not directly belonging to any Phoros
-     project can be connected to a presentation project by means of a
-     view which must be named
-     usr-<presentation-project-name>-aux-point and which must contain
-     the columns coordinates (geometry), aux-numeric (null or array of
-     numeric), and aux-text (null or array of text).  The array
+     (format nil
+             "Arbitrary data from tables not directly belonging to any
+     Phoros project can be connected to a presentation project by
+     means of a view which must be named ~(~A~) and which must contain
+     columns called coordinates (geometry), aux-numeric (null or array
+     of numeric), and aux-text (null or array of text).  The array
      elements of both aux-numeric and aux-text of auxiliary points can
-     then be incorporated into neighbouring user points."
-     "In simple cases (auxiliary data from one table which has a
+     then be incorporated into neighbouring user points during user
+     point creation."
+             (aux-point-view-name '<presentation-project-name>))
+     "In simple cases (auxiliary data from a single table which has a
      geometry column and some numeric and/or text columns), the
      following options can be used to create such view.")
     (show-help-section
