@@ -903,7 +903,6 @@ trigger-time to stdout."
           presentation project by the name of ~A in database ~A at ~A:~D."
          fresh-project-p presentation-project-name database host port)))))
 
-
 (defun delete-presentation-project-action (presentation-project-name)
   "Delete a presentation project."
   (with-cli-options (host port database (user "") (password "") use-ssl
@@ -911,9 +910,12 @@ trigger-time to stdout."
     (launch-logger log-dir)
     (when (yes-or-no-p
            "You asked me to delete presentation-project ~A ~
-            (including its table of user-defined points usr-~:*~A-point) ~
-            from database ~A at ~A:~D.  Proceed?"
-           presentation-project-name database host port)
+            (including its tables of user-defined points and lines, ~
+            ~A and ~A respectively) from database ~A at ~A:~D.  Proceed?"
+           presentation-project-name
+           (user-point-table-name presentation-project-name)
+           (user-line-table-name presentation-project-name)
+           database host port)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
         (muffle-postgresql-warnings)

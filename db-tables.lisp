@@ -1242,8 +1242,6 @@ dao if one was created, or nil if it existed already."
   (unless (get-dao 'sys-presentation-project project-name)
     (create-user-table-definition project-name)
     (create-table 'user-point)
-    (insert-dao (make-instance 'sys-presentation-project
-                               :presentation-project-name project-name))
     (create-presentation-project-trigger-function project-name)
     (execute (format nil "DROP TRIGGER IF EXISTS ~A ON ~:*~A;"
                      (s-sql:to-sql-name (user-point-table-name project-name))))
@@ -1300,7 +1298,9 @@ wasn't any."
       (execute
        (:drop-table :if-exists (user-point-table-name project-name)))
       (execute
-       (:drop-sequence :if-exists (user-point-id-seq-name project-name))))))
+       (:drop-sequence :if-exists (user-point-id-seq-name project-name)))
+      (execute
+       (:drop-table :if-exists (user-line-table-name project-name))))))
 
 (defun* create-user (name &key
                           presentation-projects
