@@ -123,8 +123,12 @@ BEGIN
     DELETE FROM ~1@*~A
            WHERE description = point_group.description;
 
-    INSERT INTO ~1@*~A
-           (description, line) VALUES (point_group.description, polyline);
+    IF polyline IS NOT NULL
+    THEN
+      INSERT INTO ~1@*~A
+             (description, line)
+             VALUES (point_group.description, polyline);
+    END IF;
 
   END LOOP thread_one_line;
 END;
