@@ -1257,7 +1257,11 @@ CREATE TRIGGER ~A
                      (s-sql:to-sql-name (user-point-table-name project-name))))
     (execute (sql-compile
               `(:create-table ,(user-line-table-name project-name)
-                              ((description :type text :primary-key t)
+                              ((description :type text)
+                               ;; description would be a nice primary
+                               ;; key if it wasn't for QGIS which
+                               ;; needs it numeric
+                               (id :type serial :primary-key t)
                                (line :type geometry)))))
     (insert-dao (make-instance 'sys-presentation-project
                                :presentation-project-name project-name))))
