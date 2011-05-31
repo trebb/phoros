@@ -545,7 +545,7 @@ junk-keys."
                (aux-point-view-name (session-value
                                      'presentation-project-name))))
           (encode-geojson-to-string
-           (with-connection *postgresql-credentials*
+           (with-connection *postgresql-aux-credentials*
              (query
               (s-sql:sql-compile
                `(:limit
@@ -593,7 +593,7 @@ coordinates received, wrapped in an array."
             (format nil "POINT(~F ~F)" longitude-input latitude-input)))
       (encode-geojson-to-string
        (ignore-errors
-         (with-connection *postgresql-credentials*
+         (with-connection *postgresql-aux-credentials*
            (nsubst
             nil :null
             (query
