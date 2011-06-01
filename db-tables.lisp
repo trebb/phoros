@@ -523,14 +523,17 @@ are used by all projects.  The database should probably be empty."
 (defun create-plpgsql-helpers ()
   "Create in current database a few SQL types and functions."
   (execute
-   "CREATE OR REPLACE
-      FUNCTION bendedness
-               (point1 GEOMETRY, point2 GEOMETRY, point3 GEOMETRY)
-      RETURNS DOUBLE PRECISION AS $$
-      BEGIN
-        RETURN abs(st_azimuth(point2, point3) - st_azimuth(point1, point2));
-      END;
-      $$ LANGUAGE plpgsql;")
+   (format nil "
+CREATE OR REPLACE
+FUNCTION bendedness
+         (point1 GEOMETRY, point2 GEOMETRY, point3 GEOMETRY)
+RETURNS DOUBLE PRECISION AS $$
+-- Phoros version ~A
+BEGIN
+  RETURN abs(st_azimuth(point2, point3) - st_azimuth(point1, point2));
+END;
+$$ LANGUAGE plpgsql;"
+           (phoros-version)))
   (execute
    "DROP TYPE IF EXISTS point_bag;")
   (execute
@@ -964,9 +967,12 @@ belonging to images."
          'filename 'byte-position (:dot ',point-data-table-name 'point-id)
          'trigger-time
          'coordinates                   ;the search target
-         (:as (:st_x (:st_transform 'coordinates *standard-coordinates*)) 'longitude)
-         (:as (:st_y (:st_transform 'coordinates *standard-coordinates*)) 'latitude)
-         (:as (:st_z (:st_transform 'coordinates *standard-coordinates*)) 'ellipsoid-height)
+         (:as (:st_x (:st_transform 'coordinates *standard-coordinates*))
+              'longitude)
+         (:as (:st_y (:st_transform 'coordinates *standard-coordinates*))
+              'latitude)
+         (:as (:st_z (:st_transform 'coordinates *standard-coordinates*))
+              'ellipsoid-height)
          'cartesian-system
          'east-sd 'north-sd 'height-sd
          'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
@@ -982,21 +988,37 @@ belonging to images."
          ',point-data-table-name ',image-data-table-name
          'sys-device-stage-of-life 'sys-generic-device 'sys-camera-hardware
          'sys-camera-calibration
-         :where (:and (:= (:dot ',image-data-table-name 'measurement-id) 'sys-presentation.measurement-id)
-                      (:= 'sys-presentation.measurement-id 'sys-measurement.measurement-id)
-                      (:= (:dot ',point-data-table-name 'point-id) (:dot ',image-data-table-name 'point-id))
-                      (:= (:dot ',image-data-table-name 'recorded-device-id) 'sys-device-stage-of-life.recorded-device-id)
-                      (:= 'sys-generic-device.generic-device-id 'sys-device-stage-of-life.generic-device-id)
-                      (:= 'sys-camera-hardware.camera-hardware-id 'sys-generic-device.camera-hardware-id)
-                      (:= 'sys-device-stage-of-life.device-stage-of-life-id 'sys-camera-calibration.device-stage-of-life-id)
-                      (:= 'sys-device-stage-of-life.device-stage-of-life-id 
-                          (:limit (:order-by (:select 'sys-camera-calibration.device-stage-of-life-id :from 'sys-camera-calibration
-                                                      :where (:= 'sys-device-stage-of-life.device-stage-of-life-id 'sys-camera-calibration.device-stage-of-life-id))
-                                             (:desc 'date))
-                                  1))
-                      (:<= (:extract :epoch 'sys-device-stage-of-life.mounting-date) (:dot ',point-data-table-name 'trigger-time))
-                      (:or (:is-null 'sys-device-stage-of-life.unmounting-date)
-                           (:>= (:extract :epoch 'sys-device-stage-of-life.mounting-date) (:dot ',point-data-table-name 'trigger-time))))))))
+         :where
+         (:and
+          (:= (:dot ',image-data-table-name 'measurement-id)
+              'sys-presentation.measurement-id)
+          (:= 'sys-presentation.measurement-id
+              'sys-measurement.measurement-id)
+          (:= (:dot ',point-data-table-name 'point-id)
+              (:dot ',image-data-table-name 'point-id))
+          (:= (:dot ',image-data-table-name 'recorded-device-id)
+              'sys-device-stage-of-life.recorded-device-id)
+          (:= 'sys-generic-device.generic-device-id
+              'sys-device-stage-of-life.generic-device-id)
+          (:= 'sys-camera-hardware.camera-hardware-id
+              'sys-generic-device.camera-hardware-id)
+          (:= 'sys-device-stage-of-life.device-stage-of-life-id
+              'sys-camera-calibration.device-stage-of-life-id)
+          (:= 'sys-device-stage-of-life.device-stage-of-life-id 
+              (:limit
+               (:order-by
+                (:select 'sys-camera-calibration.device-stage-of-life-id
+                         :from 'sys-camera-calibration
+                         :where
+                         (:= 'sys-device-stage-of-life.device-stage-of-life-id
+                             'sys-camera-calibration.device-stage-of-life-id))
+                (:desc 'date))
+               1))
+          (:<= (:extract :epoch 'sys-device-stage-of-life.mounting-date)
+               (:dot ',point-data-table-name 'trigger-time))
+          (:or (:is-null 'sys-device-stage-of-life.unmounting-date)
+               (:>= (:extract :epoch 'sys-device-stage-of-life.mounting-date)
+                    (:dot ',point-data-table-name 'trigger-time))))))))
     ;;(eval
     ;; `(defclass ,aggregate-view-name (aggregate-data)
     ;;    ()
@@ -1014,8 +1036,10 @@ presentation-project-name."
 presentation-project-name."
   (execute (:drop-view (aux-point-view-name presentation-project-name)))
   (execute
-   (format nil "DROP FUNCTION IF EXISTS ~A(GEOMETRY, DOUBLE PRECISION, INT, DOUBLE PRECISION);"
-           (s-sql:to-sql-name (thread-aux-points-function-name presentation-project-name)))))
+   (format nil
+           "DROP FUNCTION IF EXISTS ~A(GEOMETRY, DOUBLE PRECISION, INT, DOUBLE PRECISION);"
+           (s-sql:to-sql-name (thread-aux-points-function-name
+                               presentation-project-name)))))
 
 (defun create-aux-view (presentation-project-name aux-table-name
                         &key (coordinates-column :the-geom)
@@ -1041,7 +1065,7 @@ AS (SELECT ~A AS coordinates,
                      (mapcar #'s-sql:to-sql-name text-columns)
                      (s-sql:to-sql-name aux-table-name)))
     (execute (format nil "~
-CREATE OR REPLACE FUNCTION ~A
+CREATE OR REPLACE FUNCTION ~0@*~A
   (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT,
    step_size DOUBLE PRECISION, old_azimuth DOUBLE PRECISION,
    max_bend DOUBLE PRECISION,
@@ -1051,9 +1075,11 @@ CREATE OR REPLACE FUNCTION ~A
    OUT new_azimuth DOUBLE PRECISION)
 AS
 $$
+-- Phoros version ~2@*~A
 DECLARE
   point_bag_size INT;
   current_point_position DOUBLE PRECISION;
+  location DOUBLE PRECISION;
   line GEOMETRY;
   new_point point_bag%ROWTYPE;
   tried_point point_bag%ROWTYPE;
@@ -1067,8 +1093,17 @@ BEGIN
   starting_point :=
     (SELECT coordinates
        FROM ~1@*~A
-       ORDER BY st_distance(st_transform (~1@*~A.coordinates, ~A),
-                            st_transform (point, ~:*~A))
+       WHERE
+         coordinates 
+         && 
+         st_setsrid(st_makebox3d (st_translate (point,
+                                                - sample_radius * 5,
+                                                - sample_radius * 5, 0),
+                                  st_translate (point,
+                                                sample_radius * 5,
+                                                sample_radius * 5, 0)),
+                    4326)
+       ORDER BY st_distance(coordinates, point)
        LIMIT 1);
 
   CREATE TEMPORARY TABLE point_bag
@@ -1078,16 +1113,25 @@ BEGIN
   INSERT INTO point_bag (coordinates)
     SELECT coordinates
       FROM ~1@*~A
-      WHERE st_distance(st_transform (coordinates, ~A),
-                        st_transform (starting_point, ~:*~A)) 
-            < sample_radius 
-      ORDER BY st_distance(st_transform (coordinates, ~:*~A),
-               st_transform (starting_point, ~:*~A))
+
+      WHERE 
+        coordinates 
+        && 
+        st_setsrid(st_makebox3d (st_translate (starting_point,
+                                               - sample_radius,
+                                               - sample_radius, 0),
+                                 st_translate (starting_point,
+                                               sample_radius,
+                                               sample_radius, 0)),
+                   4326)
+        AND st_distance (coordinates, starting_point) < sample_radius
+      ORDER BY st_distance (coordinates, starting_point)
       LIMIT sample_size;
 
   point_bag_size := (SELECT count(*) from point_bag);
 
-  IF point_bag_size < 4
+  -- emergency point_bag:
+  IF point_bag_size < 5
   THEN
     DROP TABLE point_bag;
     CREATE TEMPORARY TABLE point_bag
@@ -1096,16 +1140,25 @@ BEGIN
     INSERT INTO point_bag (coordinates)
       SELECT coordinates
         FROM ~1@*~A
-        ORDER BY st_distance(st_transform (coordinates, ~A),
-                 st_transform (starting_point, ~:*~A))
-        LIMIT 4;
+        WHERE
+          coordinates
+          &&
+          st_setsrid(st_makebox3d (st_translate (point,
+                                                 - sample_radius * 100,
+                                                 - sample_radius * 100, 0),
+                                   st_translate (point,
+                                                 sample_radius * 100,
+                                                 sample_radius * 100, 0)),
+                     4326)
+        ORDER BY st_distance (coordinates, starting_point)
+        LIMIT 5;
+    starting_point := (SELECT coordinates FROM point_bag where id = 3);
   END IF;
 
   previous_point := 
     (SELECT ROW(id, coordinates) 
        FROM point_bag 
-       ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A),
-                            st_transform (starting_point, ~:*~A))
+       ORDER BY st_distance (point_bag.coordinates, starting_point)
        LIMIT 1);
 
   DELETE FROM point_bag WHERE id = previous_point.id;
@@ -1113,8 +1166,7 @@ BEGIN
   new_point := 
     (SELECT ROW(id, coordinates)
        FROM point_bag
-       ORDER BY st_distance(st_transform (point_bag.coordinates, ~:*~A),
-                            st_transform (previous_point.coordinates, ~:*~A))
+       ORDER BY st_distance (point_bag.coordinates, previous_point.coordinates)
        LIMIT 1);
 
   line := st_makeline(previous_point.coordinates,
@@ -1138,8 +1190,7 @@ BEGIN
     new_point :=
       (SELECT ROW(id, coordinates)
          FROM point_bag
-         ORDER BY st_distance(st_transform (coordinates, ~:*~A),
-                              st_transform (previous_point.coordinates, ~:*~A))
+         ORDER BY st_distance (coordinates, previous_point.coordinates)
          LIMIT 1);
 
     EXIT WHEN new_point IS NULL;
@@ -1177,13 +1228,18 @@ BEGIN
   current_point :=
     st_astext(st_line_interpolate_point(line, current_point_position));
 
+  location := (current_point_position - (step_size / st_length(line)));
+  IF location < 0 THEN location := 0; END IF;
+
   back_point :=
-    st_astext(st_line_interpolate_point(line, (current_point_position
-                                               - (step_size / st_length(line)))));
+    st_astext(st_line_interpolate_point(line, location));
+
+  location := (current_point_position + (step_size / st_length(line)));
+  IF location > 0 THEN location := 1; END IF;
 
   forward_point :=
-    st_astext(st_line_interpolate_point(line, (current_point_position
-                                               + (step_size / st_length(line)))));
+    st_astext(st_line_interpolate_point(line, location));
+
   threaded_points := st_astext(line);
 
   RETURN;
@@ -1191,7 +1247,7 @@ END;
 $$ LANGUAGE plpgsql;"
                      (s-sql:to-sql-name thread-aux-points-function-name)
                      (s-sql:to-sql-name aux-point-view-name)
-                     *standard-coordinates*))))
+                     (phoros-version)))))
 
 (defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.

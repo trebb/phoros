@@ -501,18 +501,9 @@ junk-keys."
                         = (aggregate-view-name common-table-name)
                         collect
                         `(:select
-                          (:as (:st_x
-                                (:st_transform 'coordinates
-                                               ,*standard-coordinates*))
-                               x)
-                          (:as (:st_y
-                                (:st_transform 'coordinates
-                                               ,*standard-coordinates*))
-                               y)
-                          (:as (:st_z
-                                (:st_transform 'coordinates
-                                               ,*standard-coordinates*))
-                               z)
+                          (:as (:st_x 'coordinates) x)
+                          (:as (:st_y 'coordinates) y)
+                          (:as (:st_z 'coordinates) z)
                           (:as 'point-id 'id) ;becomes fid on client
                           (:as (:random) random)
                           :from ',aggregate-view-name
@@ -522,8 +513,7 @@ junk-keys."
                            (:= 'presentation-project-id
                                ,presentation-project-id)
                            (:&&
-                            (:st_transform 'coordinates
-                                           ,*standard-coordinates*)
+                            'coordinates
                             (:st_setsrid  (:type ,(box3d bbox) box3d)
                                           ,*standard-coordinates*))))))
                   random)
@@ -551,19 +541,12 @@ junk-keys."
                `(:limit
                  (:order-by
                   (:select
-                   (:as (:st_x (:st_transform 'coordinates
-                                              ,*standard-coordinates*))
-                        'x)
-                   (:as (:st_y (:st_transform 'coordinates
-                                              ,*standard-coordinates*))
-                        'y)
-                   (:as (:st_z (:st_transform 'coordinates
-                                              ,*standard-coordinates*))
-                        'z)
+                   (:as (:st_x 'coordinates) 'x)
+                   (:as (:st_y 'coordinates) 'y)
+                   (:as (:st_z 'coordinates) 'z)
                    :from ,aux-view-name
                    :where (:&&
-                           (:st_transform 'coordinates
-                                          ,*standard-coordinates*)
+                           'coordinates
                            (:st_setsrid  (:type ,(box3d bbox) box3d)
                                          ,*standard-coordinates*)))
                   (:random))
@@ -590,7 +573,14 @@ coordinates received, wrapped in an array."
            (latitude-input (cdr (assoc :latitude data)))
            (count (cdr (assoc :count data)))
            (point-form
-            (format nil "POINT(~F ~F)" longitude-input latitude-input)))
+            (format nil "POINT(~F ~F)" longitude-input latitude-input))
+           (snap-distance 1e-3)         ;about 100 m, TODO: make this a defparameter
+           (bounding-box
+            (format nil "~A,~A,~A,~A"
+                    (- longitude-input snap-distance)
+                    (- latitude-input snap-distance)
+                    (+ longitude-input snap-distance)
+                    (+ latitude-input snap-distance))))
       (encode-geojson-to-string
        (ignore-errors
          (with-connection *postgresql-aux-credentials*
@@ -601,15 +591,9 @@ coordinates received, wrapped in an array."
               `(:limit
                 (:order-by
                  (:select
-                  (:as (:st_x (:st_transform 'coordinates
-                                             ,*standard-coordinates*))
-                       'x)
-                  (:as (:st_y (:st_transform 'coordinates
-                                             ,*standard-coordinates*))
-                       'y)
-                  (:as (:st_z (:st_transform 'coordinates
-                                             ,*standard-coordinates*))
-                       'z)
+                  (:as (:st_x 'coordinates) 'x)
+                  (:as (:st_y 'coordinates) 'y)
+                  (:as (:st_z 'coordinates) 'z)
                   aux-numeric
                   aux-text
                   (:as
@@ -617,7 +601,11 @@ coordinates received, wrapped in an array."
                     'coordinates
                     (:st_geomfromtext ,point-form ,*standard-coordinates*))
                    distance)                       
-                  :from ',aux-view-name)
+                  :from ',aux-view-name
+                  :where (:&& 'coordinates
+                              (:st_setsrid (:type
+                                            ,(box3d bounding-box) box3d)
+                                           ,*standard-coordinates*)))
                  'distance)             ;TODO: convert into metres
                 ,count))
              :plists))))))))
@@ -722,15 +710,9 @@ respectively)."
       `(:limit
         (:order-by
          (:select
-          (:as (:st_x (:st_transform 'coordinates
-                                     ,*standard-coordinates*))
-               'x)
-          (:as (:st_y (:st_transform 'coordinates
-                                     ,*standard-coordinates*))
-               'y)
-          (:as (:st_z (:st_transform 'coordinates
-                                     ,*standard-coordinates*))
-               'z)
+          (:as (:st_x 'coordinates) 'x)
+          (:as (:st_y 'coordinates) 'y)
+          (:as (:st_z 'coordinates) 'z)
           (:as 'user-point-id 'id)      ;becomes fid in OpenLayers
           'stdx-global 'stdy-global 'stdz-global
           'input-size
@@ -741,8 +723,7 @@ respectively)."
                'creation-date)
           'aux-numeric 'aux-text
           :from ,user-point-table-name :natural :left-join 'sys-user
-          :where (:&& (:st_transform 'coordinates
-                                     ,*standard-coordinates*)
+          :where (:&& 'coordinates
                       (:st_setsrid  (:type ,(box3d bounding-box) box3d)
                                     ,*standard-coordinates*)))
          ,order-criterion)
@@ -1085,15 +1066,9 @@ respond with a JSON object comprising the elements
             (with-connection *postgresql-credentials*
               (query
                (:select
-                (:as
-                 (:st_x (:st_transform 'coordinates *standard-coordinates*))
-                 'longitude)
-                (:as
-                 (:st_y (:st_transform 'coordinates *standard-coordinates*))
-                 'latitude)
-                (:as
-                 (:st_z (:st_transform 'coordinates *standard-coordinates*))
-                 'ellipsoid-height)
+                (:as (:st_x 'coordinates) 'longitude)
+                (:as (:st_y 'coordinates) 'latitude)
+                (:as (:st_z 'coordinates) 'ellipsoid-height)
                 (:as 'user-point-id 'id) ;becomes fid on client
                 'attribute
                 'description
