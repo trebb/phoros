@@ -692,7 +692,7 @@ to Estimated Position."
              (chain *streetmap* estimated-position-layer (add-features feature))
              (chain *streetmap*
                     (add-layer (@ *streetmap* estimated-position-layer))))
-           (request-nearest-aux-points *global-position* 5)
+           (request-nearest-aux-points *global-position* 7)
            (loop
               for i in *images*
               for p in estimated-positions

@@ -1047,7 +1047,15 @@ presentation-project-name."
   "Create a view into aux-table-name and an SQL function for threading
 aux-points into a linestring.  coordinates-column goes into column
 coordinates, numeric-columns and text-columns go into arrays in
-aux-numeric and aux-text respectively."
+aux-numeric and aux-text respectively.
+
+aux-table-name should have an index like so:
+
+CREATE INDEX idx_<aux-table-name>_the_geom
+  ON <aux-table-name>
+  USING gist (the_geom);
+
+VACUUM FULL ANALYZE <aux-table-name> (the_geom);"
   (create-plpgsql-helpers)
   (let ((aux-point-view-name
          (aux-point-view-name presentation-project-name))

@@ -305,7 +305,7 @@
      :documentation "Name of auxiliary table.  It may reside either in Phoros' native database or in an auxiliary database (which is common to all projects).  It must have a geometry column.")
     ("coordinates-column"
      :type string :initial-value "the-geom"
-     :documentation "Name of the geometry column in the auxiliary data table.")
+     :documentation "Name of the geometry column (which should have an index) in the auxiliary data table.")
     ("numeric-column"
      :type string :list t :optional t
      :documentation "Name of a numeric column in the auxiliary data table.  Repeat if necessary.")
