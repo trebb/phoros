@@ -84,7 +84,7 @@ button, select {
 .h1-right {
     float: right;
 }
-.vanilla-input {
+.vanilla-input, .combobox-input {
     font-family: 'andale mono', 'lucida console', monospace;
     padding: 0px;
     margin: 0px;
@@ -93,9 +93,23 @@ button, select {
     padding: 0px;
     margin: 0px;
 }
+.combobox-select {
+    position:absolute;
+    width: 210px;
+    height: 20px;
+    border-width: 2px;
+}
+.combobox-input {
+    position:absolute;
+    width: 190px;
+    height: 16px;
+    border-width: 0px;
+    margin: 2px 19px 2px 2px;
+    padding: 0 0px 0 0;
+}
 #point-description {
     width: 206px;
-    height: 17px;
+    height: 20px;
 }
 #point-numeric-description {
     width: 120px;

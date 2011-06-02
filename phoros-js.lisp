@@ -500,6 +500,34 @@ shadow any other control."
            ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
            ))
 
+       (defun consolidate-point-description-combobox ()
+         "Help faking a combobox."
+         (setf (value-with-id "point-description-input")
+               (getprop (chain document
+                               (get-element-by-id "point-description-select")
+                               options)
+                        (chain document
+                               (get-element-by-id "point-description-select")
+                               selected-index)
+                        'value))
+         (chain document
+                (get-element-by-id "point-description-input")
+                (focus)))
+
+       (defun offer-point-description-choice ()
+         (setf (chain document
+                      (get-element-by-id "point-description-select")
+                      options
+                      length)
+               0)
+         (loop for i in '("foo" "quuxbar" "bazzo") do
+              (setf point-description-item
+                    (chain document (create-element "option")))
+              (setf (@ point-description-item text) i)
+              (chain document
+                     (get-element-by-id "point-description-select")
+                     (add point-description-item null))))
+
        (defun request-photos (event)
          "Handle the response to a click into *streetmap*; fetch photo
           data.  Set or update streetmap cursor."
@@ -1023,7 +1051,7 @@ equator."
                        (chain *point-attributes-select* options selected-index))
                   text))
            (setf (@ global-position-etc description)
-                 (value-with-id "point-description"))
+                 (value-with-id "point-description-input"))
            (setf (@ global-position-etc numeric-description)
                  (value-with-id "point-numeric-description"))
            (when (checkbox-status-with-id "include-aux-data-p")
@@ -1064,13 +1092,13 @@ equator."
                          attribute
                          (chain
                           (elt (@ *point-attributes-select*
-                                      options)
+                                  options)
                                (@ *point-attributes-select*
-                                      options
-                                      selected-index))
+                                  options
+                                  selected-index))
                           text)
                          description
-                         (value-with-id "point-description")
+                         (value-with-id "point-description-input")
                          numeric-description
                          (value-with-id "point-numeric-description")))
                 (content 
@@ -1398,7 +1426,7 @@ image-index in array *images*."
                (+ "(by " (@ event feature attributes user-name) ")"))
          (setf (value-with-id "point-attribute")
                (@ event feature attributes attribute))
-         (setf (value-with-id "point-description")
+         (setf (value-with-id "point-description-input")
                (@ event feature attributes description))
          (setf (value-with-id "point-numeric-description")
                (@ event feature attributes numeric-description))
@@ -1505,7 +1533,8 @@ image-index in array *images*."
            (hide-element-with-id "step-button"))
          (when (write-permission-p)
            (enable-element-with-id "point-attribute")
-           (enable-element-with-id "point-description")
+           (enable-element-with-id "point-description-input")
+           (enable-element-with-id "point-description-select")
            (enable-element-with-id "point-numeric-description"))
          (setf (inner-html-with-id "h2-controls") "Create Point")
          (hide-element-with-id "multiple-points-phoros-controls")

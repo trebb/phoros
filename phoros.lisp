@@ -760,6 +760,52 @@ send all points."
          :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
          bbox c)))))
 
+(define-easy-handler
+    (user-point-attributes :uri "/phoros/lib/user-point-attributes.json")
+    ()
+  ""
+  (when (session-value 'authenticated-p)
+    (setf (content-type*) "application/json")
+    (handler-case 
+        (let ((user-point-table-name
+               (user-point-table-name (session-value
+                                       'presentation-project-name))))
+          (with-connection *postgresql-credentials*
+            (with-output-to-string (s)
+              (json:with-object (s)
+                (json:as-object-member (:descriptions s)
+                  (json:with-array (s)
+                    (mapcar #'(lambda (x) (json:as-array-member (s)
+                                            (json:encode-json-plist x s)))
+                            (query
+                             (:limit
+                              (:order-by
+                               (:select 'description
+                                        (:count 'description)
+                                        :from user-point-table-name
+                                        :group-by 'description)
+                               'description)
+                              100)
+                             :plists))))
+                (json:as-object-member (:attributes s)
+                  (json:with-array (s)
+                    (mapcar #'(lambda (x) (json:as-array-member (s)
+                                            (json:encode-json-plist x s)))
+                            (query
+                             (:limit
+                              (:order-by
+                               (:select 'attribute
+                                        (:count 'attribute)
+                                        :from user-point-table-name
+                                        :group-by 'attribute)
+                               'attribute)
+                              100)
+                             :plists))))))))
+      (condition (c)
+        (cl-log:log-message
+         :error "While fetching user-point-attributes: ~A"
+         c)))))
+
 (define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
      (color-raiser :init-form "1,1,1"))
@@ -879,9 +925,27 @@ send all points."
                            :class "vanilla-input"
                            :disabled t
                            :type "text" :name "point-numeric-description")
-                   (:input :id "point-description" :class "vanilla-input"
-                           :disabled t
-                           :type "text" :name "point-description")
+
+                   (:div :id "point-description"
+                         (:select :id "point-description-select"
+                                  :name "point-description-select"
+                                  :class "combobox-select"
+                                  :onchange
+                                  (ps-inline
+                                   (consolidate-point-description-combobox))
+                                  :disabled t
+                                  (:option "op1")
+                                  (:option "op2")
+                                  (:option "op3"))
+                         (:input :id "point-description-input"
+                                 :name "point-description-input"
+                                 :class "combobox-input"
+                                 :disabled t
+                                 :type "text")
+                         )
+                   ;; (:input :id "point-description" :class "vanilla-input"
+                   ;;         :disabled t
+                   ;;         :type "text" :name "point-description")
                    (:div (:button :id "delete-point-button" :disabled t
                                   :type "button"
                                   :onclick (ps-inline (delete-point))
