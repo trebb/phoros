@@ -151,26 +151,33 @@ session."
                    (view-exists-p (aux-point-view-name
                                    presentation-project-name))))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
-             (:form :method "post" :enctype "multipart/form-data"
-                    :action "/phoros/lib/authenticate" :name "login-form"
-                    "User:"
+             (:div
+              :style "font-family:sans;"
+              (:form
+               :method "post" :enctype "multipart/form-data"
+               :action "/phoros/lib/authenticate" :name "login-form"
+               (:fieldset
+                (:legend (:b (:a :href "http://phoros.berlios.de"
+                                 :style "text-decoration:none;"
+                                 "Phoros")
+                             (who:fmt "&nbsp;[~A]" presentation-project-name)))
+                (:noscript
+                 (:b (:em "You can't do much without JavaScript there.")))
+                (:p "User:"
                     :br
-                    (:input :type "text" :name "user-name")
+                    (:input :type "text" :name "user-name"))
+                (:p "Password:"
                     :br
-                    "Password:"
-                    :br
-                    (:input :type "password" :name "user-password")
-                    :br
-                    (:input :type "submit" :value "Submit")
-                    (:script :type "text/javascript"
-                             (who:str (ps (chain document
-                                                 :login-form
-                                                 :user-name
-                                                 (focus))))))
-             (loop for i in *login-intro*
-                do
-                  (who:htm
-                   (:p (who:str i)))))))))))
+                    (:input :type "password" :name "user-password"))
+                (:input :type "submit" :value "Submit"))
+               (:script :type "text/javascript"
+                        (who:str (ps (chain document
+                                            :login-form
+                                            :user-name
+                                            (focus))))))
+              (loop
+                 for i in *login-intro*
+                 do (who:htm (:p (who:str i))))))))))))
 
 (pushnew (create-regex-dispatcher "/phoros/(?!lib/)" 'phoros-handler)
          *dispatch-table*)
@@ -838,6 +845,7 @@ send all points."
        (:script :src "http://maps.google.com/maps/api/js?sensor=false"))
       (:body
        :onload (ps (init))
+       (:noscript (:b (:em "You can't do much without JavaScript here.")))
        (:h1 :id "title"
             "Phoros: " (who:str (session-value 'user-full-name))
             (who:fmt " (~A)" (session-value 'user-name))
