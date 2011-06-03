@@ -84,7 +84,7 @@ button, select {
 .h1-right {
     float: right;
 }
-.vanilla-input, .combobox-input {
+.vanilla-input {
     font-family: 'andale mono', 'lucida console', monospace;
     padding: 0px;
     margin: 0px;
@@ -93,41 +93,60 @@ button, select {
     padding: 0px;
     margin: 0px;
 }
+.combobox {
+    height: 20px;
+}
 .combobox-select {
+    font-family: 'andale mono', 'lucida console', monospace;
     position:absolute;
-    width: 210px;
     height: 20px;
     border-width: 2px;
 }
 .combobox-input {
+    font-family: 'andale mono', 'lucida console', monospace;
     position:absolute;
-    width: 190px;
     height: 16px;
     border-width: 0px;
-    margin: 2px 19px 2px 2px;
+    margin: 2px 18px 2px 2px;
     padding: 0 0px 0 0;
 }
 #point-description {
-    width: 206px;
-    height: 20px;
+    float: left;
+    width: 210px;
+}
+#point-description-select {
+    width: 210px;
+}
+#point-description-input {
+    width: 190px;
 }
 #point-numeric-description {
-    width: 120px;
-    height: 17px;
+    width: 118px;
+    height: 16px;
     float: right;
 }
 #point-attribute {
-    height: 21px;
+    float: left;
+    width: 86px;
+}
+#point-attribute-select {
+    width: 86px;
+}
+#point-attribute-input {
+    width: 66px;
 }
 #finish-point-button {
-    width: 145px;
+    float:right;
+    width: 148px;
     height: 30px;
 }
 #delete-point-button {
+    float: left;
     width: 60px;
     height: 30px;
 }
 #aux-point-distance-or-point-creation-date {
+    float: left;
     width: 210px;
     height: 23px;
     margin-top: 5px;

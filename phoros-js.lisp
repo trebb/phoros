@@ -449,6 +449,7 @@ shadow any other control."
                   user-points-select-control
                   (unselect *current-user-point*)))
          (reset-controls)
+         (request-user-point-choice)
          (setf *pristine-images-p* t)
          (zoom-images-to-max-extent))
 
@@ -500,33 +501,97 @@ shadow any other control."
            ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
            ))
 
-       (defun consolidate-point-description-combobox ()
+       (defun consolidate-combobox (combobox-id)
          "Help faking a combobox."
-         (setf (value-with-id "point-description-input")
-               (getprop (chain document
-                               (get-element-by-id "point-description-select")
-                               options)
-                        (chain document
-                               (get-element-by-id "point-description-select")
-                               selected-index)
-                        'value))
-         (chain document
-                (get-element-by-id "point-description-input")
-                (focus)))
+         (let ((combobox-select (+ combobox-id "-select"))
+               (combobox-input (+ combobox-id "-input")))
+           (setf (value-with-id combobox-input)
+                 (getprop (chain document
+                                 (get-element-by-id combobox-select)
+                                 options)
+                          (chain document
+                                 (get-element-by-id combobox-select)
+                                 selected-index)
+                          'value))
+           (chain document
+                  (get-element-by-id combobox-input)
+                  (focus))))
 
-       (defun offer-point-description-choice ()
-         (setf (chain document
-                      (get-element-by-id "point-description-select")
-                      options
-                      length)
-               0)
-         (loop for i in '("foo" "quuxbar" "bazzo") do
-              (setf point-description-item
-                    (chain document (create-element "option")))
-              (setf (@ point-description-item text) i)
-              (chain document
-                     (get-element-by-id "point-description-select")
-                     (add point-description-item null))))
+       (defun stuff-combobox (combobox-id values &optional selection)
+         "Stuff combobox with values.  If selection is a number,
+         select the respective item."
+         (let ((point-description-select (+ combobox-id "-select"))
+               (point-description-input (+ combobox-id "-input")))
+           (setf (chain document
+                        (get-element-by-id point-description-select)
+                        options
+                        length)
+                 0)
+           (loop for i in values do
+                (setf point-description-item
+                      (chain document (create-element "option")))
+                (setf (@ point-description-item text) i)
+                (chain document
+                       (get-element-by-id point-description-select)
+                       (add point-description-item null)))
+           (when selection
+             (setf (chain document
+                          (get-element-by-id point-description-select)
+                          selected-index)
+                   selection)
+             (consolidate-combobox combobox-id))))
+
+       (defun stuff-user-point-comboboxes (&optional selectp)
+         "Stuff user point attribute comboboxes with sensible values.
+         If selectp it t, select the most frequently used one."
+         (let* ((response
+                 (chain *json-parser*
+                        (read (@ *streetmap*
+                                 user-point-choice-response response-text))))
+                (attributes
+                 (chain response attributes (map (lambda (x)
+                                                   (@ x attribute)))))
+                (descriptions
+                 (chain response descriptions (map (lambda (x)
+                                                     (@ x description)))))
+                best-used-attribute
+                best-used-description)
+           (when selectp
+             (loop
+                with maximum = 0
+                for i across (@ response descriptions)
+                for k from 0
+                do (when (< maximum (@ i count))
+                     (setf maximum (@ i count))
+                     (setf best-used-description k)))
+             (loop
+                with maximum = 0
+                for i across (@ response attributes)
+                for k from 0
+                do (when (< maximum (@ i count))
+                     (setf maximum (@ i count))
+                     (setf best-used-attribute k))))
+           (debug-info response)
+           (debug-info descriptions)
+           (debug-info best-used-description)
+           (debug-info attributes)
+           (debug-info best-used-attribute)
+           (stuff-combobox
+            "point-attribute" attributes best-used-attribute)
+           (stuff-combobox
+            "point-description" descriptions best-used-description)))
+
+       (defun request-user-point-choice (&optional selectp)
+         "Stuff user point attribute comboboxes with sensible values.
+         If selectp it t, select the most frequently used one."
+         (setf (@ *streetmap* user-point-choice-response)
+               ((@ *open-layers *Request *POST*)
+                (create :url "/phoros/lib/user-point-attributes.json"
+                        :data content
+                        :headers (create "Content-type" "text/plain"
+                                         "Content-length" (@ content length))
+                        :success (lambda ()
+                                   (stuff-user-point-comboboxes selectp))))))
 
        (defun request-photos (event)
          "Handle the response to a click into *streetmap*; fetch photo
@@ -1046,10 +1111,7 @@ equator."
          "Send current *global-position* as a user point to the database."
          (let ((global-position-etc *global-position*))
            (setf (@ global-position-etc attribute)
-                 (chain
-                  (elt (chain *point-attributes-select* options)
-                       (chain *point-attributes-select* options selected-index))
-                  text))
+                 (value-with-id "point-attribute-input"))
            (setf (@ global-position-etc description)
                  (value-with-id "point-description-input"))
            (setf (@ global-position-etc numeric-description)
@@ -1090,13 +1152,7 @@ equator."
          (let* ((point-data
                  (create user-point-id (@ *current-user-point* fid)
                          attribute
-                         (chain
-                          (elt (@ *point-attributes-select*
-                                  options)
-                               (@ *point-attributes-select*
-                                  options
-                                  selected-index))
-                          text)
+                         (value-with-id "point-attribute-input")
                          description
                          (value-with-id "point-description-input")
                          numeric-description
@@ -1424,7 +1480,7 @@ image-index in array *images*."
                (setf (inner-html-with-id "h2-controls") "View Point")))
          (setf (inner-html-with-id "creator")
                (+ "(by " (@ event feature attributes user-name) ")"))
-         (setf (value-with-id "point-attribute")
+         (setf (value-with-id "point-attribute-input")
                (@ event feature attributes attribute))
          (setf (value-with-id "point-description-input")
                (@ event feature attributes description))
@@ -1525,28 +1581,6 @@ image-index in array *images*."
          (unless +presentation-project-bbox-text+
            (setf (inner-html-with-id "presentation-project-emptiness")
                  "(no data)"))
-         (unless +aux-data-p+
-           (disable-element-with-id "walk-p")
-           (hide-element-with-id "decrease-step-size")
-           (hide-element-with-id "step-size")
-           (hide-element-with-id "increase-step-size")
-           (hide-element-with-id "step-button"))
-         (when (write-permission-p)
-           (enable-element-with-id "point-attribute")
-           (enable-element-with-id "point-description-input")
-           (enable-element-with-id "point-description-select")
-           (enable-element-with-id "point-numeric-description"))
-         (setf (inner-html-with-id "h2-controls") "Create Point")
-         (hide-element-with-id "multiple-points-phoros-controls")
-         (setf *point-attributes-select*
-               (chain document (get-element-by-id "point-attribute")))
-         (setf *aux-point-distance-select*
-               (chain document (get-element-by-id "aux-point-distance")))
-         (loop for i in '("solitary" "polyline" "polygon") do
-              (setf point-attribute-item (chain document (create-element "option")))
-              (setf (@ point-attribute-item text) i)
-              (chain *point-attributes-select* (add point-attribute-item null))) ;TODO: input of user-defined attributes
-         (hide-aux-data-choice)
          (setf *streetmap*
                (new (chain
                      *open-layers
@@ -1559,6 +1593,31 @@ image-index in array *images*."
                                                    (new (chain *open-layers
                                                                *control
                                                                (*attribution)))))))))
+         (unless +aux-data-p+
+           (disable-element-with-id "walk-p")
+           (hide-element-with-id "decrease-step-size")
+           (hide-element-with-id "step-size")
+           (hide-element-with-id "increase-step-size")
+           (hide-element-with-id "step-button"))
+         (when (write-permission-p)
+           (enable-element-with-id "point-attribute-input")
+           (enable-element-with-id "point-attribute-select")
+           (enable-element-with-id "point-description-input")
+           (enable-element-with-id "point-description-select")
+           (enable-element-with-id "point-numeric-description")
+           (request-user-point-choice true))
+         (setf (inner-html-with-id "h2-controls") "Create Point")
+         (hide-element-with-id "multiple-points-phoros-controls")
+         (setf *point-attributes-select*
+               (chain document (get-element-by-id "point-attribute-select")))
+         (setf *aux-point-distance-select*
+               (chain document (get-element-by-id "aux-point-distance")))
+         ;; (loop for i in '("solitary" "polyline" "polygon") do
+         ;;      (setf point-attribute-item (chain document (create-element "option")))
+         ;;      (setf (@ point-attribute-item text) i)
+         ;;      (chain *point-attributes-select* (add point-attribute-item null)))
+                                        ;TODO: input of user-defined attributes
+         (hide-aux-data-choice)
          (let ((cursor-layer-style
                 (create
                  graphic-width 14

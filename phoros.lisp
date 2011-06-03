@@ -763,7 +763,10 @@ send all points."
 (define-easy-handler
     (user-point-attributes :uri "/phoros/lib/user-point-attributes.json")
     ()
-  ""
+  "Send JSON object comprising arrays attributes and descriptions,
+each containing unique values called attribute and description
+respectively, and count being the frequency of value in the user point
+table."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
     (handler-case 
@@ -791,16 +794,24 @@ send all points."
                   (json:with-array (s)
                     (mapcar #'(lambda (x) (json:as-array-member (s)
                                             (json:encode-json-plist x s)))
-                            (query
-                             (:limit
-                              (:order-by
-                               (:select 'attribute
-                                        (:count 'attribute)
-                                        :from user-point-table-name
-                                        :group-by 'attribute)
-                               'attribute)
-                              100)
-                             :plists))))))))
+                            (query (format nil "~
+                              (SELECT attribute, count(attribute) ~
+                                 FROM ((SELECT attribute FROM ~A) ~
+                                       UNION ALL ~
+                                       (SELECT attribute ~
+                                          FROM (VALUES ('solitary'), ~
+                                                       ('polyline'), ~
+                                                       ('polygon')) ~
+                                          AS defaults(attribute))) ~
+                                        AS attributes_union(attribute) ~
+                                 GROUP BY attribute) ~
+                              ORDER BY attribute LIMIT 100"
+                                           ;; Counts of solitary,
+                                           ;; polyline, polygon may be
+                                           ;; to big by one if we
+                                           ;; collect them like this.
+                           (s-sql:to-sql-name user-point-table-name))
+                                   :plists))))))))
       (condition (c)
         (cl-log:log-message
          :error "While fetching user-point-attributes: ~A"
@@ -919,40 +930,48 @@ send all points."
                    :class "phoros-controls-vertical-strut")
              (:div :id "real-phoros-controls"
                    (:h2 (:span :id "h2-controls") (:span :id "creator"))
-                   (:select :id "point-attribute" :disabled t
-                            :size 1 :name "point-attribute")
+                   (:div :id "point-attribute"
+                         :class "combobox"
+                         (:select :id "point-attribute-select"
+                                  :name "point-attribute-select"
+                                  :class "combobox-select"
+                                  :onchange
+                                  (ps-inline
+                                   (consolidate-combobox "point-attribute"))
+                                  :disabled t)
+                         (:input :id "point-attribute-input"
+                                 :name "point-attribute-input"
+                                 :class "combobox-input"
+                                 :disabled t
+                                 :type "text"))
+                   ;; (:select :id "point-attribute" :disabled t
+                   ;;          :size 1 :name "point-attribute")
                    (:input :id "point-numeric-description"
                            :class "vanilla-input"
                            :disabled t
                            :type "text" :name "point-numeric-description")
 
                    (:div :id "point-description"
+                         :class "combobox"
                          (:select :id "point-description-select"
                                   :name "point-description-select"
                                   :class "combobox-select"
                                   :onchange
                                   (ps-inline
-                                   (consolidate-point-description-combobox))
-                                  :disabled t
-                                  (:option "op1")
-                                  (:option "op2")
-                                  (:option "op3"))
+                                   (consolidate-combobox "point-description"))
+                                  :disabled t)
                          (:input :id "point-description-input"
                                  :name "point-description-input"
                                  :class "combobox-input"
                                  :disabled t
-                                 :type "text")
-                         )
-                   ;; (:input :id "point-description" :class "vanilla-input"
-                   ;;         :disabled t
-                   ;;         :type "text" :name "point-description")
-                   (:div (:button :id "delete-point-button" :disabled t
-                                  :type "button"
-                                  :onclick (ps-inline (delete-point))
-                                  "delete")
-                         (:button :disabled t :id "finish-point-button"
-                                  :type "button"
-                                  "finish"))
+                                 :type "text"))
+                   (:button :id "delete-point-button" :disabled t
+                            :type "button"
+                            :onclick (ps-inline (delete-point))
+                            "delete")
+                   (:button :disabled t :id "finish-point-button"
+                            :type "button"
+                            (:b "finish"))
                    (:div :id "aux-point-distance-or-point-creation-date"
                          (:code :id "point-creation-date")
                          (:input :id "include-aux-data-p"
