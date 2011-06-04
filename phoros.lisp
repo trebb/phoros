@@ -926,8 +926,6 @@ table."
                          :class "streetmap-mouse-position")
                    (:div :id "streetmap-zoom" :class "streetmap-zoom")))
        (:div :class "phoros-controls"
-             (:div :id "phoros-controls-vertical-strut"
-                   :class "phoros-controls-vertical-strut")
              (:div :id "real-phoros-controls"
                    (:h2 (:span :id "h2-controls") (:span :id "creator"))
                    (:div :id "point-attribute"
@@ -942,6 +940,9 @@ table."
                          (:input :id "point-attribute-input"
                                  :name "point-attribute-input"
                                  :class "combobox-input"
+                                 :onchange (ps-inline
+                                            (unselect-combobox-selection
+                                             "point-attribute"))
                                  :disabled t
                                  :type "text"))
                    ;; (:select :id "point-attribute" :disabled t
@@ -956,13 +957,16 @@ table."
                          (:select :id "point-description-select"
                                   :name "point-description-select"
                                   :class "combobox-select"
-                                  :onchange
-                                  (ps-inline
-                                   (consolidate-combobox "point-description"))
+                                  :onchange (ps-inline
+                                             (consolidate-combobox
+                                              "point-description"))
                                   :disabled t)
                          (:input :id "point-description-input"
                                  :name "point-description-input"
                                  :class "combobox-input"
+                                 :onchange (ps-inline
+                                            (unselect-combobox-selection
+                                             "point-description"))
                                  :disabled t
                                  :type "text"))
                    (:button :id "delete-point-button" :disabled t

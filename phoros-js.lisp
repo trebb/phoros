@@ -67,8 +67,9 @@
            (:p "Try reading the text under mouse pointer."))
           :finish-point-button
           (who-ps-html
-           (:p "Store user point with its attribute, description and
-           numeric-description into database."))
+           (:p "Store user point with its attribute,
+           numeric-description, description, and auxiliary data into
+           database."))
           :delete-point-button
           (who-ps-html
            (:p "Delete current point."))
@@ -83,28 +84,29 @@
           :point-attribute
           (who-ps-html
            (:h3 "\"attribute\"")
-           (:p "One of a few possible user point attributes.")
-           (:p "TODO: currently only the hard-coded ones are available."))
+           (:p "The standard ones, polygon, polyline, and solitary are
+           rendered as asterisk, square, and triangle
+           respectively.  Anything else is rendered as an X."))
           :point-description
           (who-ps-html
            (:h3 "\"description\"")
-           (:p "Optional verbal description of user point."))
+           (:p "Optional textual description of user point."))
           :point-numeric-description
           (who-ps-html
            (:h3 "\"numeric-description\"")
            (:p "Optional additional description of user point.  It is
-           occasionally used as a label for the representions of this
+           occasionally used to label representions of this
            point in streetmap and in images.")
-           (:p "If parts of it looks like a number, the leftmost such
-           part is automatically incremented during click into first
-           image."))
+           (:p "If parts of it look like numbers, the leftmost such
+           part is automatically incremented during first click into
+           an image."))
           :point-creation-date
           (who-ps-html
            (:p "Creation date of current user point.  Will be updated
            when you change this point."))
           :include-aux-data-p
           (who-ps-html
-           (:p "Check this if the user point being created should
+           (:p "Check this if the user point being created is to
            include auxiliary data."))
           :aux-point-distance
           (who-ps-html
@@ -124,7 +126,7 @@
           :remove-work-layers-button
           (who-ps-html
            (:p "Discard the current, unstored user point or unselect
-           currently selected user points.  Zoom out all images. Keep
+           any selected user points.  Zoom out all images. Keep
            the rest of the workspace untouched."))
           :blurb-button
           (who-ps-html
@@ -449,7 +451,6 @@ shadow any other control."
                   user-points-select-control
                   (unselect *current-user-point*)))
          (reset-controls)
-         (request-user-point-choice)
          (setf *pristine-images-p* t)
          (zoom-images-to-max-extent))
 
@@ -502,7 +503,7 @@ shadow any other control."
            ))
 
        (defun consolidate-combobox (combobox-id)
-         "Help faking a combobox."
+         "Help faking a combobox: copy selected option into input."
          (let ((combobox-select (+ combobox-id "-select"))
                (combobox-input (+ combobox-id "-input")))
            (setf (value-with-id combobox-input)
@@ -517,26 +518,35 @@ shadow any other control."
                   (get-element-by-id combobox-input)
                   (focus))))
 
+       (defun unselect-combobox-selection (combobox-id)
+         "Help faking a combobox: unset selected option so any
+         selection there will trigger an onchange event."
+         (let ((combobox-select (+ combobox-id "-select")))
+           (setf (chain document
+                        (get-element-by-id combobox-select)
+                        selected-index)
+                 -1)))
+          
        (defun stuff-combobox (combobox-id values &optional selection)
          "Stuff combobox with values.  If selection is a number,
          select the respective item."
-         (let ((point-description-select (+ combobox-id "-select"))
-               (point-description-input (+ combobox-id "-input")))
+         (let ((combobox-select (+ combobox-id "-select"))
+               (combobox-input (+ combobox-id "-input")))
            (setf (chain document
-                        (get-element-by-id point-description-select)
+                        (get-element-by-id combobox-select)
                         options
                         length)
                  0)
            (loop for i in values do
-                (setf point-description-item
+                (setf combobox-item
                       (chain document (create-element "option")))
-                (setf (@ point-description-item text) i)
+                (setf (@ combobox-item text) i)
                 (chain document
-                       (get-element-by-id point-description-select)
-                       (add point-description-item null)))
+                       (get-element-by-id combobox-select)
+                       (add combobox-item null)))
            (when selection
              (setf (chain document
-                          (get-element-by-id point-description-select)
+                          (get-element-by-id combobox-select)
                           selected-index)
                    selection)
              (consolidate-combobox combobox-id))))
@@ -571,11 +581,6 @@ shadow any other control."
                 do (when (< maximum (@ i count))
                      (setf maximum (@ i count))
                      (setf best-used-attribute k))))
-           (debug-info response)
-           (debug-info descriptions)
-           (debug-info best-used-description)
-           (debug-info attributes)
-           (debug-info best-used-attribute)
            (stuff-combobox
             "point-attribute" attributes best-used-attribute)
            (stuff-combobox
@@ -600,7 +605,8 @@ shadow any other control."
                (chain *streetmap*
                       (get-lon-lat-from-pixel (@ event xy))))
          (if (checkbox-status-with-id "walk-p")
-             (request-aux-data-linestring-for-point (@ *streetmap* clicked-lonlat))
+             (request-aux-data-linestring-for-point
+              (@ *streetmap* clicked-lonlat))
              (request-photos-for-point (@ *streetmap* clicked-lonlat))))
 
        (defun request-aux-data-linestring-for-point (lonlat-spherical-mercator)
@@ -778,8 +784,9 @@ to Estimated Position."
              (setf (@ *streetmap* estimated-position-layer)
                    (new (chain *open-layers
                                *layer
-                               (*vector "Estimated Position"
-                                        (create display-in-layer-switcher nil)))))
+                               (*vector
+                                "Estimated Position"
+                                (create display-in-layer-switcher nil)))))
              (setf (@ *streetmap* estimated-position-layer style)
                    estimated-position-style)
              (chain *streetmap* estimated-position-layer (add-features feature))
@@ -794,8 +801,9 @@ to Estimated Position."
                   (setf (@ i estimated-position-layer)
                         (new
                          (chain *open-layers *layer
-                                (*vector "Estimated Position"
-                                         (create display-in-layer-switcher nil)))))
+                                (*vector
+                                 "Estimated Position"
+                                 (create display-in-layer-switcher nil)))))
                   (setf (@ i estimated-position-lonlat)
                         (new (chain *open-layers (*lon-lat
                                                   (getprop p 'm)
@@ -814,7 +822,10 @@ to Estimated Position."
                            (add-layer (@ i estimated-position-layer)))
                     (chain i estimated-position-layer
                            (add-features feature))))))
-         (zoom-anything-to-point))
+         (zoom-anything-to-point)
+         (chain document
+                (get-element-by-id "finish-point-button")
+                (focus)))
 
        (defun draw-nearest-aux-points ()
          "Draw a few auxiliary points into streetmap."
@@ -1136,7 +1147,8 @@ equator."
                       :success (lambda ()
                                  (refresh-layer
                                   (@ *streetmap* user-point-layer))
-                                 (reset-layers-and-controls)))))))
+                                 (reset-layers-and-controls)
+                                 (request-user-point-choice)))))))
            
        (defun increment-numeric-text (text)
          "Increment text if it looks like a number, and return it."
@@ -1168,7 +1180,8 @@ equator."
                     :success (lambda ()
                                (refresh-layer
                                 (@ *streetmap* user-point-layer))
-                               (reset-layers-and-controls))))))
+                               (reset-layers-and-controls)
+                               (request-user-point-choice))))))
 
        (defun delete-point ()
          "Purge currently selected user point from database."
@@ -1184,7 +1197,8 @@ equator."
                     :success (lambda ()
                                (refresh-layer
                                 (@ *streetmap* user-point-layer))
-                               (reset-layers-and-controls))))))
+                               (reset-layers-and-controls)
+                               (request-user-point-choice true))))))
 
        (defun draw-active-point ()
          "Draw an Active Point, i.e. a point used in subsequent
@@ -1439,66 +1453,71 @@ image-index in array *images*."
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Estimated Position")
-         (user-point-selection-changed event))
+         (user-point-selection-changed))
 
        (defun user-point-unselected (event)
-         "Things to do once a user point is selected."
-         (user-point-selection-changed event))
+         "Things to do once a user point is unselected."
+         (reset-controls)
+         (user-point-selection-changed))
 
-       (defun user-point-selection-changed (event)
+       (defun user-point-selection-changed ()
          "Things to do once a user point is selected or unselected."
          (hide-aux-data-choice)
-         ;; after single select: same as event
-         (setf *current-user-point* (@ event object selected-features 0))
+         (setf *current-user-point*
+               (@ *streetmap* user-point-layer selected-features 0))
          (let ((selected-features-count
                 (@ *streetmap* user-point-layer selected-features length)))
            (setf (@ *streetmap* user-point-layer style-map)
                  (user-point-style-map 
                   (when (> selected-features-count 1)
                     "${numericDescription}")))
-           (if (> selected-features-count 1)
-               (progn
-                 (hide-element-with-id "real-phoros-controls")
-                 (reveal-element-with-id "multiple-points-phoros-controls"))
-               (progn
-                 (hide-element-with-id "multiple-points-phoros-controls")
-                 (reveal-element-with-id "real-phoros-controls"))))
+           (cond
+             ((> selected-features-count 1)
+              (hide-element-with-id "real-phoros-controls")
+              (reveal-element-with-id "multiple-points-phoros-controls"))
+             ((= selected-features-count 1)
+              (setf (value-with-id "point-attribute-input")
+                    (@ *current-user-point* attributes attribute))
+              (setf (value-with-id "point-description-input")
+                    (@ *current-user-point* attributes description))
+              (setf (value-with-id "point-numeric-description")
+                    (@ *current-user-point* attributes numeric-description))
+              (setf (inner-html-with-id "point-creation-date")
+                    (@ *current-user-point* attributes creation-date))
+              (setf (inner-html-with-id "aux-numeric-list")
+                    (html-ordered-list
+                     (@ *current-user-point* attributes aux-numeric)))
+              (setf (inner-html-with-id "aux-text-list")
+                    (html-ordered-list
+                     (@ *current-user-point* attributes aux-text)))
+              (if (write-permission-p
+                   (@ *current-user-point* attributes user-name))
+                  (progn
+                    (setf (chain document
+                                 (get-element-by-id "finish-point-button")
+                                 onclick)
+                          update-point)
+                    (enable-element-with-id "finish-point-button")
+                    (enable-element-with-id "delete-point-button")
+                    (setf (inner-html-with-id "h2-controls") "Edit Point"))
+                  (progn
+                    (disable-element-with-id "finish-point-button")
+                    (disable-element-with-id "delete-point-button")
+                    (setf (inner-html-with-id "h2-controls") "View Point")))
+              (setf (inner-html-with-id "creator")
+                    (+ "(by "
+                       (@ *current-user-point* attributes user-name)
+                       ")")))
+             (t
+              (hide-element-with-id "multiple-points-phoros-controls")
+              (reveal-element-with-id "real-phoros-controls"))))
          (chain *streetmap* user-point-layer (redraw))
          (remove-any-layers "User Point") ;from images
-         (if (write-permission-p (@ event feature attributes user-name))
-             (progn
-               (setf (chain document
-                            (get-element-by-id "finish-point-button")
-                            onclick)
-                     update-point)
-               (enable-element-with-id "finish-point-button")
-               (enable-element-with-id "delete-point-button")
-               (setf (inner-html-with-id "h2-controls") "Edit Point"))
-             (progn
-               (disable-element-with-id "finish-point-button")
-               (disable-element-with-id "delete-point-button")
-               (setf (inner-html-with-id "h2-controls") "View Point")))
-         (setf (inner-html-with-id "creator")
-               (+ "(by " (@ event feature attributes user-name) ")"))
-         (setf (value-with-id "point-attribute-input")
-               (@ event feature attributes attribute))
-         (setf (value-with-id "point-description-input")
-               (@ event feature attributes description))
-         (setf (value-with-id "point-numeric-description")
-               (@ event feature attributes numeric-description))
-         (setf (inner-html-with-id "point-creation-date")
-               (@ event feature attributes creation-date))
-         (setf (inner-html-with-id "aux-numeric-list")
-               (html-ordered-list
-                (@ event feature attributes aux-numeric)))
-         (setf (inner-html-with-id "aux-text-list")
-               (html-ordered-list
-                (@ event feature attributes aux-text)))
          (setf content
                (chain *json-parser*
                       (write
-                       (array (chain event
-                                     object
+                       (array (chain *streetmap*
+                                     user-point-layer
                                      selected-features
                                      (map (lambda (x) (@ x fid))))
                               (loop

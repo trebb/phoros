@@ -77,9 +77,24 @@ h6 {
  */
 button, select {
     cursor: pointer;
+    vertical-align: middle;
+}
+#download-user-points-button {
+    float: left;
+    height: 25px;
+    margin-right: 2px;
+}
+#blurb-button {
+    float: left;
+    height: 25px;
+    padding-bottom: 1px;
 }
 #logout-button {
     float:right;
+    height: 25px;
+}
+#h2-help {
+    clear: both;
 }
 .h1-right {
     float: right;
@@ -113,6 +128,7 @@ button, select {
 #point-description {
     float: left;
     width: 210px;
+    margin-bottom: 2px;
 }
 #point-description-select {
     width: 210px;
@@ -165,19 +181,18 @@ button, select {
 }
 .aux-data-list {
     width: 170px;
-    list-style-type: lower-roman;
+    list-style-type: lower-latin;
     line-height: 1;
 }
 .phoros-controls {
     float: left;
     text-align:left;
     width: 210px;
-    height: 320px;
+    height: 323px;
 }
-.phoros-controls-vertical-strut {
-    float: right;
+#real-phoros-controls, #multiple-points-phoros-controls {
     height: 285px;
-    width: 0px;
+    width: 210px;
 }
 .help-div {
     float: left;
@@ -247,7 +262,7 @@ button, select {
 .image-main-controls, .walk-mode-controls {
     height: 18px;
     background-color: #00008B;
-    margin-top: 2px;
+    margin-bottom: 2px;
     clear: right;
 }
 #remove-work-layers-button, #step-button {
