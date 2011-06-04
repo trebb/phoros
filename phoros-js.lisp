@@ -800,7 +800,8 @@ to Estimated Position."
                 (when p  ;otherwise a photogrammetry error has occured
                   (setf (@ i estimated-position-layer)
                         (new
-                         (chain *open-layers *layer
+                         (chain *open-layers
+                                *layer
                                 (*vector
                                  "Estimated Position"
                                  (create display-in-layer-switcher nil)))))
@@ -1740,11 +1741,12 @@ image-index in array *images*."
            (setf (@ *streetmap* nearest-aux-points-layer)
                  (new (chain *open-layers
                              *layer
-                             (*vector "Nearest Aux Points"
-                                      (create
-                                       display-in-layer-switcher nil
-                                       style-map nearest-aux-point-layer-style-map
-                                       visibility t))))))
+                             (*vector
+                              "Nearest Aux Points"
+                              (create
+                               display-in-layer-switcher nil
+                               style-map nearest-aux-point-layer-style-map
+                               visibility t))))))
          (setf (@ *streetmap* nearest-aux-points-hover-control)
                (new (chain *open-layers
                            *control
@@ -1761,11 +1763,12 @@ image-index in array *images*."
          (setf (@ *streetmap* aux-data-linestring-layer)
                  (new (chain *open-layers
                              *layer
-                             (*vector "Aux Data Linestring"
-                                      (create
-                                       display-in-layer-switcher nil
-                                       ;style-map nearest-aux-point-layer-style-map
-                                       visibility t)))))
+                             (*vector
+                              "Aux Data Linestring"
+                              (create
+                               display-in-layer-switcher nil
+                               style-map nearest-aux-point-layer-style-map
+                               visibility t)))))
          (setf (@ *streetmap* google-streetmap-layer) 
                (new (chain *open-layers
                            *layer
@@ -1774,15 +1777,33 @@ image-index in array *images*."
          (setf (@ *streetmap* osm-layer)
                (new (chain *open-layers
                            *layer
-                           (*osm* "OpenStreetMap"
-                                  nil (create num-zoom-levels 23
-                                              attribution "Data CC-By-SA by openstreetmap.org")))))
+                           (*osm*
+                            "OpenStreetMap"
+                            nil
+                            (create num-zoom-levels 23
+                                    attribution
+                                    "Data CC-By-SA by openstreetmap.org")))))
          (setf (@ *streetmap* overview-osm-layer)
                (new (chain *open-layers
                            *layer
                            (*osm* "OpenStreetMap"))))
          (setf (@ *streetmap* click-streetmap)
                (new (*click-control* (create :trigger request-photos))))
+         (setf (@ *streetmap* nirvana-layer)
+               (new (chain
+                     *open-layers
+                     (*layer
+                      "Nirvana"
+                      (create is-base-layer t
+                              projection (@ *streetmap* osm-layer projection)
+                              max-extent (@ *streetmap* osm-layer max-extent)
+                              max-resolution (@ *streetmap*
+                                                osm-layer
+                                                max-resolution)
+                              units (@ *streetmap* osm-layer units)
+                              num-zoom-levels (@ *streetmap*
+                                                 osm-layer
+                                                 num-zoom-levels))))))
          (chain *streetmap*
                 (add-control
                  (new (chain *open-layers
@@ -1901,7 +1922,6 @@ image-index in array *images*."
            (chain *streetmap* user-points-select-control (activate))
            (chain *streetmap* nearest-aux-points-hover-control (activate))
            (chain *streetmap* nearest-aux-points-select-control (activate))
-           
            (chain *streetmap* (add-layer (@ *streetmap* osm-layer)))
            (try (chain *streetmap*
                        (add-layer (@ *streetmap* google-streetmap-layer)))
@@ -1909,6 +1929,7 @@ image-index in array *images*."
                   (chain *streetmap*
                          (remove-layer (@ *streetmap*
                                           google-streetmap-layer)))))
+           (chain *streetmap* (add-layer (@ *streetmap* nirvana-layer)))
            (chain *streetmap*
                   (add-layer (@ *streetmap* nearest-aux-points-layer)))
            (chain *streetmap* (add-layer (@ *streetmap* survey-layer)))
