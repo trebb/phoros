@@ -34,6 +34,7 @@ INDEX_HTML = public_html/index.html
 PHOROS_HELP_HTML = public_html/phoros--help.html
 PUBLIC_CSS = public_html/style.css
 PHOROS_VERSION = $(shell ./phoros --version)
+MACHINE_TYPE = $(shell uname -m)
 PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
 
@@ -134,7 +135,7 @@ tarball : phoros TimeSteps.history README trigger-example.sql \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML) \
 		| gzip -f \
-		> phoros_$(PHOROS_VERSION)-bin.tar.gz
+		> phoros_$(PHOROS_VERSION)_$(MACHINE_TYPE).tar.gz
 
 html : $(INDEX_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
 
