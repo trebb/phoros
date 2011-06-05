@@ -429,7 +429,7 @@ according to the --verbose option given."
            (show-option-help options-specification)))
     (format
      *standard-output*
-     "~&Usage: phoros [options] ...~&~A~2&"
+     "~&Usage: phoros option[=value] ...~&~A~2&"
      (handler-bind ((warning #'ignore-warnings))
        (asdf:system-long-description (asdf:find-system :phoros))))
     (show-help-section
@@ -441,7 +441,8 @@ according to the --verbose option given."
      "General Options")
     (show-help-section
      *cli-db-connection-options*
-     "Database Connection (necessary for most operations)")
+     "Database Connection"
+     "Necessary for most operations.")
     (show-help-section
      *cli-aux-db-connection-options*
      "Auxiliary Database Connection"
@@ -454,7 +455,8 @@ according to the --verbose option given."
      "Useful mostly for debugging purposes.")
     (show-help-section
      *cli-camera-hardware-options*
-     "Camera Hardware Parameters (not including information on lens or
+     "Camera Hardware Parameters"
+     "These do not include information on lenses or
      mounting)")
     (show-help-section
      *cli-lens-options*
@@ -519,16 +521,22 @@ according to the --verbose option given."
      (format nil
              "Arbitrary data from tables not directly belonging to any
      Phoros project can be connected to a presentation project by
-     means of a view which must be named ~(~A~) and which must contain
-     columns called coordinates (geometry), aux-numeric (null or array
-     of numeric), and aux-text (null or array of text).  The array
-     elements of both aux-numeric and aux-text of auxiliary points can
-     then be incorporated into neighbouring user points during user
-     point creation."
+     means of a view named ~(~A~) with
+     columns coordinates (geometry), aux-numeric (null or array
+     of numeric), and aux-text (null or array of text)."
              (aux-point-view-name '<presentation-project-name>))
-     "In simple cases (auxiliary data from a single table which has a
-     geometry column and some numeric and/or text columns), the
-     following options can be used to create such view.")
+     "The array elements of both aux-numeric and aux-text of auxiliary
+     points can then be incorporated into neighbouring user points
+     during user point creation."
+     (format nil
+             "Also, a walk mode along auxiliary points becomes
+     available to the HTTP client.  PL/pgSQL function ~(~A~) is
+     created to this end."
+             (thread-aux-points-function-name '<presentation-project-name>))
+     "In order to be accessible by Phoros, auxiliary data must be
+     structured rather simple (a single table which has a geometry
+     column and some numeric and/or text columns).  You may want to
+     create a simplifying view if your data looks more complicated.")
     (show-help-section
      *cli-user-points-options*
      "Manage User Points"
