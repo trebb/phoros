@@ -189,7 +189,8 @@
           :walk-mode
           (who-ps-html
            (:p "Check this to snap your current position onto a line
-           along points of auxiliary data."))
+           along points of auxiliary data, and to keep streetmap
+           centered around current position."))
           :decrease-step-size
           (who-ps-html
            (:p "Decrease step size.  Double-click to decrease harder."))
@@ -218,7 +219,8 @@
            (:p "Toggle visibility of data layers."))
           :streetmap-overview
           (who-ps-html
-           (:p "Click to re-center streetmap, or drag the red rectangle."))
+           (:p "Click to re-center streetmap, or drag the red
+           rectangle."))
           :streetmap-mouse-position
           (who-ps-html
            (:p "Cursor position in geographic coordinates when cursor
@@ -412,7 +414,7 @@ an image url."
          "Destroy in all *images* and in *streetmap* the layer named layer-name."
          (loop
             for i across *images* do
-              (remove-layer (getprop i 'map) layer-name))
+            (remove-layer (getprop i 'map) layer-name))
          (remove-layer *streetmap* layer-name))
 
        (defun reset-controls ()
@@ -497,8 +499,8 @@ shadow any other control."
               for p across photo-parameters
               for i across *images*
               do
-                (setf (getprop i 'photo-parameters) p)
-                ((getprop i 'show-photo)))
+              (setf (getprop i 'photo-parameters) p)
+              ((getprop i 'show-photo)))
            ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
            ))
 
@@ -797,32 +799,32 @@ to Estimated Position."
               for i in *images*
               for p in estimated-positions
               do
-                (when p  ;otherwise a photogrammetry error has occured
-                  (setf (@ i estimated-position-layer)
+              (when p    ;otherwise a photogrammetry error has occured
+                (setf (@ i estimated-position-layer)
+                      (new
+                       (chain *open-layers
+                              *layer
+                              (*vector
+                               "Estimated Position"
+                               (create display-in-layer-switcher nil)))))
+                (setf (@ i estimated-position-lonlat)
+                      (new (chain *open-layers (*lon-lat
+                                                (getprop p 'm)
+                                                (getprop p 'n)))))
+                (setf (@ i estimated-position-layer style)
+                      estimated-position-style)
+                (let* ((point
                         (new
-                         (chain *open-layers
-                                *layer
-                                (*vector
-                                 "Estimated Position"
-                                 (create display-in-layer-switcher nil)))))
-                  (setf (@ i estimated-position-lonlat)
-                        (new (chain *open-layers (*lon-lat
-                                                  (getprop p 'm)
-                                                  (getprop p 'n)))))
-                  (setf (@ i estimated-position-layer style)
-                        estimated-position-style)
-                  (let* ((point
-                          (new
-                           (chain *open-layers *geometry (*point
-                                                          (getprop p 'm)
-                                                          (getprop p 'n)))))
-                         (feature
-                          (new
-                           (chain *open-layers *feature (*vector point)))))
-                    (chain i map
-                           (add-layer (@ i estimated-position-layer)))
-                    (chain i estimated-position-layer
-                           (add-features feature))))))
+                         (chain *open-layers *geometry (*point
+                                                        (getprop p 'm)
+                                                        (getprop p 'n)))))
+                       (feature
+                        (new
+                         (chain *open-layers *feature (*vector point)))))
+                  (chain i map
+                         (add-layer (@ i estimated-position-layer)))
+                  (chain i estimated-position-layer
+                         (add-features feature))))))
          (zoom-anything-to-point)
          (chain document
                 (get-element-by-id "finish-point-button")
@@ -848,34 +850,34 @@ to Estimated Position."
            (loop
               for i in features
               for n from 0 do
-                (let* ((point
-                        (chain
-                         (new
-                          (chain *open-layers
-                                 *geometry
-                                 (*point (@ i geometry coordinates 0)
-                                         (@ i geometry coordinates 1))))
-                         (transform +geographic+ +spherical-mercator+)))
-                       (feature
-                        (new
-                         (chain *open-layers *feature (*vector point)))))
-                  (setf (@ feature attributes)
-                        (@ i properties))
-                  (setf (@ feature fid) ;this is supposed to correspond to
-                        n)     ; option of *aux-point-distance-select*
-                  (chain *streetmap*
-                         nearest-aux-points-layer
-                         (add-features feature))
-                  (setf aux-point-distance-item
-                        (chain document (create-element "option")))
-                  (setf (@ aux-point-distance-item text)
-                        (+
-                         "("
-                         n ;let's hope add-features alway stores features in order of arrival
-                         ") "
-                         (@ i properties distance)))
-                  (chain *aux-point-distance-select*
-                         (add aux-point-distance-item null))))
+              (let* ((point
+                      (chain
+                       (new
+                        (chain *open-layers
+                               *geometry
+                               (*point (@ i geometry coordinates 0)
+                                       (@ i geometry coordinates 1))))
+                       (transform +geographic+ +spherical-mercator+)))
+                     (feature
+                      (new
+                       (chain *open-layers *feature (*vector point)))))
+                (setf (@ feature attributes)
+                      (@ i properties))
+                (setf (@ feature fid) ;this is supposed to correspond to
+                      n)       ; option of *aux-point-distance-select*
+                (chain *streetmap*
+                       nearest-aux-points-layer
+                       (add-features feature))
+                (setf aux-point-distance-item
+                      (chain document (create-element "option")))
+                (setf (@ aux-point-distance-item text)
+                      (+
+                       "("
+                       n ;let's hope add-features alway stores features in order of arrival
+                       ") "
+                       (@ i properties distance)))
+                (chain *aux-point-distance-select*
+                       (add aux-point-distance-item null))))
            (chain *streetmap*
                   nearest-aux-points-select-control
                   (select 
@@ -886,7 +888,7 @@ to Estimated Position."
 
        (defun draw-aux-data-linestring ()
          "Draw a piece of linestring along a few auxiliary points into
-          streetmap."
+          streetmap.  Pan streetmap accordingly."
          (let* ((data
                  (@ *streetmap*
                     aux-data-linestring-request-response
@@ -908,12 +910,14 @@ to Estimated Position."
                 (previous-point
                  (chain *wkt-parser* (read previous-point-wkt)))
                 (next-point
-                 (chain *wkt-parser* (read next-point-wkt))))
+                 (chain *wkt-parser* (read next-point-wkt)))
+                (current-point-lonlat
+                 (new (chain *open-layers
+                             (*lon-lat (@ current-point geometry x)
+                                       (@ current-point geometry y))))))
+           (chain *streetmap* (pan-to current-point-lonlat))
            (setf (@ *streetmap* linestring-central-azimuth) azimuth)
-           (request-photos-for-point
-            (new (chain *open-layers
-                        (*lon-lat (@ current-point geometry x)
-                                  (@ current-point geometry y)))))
+           (request-photos-for-point current-point-lonlat)
            (setf (@ *streetmap* step-back-point) previous-point)
            (setf (@ *streetmap* step-forward-point) next-point)
            (chain *streetmap* aux-data-linestring-layer (remove-all-features))
@@ -1082,42 +1086,42 @@ equator."
               for i in *images*
               for user-point-collection in user-point-collections
               do
-                (when i  ;otherwise a photogrammetry error has occured
-                  (let ((features
-                         (loop
-                            for raw-feature in
-                            (@ user-point-collection features)
-                            collect
-                            (let* ((x
-                                    (@ raw-feature geometry coordinates 0))
-                                   (y
-                                    (@ raw-feature geometry coordinates 1))
-                                   (point
-                                    (new (chain *open-layers
-                                                *geometry
-                                                (*point x y))))
-                                   (fid
-                                    (@ raw-feature id))
-                                   (attributes
-                                    (@ raw-feature properties))
-                                   (feature
-                                    (new (chain *open-layers
-                                                *feature
-                                                (*vector point attributes)))))
-                              (setf (@ feature fid) fid)
-                              (setf (@ feature render-intent) "select")
-                              feature))))
-                    (setf
-                     (@ i user-point-layer)
-                     (new (chain *open-layers
-                                 *layer
-                                 (*vector
-                                  "User Point"
-                                  (create display-in-layer-switcher nil
-                                          style-map (user-point-style-map
-                                                     label))))))
-                    (chain i map (add-layer (@ i user-point-layer)))
-                    (chain i user-point-layer (add-features features)))))))
+              (when i    ;otherwise a photogrammetry error has occured
+                (let ((features
+                       (loop
+                          for raw-feature in
+                          (@ user-point-collection features)
+                          collect
+                          (let* ((x
+                                  (@ raw-feature geometry coordinates 0))
+                                 (y
+                                  (@ raw-feature geometry coordinates 1))
+                                 (point
+                                  (new (chain *open-layers
+                                              *geometry
+                                              (*point x y))))
+                                 (fid
+                                  (@ raw-feature id))
+                                 (attributes
+                                  (@ raw-feature properties))
+                                 (feature
+                                  (new (chain *open-layers
+                                              *feature
+                                              (*vector point attributes)))))
+                            (setf (@ feature fid) fid)
+                            (setf (@ feature render-intent) "select")
+                            feature))))
+                  (setf
+                   (@ i user-point-layer)
+                   (new (chain *open-layers
+                               *layer
+                               (*vector
+                                "User Point"
+                                (create display-in-layer-switcher nil
+                                        style-map (user-point-style-map
+                                                   label))))))
+                  (chain i map (add-layer (@ i user-point-layer)))
+                  (chain i user-point-layer (add-features features)))))))
 
        (defun finish-point ()
          "Send current *global-position* as a user point to the database."
@@ -1156,9 +1160,9 @@ equator."
          (let* ((parts (chain (regex "(\\D*)(\\d*)(.*)") (exec text)))
                 (old-number (elt parts 2))
                 (new-number (1+ (parse-int old-number 10)))))
-           (if (is-finite new-number)
-               (+ (elt parts 1) new-number (elt parts 3))
-               text))
+         (if (is-finite new-number)
+             (+ (elt parts 1) new-number (elt parts 3))
+             text))
 
        (defun update-point ()
          "Send changes to currently selected user point to database."
@@ -1245,28 +1249,28 @@ equator."
                 (remove-any-layers "User Point") ;from images
                 (loop
                    for i across *images* do
-                     (unless (equal i clicked-image)
-                       (setf
-                        (@ i epipolar-layer)
-                        (new (chain *open-layers
-                                    *layer
-                                    (*vector "Epipolar Line"
-                                             (create
-                                              display-in-layer-switcher nil))))
-                        content (chain *json-parser*
-                                       (write
-                                        (append (array photo-parameters)
-                                                (@ i photo-parameters))))
-                        (@ i epipolar-request-response)
-                        ((@ *open-layers *Request *POST*)
-                         (create :url "/phoros/lib/epipolar-line"
-                                 :data content
-                                 :headers (create "Content-type" "text/plain"
-                                                  "Content-length"
-                                                  (@ content length))
-                                 :success (getprop i 'draw-epipolar-line)
-                                 :scope i)))
-                       ((@ i map add-layer) (@ i epipolar-layer)))))
+                   (unless (equal i clicked-image)
+                     (setf
+                      (@ i epipolar-layer)
+                      (new (chain *open-layers
+                                  *layer
+                                  (*vector "Epipolar Line"
+                                           (create
+                                            display-in-layer-switcher nil))))
+                      content (chain *json-parser*
+                                     (write
+                                      (append (array photo-parameters)
+                                              (@ i photo-parameters))))
+                      (@ i epipolar-request-response)
+                      ((@ *open-layers *Request *POST*)
+                       (create :url "/phoros/lib/epipolar-line"
+                               :data content
+                               :headers (create "Content-type" "text/plain"
+                                                "Content-length"
+                                                (@ content length))
+                               :success (getprop i 'draw-epipolar-line)
+                               :scope i)))
+                     ((@ i map add-layer) (@ i epipolar-layer)))))
               (progn
                 (remove-any-layers "Epipolar Line")
                 (remove-any-layers "Estimated Position")
@@ -1553,10 +1557,14 @@ image-index in array *images*."
 
        (defun flip-walk-mode ()
          "Query status of checkbox walk-p and induce first walking
-          step if it's just been turned on."
-         (when (checkbox-status-with-id "walk-p")
-           (request-aux-data-linestring-for-point (@ *streetmap*
-                                                     clicked-lonlat))))
+          step if it's just been turned on.  Otherwise delete our
+          walking path."
+         (if (checkbox-status-with-id "walk-p")
+             (request-aux-data-linestring-for-point (@ *streetmap*
+                                                       clicked-lonlat))
+             (chain *streetmap*
+                    aux-data-linestring-layer
+                    (remove-all-features))))
 
        (defun flip-aux-data-inclusion ()
          "Query status of checkbox include-aux-data-p and act
@@ -1761,14 +1769,14 @@ image-index in array *images*."
                            (*select-feature
                             (@ *streetmap* nearest-aux-points-layer)))))
          (setf (@ *streetmap* aux-data-linestring-layer)
-                 (new (chain *open-layers
-                             *layer
-                             (*vector
-                              "Aux Data Linestring"
-                              (create
-                               display-in-layer-switcher nil
-                               style-map nearest-aux-point-layer-style-map
-                               visibility t)))))
+               (new (chain *open-layers
+                           *layer
+                           (*vector
+                            "Aux Data Linestring"
+                            (create
+                             display-in-layer-switcher nil
+                             style-map nearest-aux-point-layer-style-map
+                             visibility t)))))
          (setf (@ *streetmap* google-streetmap-layer) 
                (new (chain *open-layers
                            *layer
