@@ -34,6 +34,7 @@ INDEX_HTML = public_html/index.html
 PHOROS_HELP_HTML = public_html/phoros--help.html
 PUBLIC_CSS = public_html/style.css
 PHOROS_VERSION = $(shell ./phoros --version)
+LATEST_TAG = $(shell git tag | tail -n 1)
 MACHINE_TYPE = $(shell uname -m)
 PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
@@ -107,11 +108,12 @@ $(FAVICON) : favicon.png
 favicon.png : $(LOGO)
 	convert $< -resize 16x16 $@
 
-.INTERMEDIATE : favicon.png $(PHOROS_HELP_OUTPUT)
-
+.INTERMEDIATE : favicon.png
 
 $(PHOROS_HELP_OUTPUT) : phoros
 	./phoros --help > $@
+
+.INTERMEDIATE : $(PHOROS_HELP_OUTPUT)
 
 $(INDEX_HTML) : doc/index.org $(LOGO)
 	emacs --batch --visit=$< --funcall org-export-as-html-batch \
@@ -124,7 +126,16 @@ $(PHOROS_HELP_HTML) : doc/phoros--help.org $(PHOROS_HELP_OUTPUT) $(LOGO)
 $(PUBLIC_CSS) : doc/style.css public_html
 	cp $< $@
 
-tarball : phoros TimeSteps.history README trigger-example.sql \
+phoros-proper.tar :
+	git archive --prefix=phoros_$(LATEST_TAG)/ --output=$@ $(LATEST_TAG)
+
+phoml.tar :
+	cd phoml \
+	&& git archive --prefix=phoros_$(LATEST_TAG)/phoml/ --output=../$@ HEAD
+
+.INTERMEDIATE : phoros-proper.tar phoml.tar
+
+bin-tarball : phoros TimeSteps.history README trigger-example.sql \
           $(SERVER_CSS) $(OPENLAYERS_DIR) \
           $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
 	  $(LIBPHOML_DIR)/$(LIBPHOML)
@@ -137,6 +148,10 @@ tarball : phoros TimeSteps.history README trigger-example.sql \
 		| gzip -f \
 		> phoros_$(PHOROS_VERSION)_$(MACHINE_TYPE).tar.gz
 
+src-tarball : phoros-proper.tar phoml.tar
+	tar --concatenate -f phoros_$(LATEST_TAG).tar $^ \
+	&& gzip -f phoros_$(LATEST_TAG).tar
+
 html : $(INDEX_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
 
 git-tag : phoros	    #tag name is :version string in phoros.asd
@@ -148,4 +163,4 @@ clean :
 		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
 
-.PHONY : tarball html git-tag clean
+.PHONY : bin-tarball src-tarball html git-tag clean

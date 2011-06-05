@@ -6,6 +6,7 @@
 *.json
 phoros
 *.tar.gz
+*.tar
 *.html
 debug-build.lisp
 phoros-help.txt
