@@ -314,12 +314,12 @@
      :documentation "Name of a text column in the auxiliary data table.  Repeat if necessary.")))
 
 (defparameter *cli-user-points-options*
-  '(("store-user-points"
-     :type string :action #'store-user-points-action
-     :documentation "(*) Store user points previously saved (using --get-user-points or download button in Web interface) into the presentation project named by the string argument.")
-    ("get-user-points"
+  '(("get-user-points"
      :type string :action #'get-user-points-action
      :documentation "(*) Save user points of presentation project.")
+    ("store-user-points"
+     :type string :action #'store-user-points-action
+     :documentation "(*) Store user points previously saved (using --get-user-points or download button in Web interface) into the presentation project named by the string argument.")
     ("json-file"
      :type string
      :documentation "Path to GeoJSON file.")))
@@ -1073,35 +1073,35 @@ a view."
 
 (defun store-user-points-action (presentation-project)
   "Store user points from a GeoJSON file into database."
-    (with-cli-options (host port database (user "") (password "") use-ssl
-                            log-dir
-                            json-file)
-      (launch-logger log-dir)
-      (with-connection (list database user password host :port port
-                             :use-ssl (s-sql:from-sql-name use-ssl))
-        (multiple-value-bind
-              (points-stored points-already-in-db points-tried)
-            (store-user-points presentation-project json-file)
-          (cl-log:log-message
-           :db-dat
-           "Tried to store the ~D user points I found in file ~A ~
+  (with-cli-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          json-file)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (multiple-value-bind
+            (points-stored points-already-in-db points-tried)
+          (store-user-points presentation-project json-file)
+        (cl-log:log-message
+         :db-dat
+         "Tried to store the ~D user point~:P I found in file ~A ~
             into presentation project ~A in database ~A at ~A:~D.  ~
             ~:[~:[~D~;None~*~]~;All~2*~] of them ~:[were~;was~] ~
             already present.  ~
             ~:[~:[~:[~D points have~;1 point has~*~]~;Nothing has~2*~]~
                ~;All points tried have~3*~] ~
             been added to the user point table."
-           points-tried
-           json-file
-           presentation-project database host port
-           (= points-already-in-db points-tried)
-           (zerop points-already-in-db)
-           points-already-in-db
-           (<= points-already-in-db 1)
-           (= points-stored points-tried)
-           (zerop points-stored)
-           (= 1 points-stored)
-           points-stored)))))
+         points-tried
+         (truename json-file)
+         presentation-project database host port
+         (= points-already-in-db points-tried)
+         (zerop points-already-in-db)
+         points-already-in-db
+         (<= points-already-in-db 1)
+         (= points-stored points-tried)
+         (zerop points-stored)
+         (= 1 points-stored)
+         points-stored)))))
 
 (defun get-user-points-action (presentation-project)
   "Save user points of presentation project into a GeoJSON file."
@@ -1111,11 +1111,19 @@ a view."
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
-      (with-open-file (stream json-file
-                              :direction :output
-                              :if-exists :supersede)
-        (princ (get-user-points (user-point-table-name presentation-project))
-               stream)))))
+      (multiple-value-bind (user-points user-point-count)
+          (get-user-points (user-point-table-name presentation-project))
+        (with-open-file (stream json-file
+                                :direction :output
+                                :if-exists :supersede)
+          (princ user-points stream))
+        (cl-log:log-message
+         :db-dat
+         "Saved ~D user point~:P from presentation project ~A in ~
+          database ~A at ~A:~D into file ~A."
+         user-point-count
+         presentation-project database host port
+         (truename json-file))))))
     
 (defun create-user-action (presentation-project-user)
   "Define a new user."

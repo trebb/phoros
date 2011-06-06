@@ -708,34 +708,36 @@ respectively)."
                         (bounding-box "-180,-90,180,90")
                         (limit :null)
                         (order-criterion 'id))
-  "Get limit points from user-point-table-name in GeoJSON format."
-  (encode-geojson-to-string
-   (nsubst
-    nil :null
-    (query
-     (s-sql:sql-compile
-      `(:limit
-        (:order-by
-         (:select
-          (:as (:st_x 'coordinates) 'x)
-          (:as (:st_y 'coordinates) 'y)
-          (:as (:st_z 'coordinates) 'z)
-          (:as 'user-point-id 'id)      ;becomes fid in OpenLayers
-          'stdx-global 'stdy-global 'stdz-global
-          'input-size
-          'attribute 'description 'numeric-description
-          'user-name
-          (:as (:to-char 'creation-date
-                         ,*user-point-creation-date-format*)
-               'creation-date)
-          'aux-numeric 'aux-text
-          :from ,user-point-table-name :natural :left-join 'sys-user
-          :where (:&& 'coordinates
-                      (:st_setsrid  (:type ,(box3d bounding-box) box3d)
-                                    ,*standard-coordinates*)))
-         ,order-criterion)
-        ,limit))
-     :plists))))
+  "Return limit points from user-point-table-name in GeoJSON format,
+and the number of points returned."
+  (let ((user-point-plist
+         (query
+          (s-sql:sql-compile
+           `(:limit
+             (:order-by
+              (:select
+               (:as (:st_x 'coordinates) 'x)
+               (:as (:st_y 'coordinates) 'y)
+               (:as (:st_z 'coordinates) 'z)
+               (:as 'user-point-id 'id) ;becomes fid in OpenLayers
+               'stdx-global 'stdy-global 'stdz-global
+               'input-size
+               'attribute 'description 'numeric-description
+               'user-name
+               (:as (:to-char 'creation-date
+                              ,*user-point-creation-date-format*)
+                    'creation-date)
+               'aux-numeric 'aux-text
+               :from ,user-point-table-name :natural :left-join 'sys-user
+               :where (:&& 'coordinates
+                           (:st_setsrid  (:type ,(box3d bounding-box) box3d)
+                                         ,*standard-coordinates*)))
+              ,order-criterion)
+             ,limit))
+          :plists)))
+    (values
+     (encode-geojson-to-string (nsubst nil :null user-point-plist))
+     (length user-point-plist))))
 
 (define-easy-handler (user-points :uri "/phoros/lib/user-points.json") (bbox)
   "Send *number-of-features-per-layer* randomly chosen GeoJSON-encoded
@@ -751,10 +753,10 @@ send all points."
                (user-point-table-name (session-value
                                        'presentation-project-name))))
           (with-connection *postgresql-credentials*
-            (get-user-points user-point-table-name
-                             :bounding-box bounding-box
-                             :limit limit
-                             :order-criterion order-criterion)))
+            (nth-value 0 (get-user-points user-point-table-name
+                                          :bounding-box bounding-box
+                                          :limit limit
+                                          :order-criterion order-criterion))))
       (condition (c)
         (cl-log:log-message
          :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
