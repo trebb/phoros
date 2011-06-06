@@ -31,6 +31,9 @@
 (defparameter *standard-coordinates* 4326
   "EPSG code of the coordinate system that we use for communication.")
 
+(defparameter *spherical-mercator* 900913
+  "EPSG code of the coordinate system used for some distance calculations.")
+
 (defvar *postgresql-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
 
@@ -605,15 +608,19 @@ coordinates received, wrapped in an array."
                   aux-text
                   (:as
                    (:st_distance
-                    'coordinates
-                    (:st_geomfromtext ,point-form ,*standard-coordinates*))
+                    (:st_transform
+                     'coordinates
+                     ,*spherical-mercator*)
+                    (:st_transform
+                     (:st_geomfromtext ,point-form ,*standard-coordinates*)
+                     ,*spherical-mercator*))
                    distance)                       
                   :from ',aux-view-name
                   :where (:&& 'coordinates
                               (:st_setsrid (:type
                                             ,(box3d bounding-box) box3d)
                                            ,*standard-coordinates*)))
-                 'distance)             ;TODO: convert into metres
+                 'distance)
                 ,count))
              :plists))))))))
 
@@ -980,17 +987,21 @@ table."
                             (:b "finish"))
                    (:div :id "aux-point-distance-or-point-creation-date"
                          (:code :id "point-creation-date")
-                         (:input :id "include-aux-data-p"
-                                 :type "checkbox" :checked t
-                                 :name "include-aux-data-p"
-                                 :onchange (ps-inline
-                                            (flip-aux-data-inclusion)))
                          (:select :id "aux-point-distance" :disabled t
                                   :size 1 :name "aux-point-distance"
                                   :onchange (ps-inline
                                              (aux-point-distance-selected))
                                   :onclick (ps-inline
-                                            (enable-aux-point-selection))))
+                                            (enable-aux-point-selection)))
+                         (:div :id "include-aux-data"
+                               (:label
+                                (:input :id "include-aux-data-p"
+                                        :class "tight-input"
+                                        :type "checkbox" :checked t
+                                        :name "include-aux-data-p"
+                                        :onchange (ps-inline
+                                                   (flip-aux-data-inclusion)))
+                                "aux data")))
                    (:div :id "aux-data"
                          (:div :id "aux-numeric-list")
                          (:div :id "aux-text-list")))
@@ -1000,11 +1011,13 @@ table."
                    (:p "Unselect all but one to edit or view its properties."))
              (:div :class "walk-mode-controls"
                    (:div :id "walk-mode"
-                         (:input :id "walk-p" :class "tight-input"
-                                 :type "checkbox" :checked nil
-                                 :onchange (ps-inline
-                                            (flip-walk-mode))
-                                 "snap+walk"))
+                         (:label
+                          (:input :id "walk-p"
+                                  :class "tight-input"
+                                  :type "checkbox" :checked nil
+                                  :onchange (ps-inline
+                                             (flip-walk-mode)))
+                          "snap+walk"))
                    (:div :id "decrease-step-size"
                          :onclick (ps-inline (decrease-step-size)))
                    (:div :id "step-size"
@@ -1020,9 +1033,11 @@ table."
                          "step"))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
-                         (:input :id "zoom-to-point-p" :class "tight-input"
-                                 :type "checkbox" :checked t
-                                 "auto zoom"))
+                         (:label
+                          (:input :id "zoom-to-point-p"
+                                  :class "tight-input"
+                                  :type "checkbox" :checked t)
+                          "auto zoom"))
                    (:div :id "zoom-images-to-max-extent"
                          :onclick (ps-inline (zoom-images-to-max-extent)))
                    (:div :id "remove-work-layers-button" :disabled t

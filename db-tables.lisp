@@ -33,15 +33,41 @@
     (dolist (view views)
       (execute (format nil "DROP VIEW IF EXISTS ~A CASCADE" (s-sql:to-sql-name view))))))
  
+;;; Used only to add Spherical Mercator in case it's missing
+(defclass spatial-ref-sys ()
+  ((srid
+    :col-type integer
+    :initarg :srid)
+   (auth-name
+    :col-type (or db-null (varchar 256))
+    :initarg :auth-name)
+   (auth-srid
+    :col-type (or db-null integer)
+    :initarg :auth-srid)
+   (srtext
+    :col-type (or db-null (varchar 2048))
+    :initarg :srtext)
+   (proj4text
+    :col-type (or db-null (varchar 2048))
+    :initarg :proj4text))
+  (:metaclass dao-class)
+  (:keys srid)
+  (:documentation "PostGIS system table as defined in http://postgis.refractions.net/documentation/manual-1.3/ch04.html#id2571306"))
+
 ;;TODO: make a spatial-ref-sys table
-;;
-;;CREATE TABLE spatial_ref_sys ( 
-;;  srid       INTEGER NOT NULL PRIMARY KEY, 
-;;  auth_name  VARCHAR(256), 
-;;  auth_srid  INTEGER, 
-;;  srtext     VARCHAR(2048), 
-;;  proj4text  VARCHAR(2048) 
-;;)
+
+(defun add-spherical-mercator-ref ()
+  "Tell PostGIS about Spherical Mercator if necessary."
+  (let ((spherical-mercator
+         (make-instance
+          'spatial-ref-sys
+          :srid 900913
+          :auth-name "spatialreferencing.org"
+          :auth-srid 900913
+          :srtext "PROJCS[\"Popular Visualisation CRS / Mercator (deprecated)\",GEOGCS[\"Popular Visualisation CRS\",DATUM[\"Popular_Visualisation_Datum\",SPHEROID[\"Popular Visualisation Sphere\",6378137,0,AUTHORITY[\"EPSG\",\"7059\"]],TOWGS84[0,0,0,0,0,0,0],AUTHORITY[\"EPSG\",\"6055\"]],PRIMEM[\"Greenwich\",0,AUTHORITY[\"EPSG\",\"8901\"]],UNIT[\"degree\",0.01745329251994328,AUTHORITY[\"EPSG\",\"9122\"]],AUTHORITY[\"EPSG\",\"4055\"]],UNIT[\"metre\",1,AUTHORITY[\"EPSG\",\"9001\"]],PROJECTION[\"Mercator_1SP\"],PARAMETER[\"central_meridian\",0],PARAMETER[\"scale_factor\",1],PARAMETER[\"false_easting\",0],PARAMETER[\"false_northing\",0],AUTHORITY[\"EPSG\",\"3785\"],AXIS[\"X\",EAST],AXIS[\"Y\",NORTH]]"
+          :proj4text "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0 +units=m +k=1.0 +nadgrids=@null +no_defs")))
+    (unless (dao-exists-p spherical-mercator)
+      (insert-dao spherical-mercator))))
 
 ;;TODO: make a geometry-columns table
 ;;
@@ -1034,10 +1060,12 @@ presentation-project-name."
 (defun delete-aux-view (presentation-project-name)
   "Delete the view into auxiliary point table that belongs to
 presentation-project-name."
-  (execute (:drop-view (aux-point-view-name presentation-project-name)))
+  (execute (format nil "DROP VIEW ~A CASCADE;"
+                   (s-sql:to-sql-name (aux-point-view-name
+                                       presentation-project-name))))
   (execute
-   (format nil
-           "DROP FUNCTION IF EXISTS ~A(GEOMETRY, DOUBLE PRECISION, INT, DOUBLE PRECISION);"
+   (format nil "DROP FUNCTION IF EXISTS ~
+                ~A(GEOMETRY, DOUBLE PRECISION, INT, DOUBLE PRECISION);"
            (s-sql:to-sql-name (thread-aux-points-function-name
                                presentation-project-name)))))
 

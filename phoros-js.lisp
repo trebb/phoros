@@ -104,16 +104,15 @@
           (who-ps-html
            (:p "Creation date of current user point.  Will be updated
            when you change this point."))
-          :include-aux-data-p
+          :include-aux-data
           (who-ps-html
            (:p "Check this if the user point being created is to
            include auxiliary data."))
           :aux-point-distance
           (who-ps-html
            (:p "Select a set of auxiliary data, either by its distance
-           from the current estimated position, or by clicking its
-           representation in streetmap.")
-           (:p "TODO:  This is not a decent length unit."))
+           (in metres) from the current estimated position, or by
+           clicking its representation in streetmap."))
           :aux-data
           (who-ps-html
            (:p "Auxiliary data connected to this presentation project;
@@ -477,7 +476,7 @@ shadow any other control."
        (defun hide-aux-data-choice ()
          "Disable selector for auxiliary data."
          ;;(disable-element-with-id "include-aux-data-p")
-         (hide-element-with-id "include-aux-data-p")
+         (hide-element-with-id "include-aux-data")
          (hide-element-with-id "aux-point-distance")
          (setf (chain document
                       (get-element-by-id "aux-point-distance")
@@ -832,7 +831,7 @@ to Estimated Position."
 
        (defun draw-nearest-aux-points ()
          "Draw a few auxiliary points into streetmap."
-         (reveal-element-with-id "include-aux-data-p")
+         (reveal-element-with-id "include-aux-data")
          (reveal-element-with-id "aux-point-distance")
          (let ((features
                 (chain *json-parser*
@@ -875,7 +874,9 @@ to Estimated Position."
                        "("
                        n ;let's hope add-features alway stores features in order of arrival
                        ") "
-                       (@ i properties distance)))
+                       (/ (chain *math (round (* (@ i properties distance)
+                                                 1000)))
+                          1000)))
                 (chain *aux-point-distance-select*
                        (add aux-point-distance-item null))))
            (chain *streetmap*

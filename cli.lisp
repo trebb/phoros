@@ -1056,6 +1056,7 @@ a view."
            :coordinates-column (s-sql:to-sql-name coordinates-column)
            :numeric-columns numeric-column
            :text-columns text-column)
+          (add-spherical-mercator-ref)
           (cl-log:log-message
            :db-dat
            "~:[Created~;Updated~] in database ~A at ~A:~D a view called ~A ~
