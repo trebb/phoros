@@ -285,8 +285,6 @@ wrapped in an array."
                                                  ,point-form
                                                  ,*standard-coordinates*))
                                   'distance)
-                             'date      ;TODO: debug only
-                             'measurement-id 'recorded-device-id 'device-stage-of-life-id ;TODO: debug only
                              'directory
                              'filename 'byte-position 'point-id
                              'trigger-time

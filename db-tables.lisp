@@ -25,7 +25,7 @@
         (views (list-views))
           (system-tables '(:spatial-ref-sys :geometry-columns)))
     (dolist (system-table system-tables)
-      (setf user-tables (remove system-table user-tables))) ; TODO: do we need to spare those?
+      (setf user-tables (remove system-table user-tables)))
     (dolist (user-table user-tables)
       (execute (format nil "DROP TABLE IF EXISTS ~A CASCADE" (s-sql:to-sql-name user-table))))
     (dolist (sequence sequences)
@@ -155,7 +155,7 @@
    (user-role
     :initarg :user-role
     :col-type text
-    :documentation "Some well-defined string, e.g. read-only, r/w, etc.  TODO: define some."))
+    :documentation "One of read, write, admin."))
   (:metaclass dao-class)
   (:keys user-id presentation-project-id))
 
@@ -529,7 +529,7 @@ connected to match."
            Phoros, or use Phoros version ~2:*~D.x.x."
           (phoros-db-major-version) (phoros-version :major t)))
 
-(defun create-sys-tables ()      ;TODO name should better reflect task
+(defun create-sys-tables ()
   "Create in current database a set of sys-* tables, i.e. tables that
 are used by all projects.  The database should probably be empty."
   (setf (phoros-db-major-version) (phoros-version :major t))
@@ -611,13 +611,13 @@ $$ LANGUAGE plpgsql;"
     :col-type double-precision)
    (longitude
     :reader longitude
-    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+    :documentation "Same content as in slot coordinates.")
    (latitude
     :reader latitude
-    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+    :documentation "Same content as in slot coordinates.")
    (ellipsoid-height
     :reader ellipsoid-height
-    :documentation "Same content as in slot coordinates.  TODO: should probably be made redundant in favour of the latter.")
+    :documentation "Same content as in slot coordinates.")
    (coordinates
     :col-type (or db-null geometry)
     :documentation "Geographic coordinates.")
@@ -944,8 +944,8 @@ common-table-name plus type-specific prefix and suffix."
       (!dao-def)
       (!!index image-data-table-name 'measurement-id)
       (!!index image-data-table-name 'recorded-device-id)
-      (!!index image-data-table-name 'gain)
-      (!!index image-data-table-name 'shutter)
+      ;; (!!index image-data-table-name 'gain)
+      ;; (!!index image-data-table-name 'shutter)
       ;;TODO: disabled as we don't have footprints: (!!index image-data-table-name 'footprint :index-type :gist)
       ;; The following let shouldn't be necessary. (Wart in !foreign.)
       (let ((*table-symbol* image-data-table-name)
@@ -987,8 +987,6 @@ belonging to images."
         ,aggregate-view-name
         (:select
          'presentation-project-id
-         'date                          ;TODO: debug only
-         (:dot ',point-data-table-name 'measurement-id) (:dot ',image-data-table-name 'recorded-device-id) 'sys-camera-calibration.device-stage-of-life-id ;TODO: debug only
          'directory
          'filename 'byte-position (:dot ',point-data-table-name 'point-id)
          'trigger-time
