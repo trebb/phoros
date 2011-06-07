@@ -216,6 +216,7 @@ TODO: /images/ part not currently enforced.")
 (deftable sys-measurement
   (:create-sequence 'sys-measurement-id-seq)
   (!dao-def)
+  (!index 'measurement-id)
   (!foreign 'sys-acquisition-project 'acquisition-project-id
             :on-delete :cascade :on-update :cascade))
 
@@ -232,6 +233,7 @@ TODO: /images/ part not currently enforced.")
 
 (deftable sys-presentation
   (!dao-def)
+  (!index 'measurement-id)
   (!foreign 'sys-presentation-project 'presentation-project-id
             :on-delete :cascade :on-update :cascade)
   (!foreign 'sys-measurement 'measurement-id
@@ -268,7 +270,8 @@ TODO: /images/ part not currently enforced.")
 
 (deftable sys-camera-hardware
   (:create-sequence 'sys-camera-hardware-id-seq)
-  (!dao-def))
+  (!dao-def)
+  (!index 'camera-hardware-id))
 
 (defclass sys-lens ()
   ((lens-id
@@ -312,6 +315,8 @@ TODO: /images/ part not currently enforced.")
 (deftable sys-generic-device
   (:create-sequence 'sys-generic-device-id-seq)
   (!dao-def)
+  (!index 'generic-device-id)
+  (!index 'camera-hardware-id)
   (!foreign 'sys-camera-hardware 'camera-hardware-id
             :on-delete :restrict :on-update :restrict)
   (!foreign 'sys-lens 'lens-id :on-delete :restrict :on-update :restrict)
@@ -356,6 +361,7 @@ TODO: /images/ part not currently enforced.")
 (deftable sys-device-stage-of-life
   (:create-sequence 'sys-device-stage-of-life-seq)
   (!dao-def)
+  (!index 'device-stage-of-life-id)
   (!index 'recorded-device-id)
   (!index 'mounting-date)
   (!index 'unmounting-date)
@@ -498,6 +504,8 @@ TODO: /images/ part not currently enforced.")
 
 (deftable sys-camera-calibration
   (!dao-def)
+  (!index 'device-stage-of-life-id)
+  (!index 'date)
   (!foreign 'sys-device-stage-of-life 'device-stage-of-life-id
             :on-delete :restrict :on-update :restrict))
 
@@ -930,6 +938,7 @@ common-table-name plus type-specific prefix and suffix."
       (!!index point-data-table-name 'measurement-id)
       (!!index point-data-table-name 'trigger-time)
       (!!index point-data-table-name 'coordinates :index-type :gist)
+      (!!index point-data-table-name 'point-id)
       ;; The following let shouldn't be necessary. (Wart In !foreign.)
       (let ((*table-symbol* point-data-table-name)
             (*table-name*  (s-sql:to-sql-name point-data-table-name)))
@@ -944,6 +953,7 @@ common-table-name plus type-specific prefix and suffix."
       (!dao-def)
       (!!index image-data-table-name 'measurement-id)
       (!!index image-data-table-name 'recorded-device-id)
+      (!!index image-data-table-name 'point-id)
       ;; (!!index image-data-table-name 'gain)
       ;; (!!index image-data-table-name 'shutter)
       ;;TODO: disabled as we don't have footprints: (!!index image-data-table-name 'footprint :index-type :gist)
