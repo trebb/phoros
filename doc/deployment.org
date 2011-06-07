@@ -1,0 +1,23 @@
+#+TITLE:     Phoros
+#+AUTHOR:    Bert Burgemeister
+#+EMAIL:     trebbu@googlemail.com
+#+DESCRIPTION:
+#+KEYWORDS: 
+#+LANGUAGE:  en
+#+OPTIONS:   H:3 num:nil toc:1 \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS:   TeX:nil LaTeX:nil skip:nil d:nil todo:t pri:nil tags:not-in-toc
+#+OPTIONS:   author:t email:t creator:nil timestamp:t
+#+STYLE:     <link rel="stylesheet" href="style.css" type="text/css"/>
+#+LINK_UP:   index.html
+#+ATTR_HTML: alt="Phoros logo" height="50" style="padding-top:.5em;float:right"
+  [[file:phoros-logo-plain.png]]
+
+A Tool for Photogrammetric Road Survey
+
+** Create a complete Phoros project
+
+#+INCLUDE "../prepare-phoros-project.sh" src shell-script
+
+** Run the server
+
+#+INCLUDE "../start-phoros-server.sh" src shell-script

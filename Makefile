@@ -32,6 +32,7 @@ CURSOR_IMAGE = public_html/phoros-cursor.png
 FAVICON = public_html/favicon.ico
 INDEX_HTML = public_html/index.html
 PHOROS_HELP_HTML = public_html/phoros--help.html
+DEPLOYMENT_HTML = public_html/deployment.html
 PUBLIC_CSS = public_html/style.css
 PHOROS_VERSION = $(shell ./phoros --version)
 LATEST_TAG = $(shell git tag | tail -n 1)
@@ -119,6 +120,10 @@ $(INDEX_HTML) : doc/index.org $(LOGO)
 	emacs --batch --visit=$< --funcall org-export-as-html-batch \
 	&& mv doc/index.html $@
 
+$(DEPLOYMENT_HTML) : doc/deployment.org $(LOGO)
+	emacs --batch --visit=$< --funcall org-export-as-html-batch \
+	&& mv doc/deployment.html $@
+
 $(PHOROS_HELP_HTML) : doc/phoros--help.org $(PHOROS_HELP_OUTPUT) $(LOGO)
 	emacs --batch --visit=$< --funcall org-export-as-html-batch \
 	&& mv doc/phoros--help.html $@
@@ -152,7 +157,7 @@ src-tarball : phoros-proper.tar phoml.tar
 	tar --concatenate -f phoros_$(LATEST_TAG).tar $^ \
 	&& gzip -f phoros_$(LATEST_TAG).tar
 
-html : $(INDEX_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
+html : $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
 
 git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
@@ -160,7 +165,7 @@ git-tag : phoros	    #tag name is :version string in phoros.asd
 clean :
 	rm -f *.fasl *.log phoros phoros*.tar.gz \
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)\
-		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(PUBLIC_CSS)
+		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
 
 .PHONY : bin-tarball src-tarball html git-tag clean

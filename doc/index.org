@@ -133,6 +133,9 @@ $ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
    #+ATTR_HTML: style="border:2px solid darkgrey"
    [[file:finish-point.png]]
    
+* Deployment
+  [[file:deployment.org][Example scripts]]
+
 * Licence
 
   PHOROS -- Photogrammetric Road Survey
