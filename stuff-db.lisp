@@ -547,9 +547,12 @@ all pojects."
      :db-dat
      "Tried to map ~D images to GPS points.  ~
       The attempt has been successful in ~:[~D~;all~] cases.~
-      ~1@*~:[  See file orphans.log for details on the failures.~;~]"
-     (length images) (= (length images) mapped-image-counter)
-     mapped-image-counter)))
+      ~1@*~:[  See file ~3@*~A for details on the failures.~;~]"
+     (length images)
+     (= (length images) mapped-image-counter)
+     mapped-image-counter
+     (truename
+      (cl-log:text-file-messenger-file (cl-log:find-messenger :orphan))))))
 
 (defun assert-user-points-version (user-points-version)
   "Check if user-points-version is compatible with the current

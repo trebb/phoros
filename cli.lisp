@@ -266,7 +266,7 @@
     ("images" :type integer :initial-value 4 :action *number-of-images*
      :documentation "Number of photos shown to the HTTP client.")
     ("login-intro" :type string :list t :optional t :action *login-intro*
-     :documentation "Text to be shown below the login form.  Use repeatedly to divide text into paragraphs.")))
+     :documentation "Text to be shown below the login form.  Use repeatedly to divide text into paragraphs.  You can use HTML markup as long as it is legal inside <p>...</p>")))
 
 (defparameter *cli-presentation-project-options*
   '(("create-presentation-project"
