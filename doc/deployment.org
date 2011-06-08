@@ -14,10 +14,20 @@
 
 A Tool for Photogrammetric Road Survey
 
-** Create a complete Phoros project
+** Example: Create a Complete Phoros Project
 
 #+INCLUDE "../prepare-phoros-project.sh" src shell-script
 
-** Run the server
+It may be recommendable to use a dedicated script (called
+calibration-storage.sh in the above script) to maintain a database of
+your calibration data:
+
+#+INCLUDE "../calibration-storage.sh" src shell-script
+
+** Example: Add to an Existing Phoros Project
+
+#+INCLUDE "../add-to-phoros-project.sh" src shell-script
+
+** Example: Run the Server
 
 #+INCLUDE "../start-phoros-server.sh" src shell-script
