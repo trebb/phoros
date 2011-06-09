@@ -459,6 +459,7 @@ all pojects."
    (select-dao 'sys-acquisition-project
                (:= 'common-table-name common-table-name))
    () "There is no acquisition project named ~A." common-table-name)
+  (setf *random-state* (make-random-state t))
   (create-data-table-definitions common-table-name)
   (initialize-leap-seconds)
   (let* ((images

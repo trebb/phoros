@@ -581,6 +581,10 @@ $$ LANGUAGE plpgsql;"
 
 (defclass point-template ()
   (;; We need a slot point-id which is defined in our subclasses.
+   (random
+    :col-type integer
+    :initform (random (expt 2 31))
+    :documentation "Used for quickly getting an evenly distributed sample of all points.")
    (measurement-id
     :writer (setf measurement-id)
     :col-type integer)
@@ -935,6 +939,7 @@ common-table-name plus type-specific prefix and suffix."
     (deftable point-data
       (:create-sequence point-id-sequence-name)
       (!dao-def)
+      (!!index point-data-table-name 'random)
       (!!index point-data-table-name 'measurement-id)
       (!!index point-data-table-name 'trigger-time)
       (!!index point-data-table-name 'coordinates :index-type :gist)
@@ -996,6 +1001,7 @@ belonging to images."
        (:create-view
         ,aggregate-view-name
         (:select
+         'random
          'presentation-project-id
          'directory
          'filename 'byte-position (:dot ',point-data-table-name 'point-id)

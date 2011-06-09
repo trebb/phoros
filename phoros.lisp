@@ -364,8 +364,7 @@ wrapped in an array."
                                      'stdz-global stdz-global
                                      'input-size input-size
                                      'aux-numeric aux-numeric
-                                     'aux-text aux-text
-                                     )))
+                                     'aux-text aux-text)))
          () "No point stored.  This should not happen.")))))
 
 (define-easy-handler
@@ -506,14 +505,17 @@ junk-keys."
                    ,@(loop
                         for common-table-name in common-table-names
                         for aggregate-view-name
-                        = (aggregate-view-name common-table-name)
+                        = (point-data-table-name common-table-name)
+                        ;; would have been nice, was too slow:
+                        ;; = (aggregate-view-name common-table-name)
                         collect
                         `(:select
                           (:as (:st_x 'coordinates) x)
                           (:as (:st_y 'coordinates) y)
                           (:as (:st_z 'coordinates) z)
                           (:as 'point-id 'id) ;becomes fid on client
-                          (:as (:random) random)
+                          'random
+                          :distinct-on 'random
                           :from ',aggregate-view-name
                           :natural :left-join 'sys-presentation
                           :where
@@ -697,7 +699,9 @@ respectively)."
                           ,@(loop
                                for common-table-name in common-table-names
                                for aggregate-view-name
-                               = (aggregate-view-name common-table-name)
+                               = (point-data-table-name common-table-name)
+                               ;; would have been nice, was too slow:
+                               ;; = (aggregate-view-name common-table-name)
                                collect
                                `(:select
                                  'coordinates
