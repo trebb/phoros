@@ -148,7 +148,8 @@ session."
                  presentation-project-id)
            (setf (session-value 'presentation-project-bbox)
                  (ignore-errors ;in case presentation-project is still empty
-                   (presentation-project-bbox presentation-project-id)))
+                   (bounding-box (get-dao 'sys-presentation-project
+                                          presentation-project-name))))
            (setf (session-value 'aux-data-p)
                  (with-connection *postgresql-aux-credentials*
                    (view-exists-p (aux-point-view-name
@@ -679,39 +680,6 @@ respectively)."
            :next-point (getf sql-response :forward-point) s)
           (json:encode-object-member
            :azimuth (getf sql-response :new-azimuth) s))))))
-
-(defun presentation-project-bbox (presentation-project-id)
-  "Return bounding box of the entire presentation-project as a string
-  \"x1,y1,x2,y2\"."
-  (let* ((common-table-names
-          (common-table-names presentation-project-id)))
-    (with-connection *postgresql-credentials*
-      (substitute
-       #\, #\Space
-       (string-trim
-        "BOX()"
-        (query
-         (sql-compile
-          `(:select
-            (:st_extent (:st_transform 'coordinates ,*standard-coordinates*))
-                    :from
-                    (:as (:union
-                          ,@(loop
-                               for common-table-name in common-table-names
-                               for aggregate-view-name
-                               = (point-data-table-name common-table-name)
-                               ;; would have been nice, was too slow:
-                               ;; = (aggregate-view-name common-table-name)
-                               collect
-                               `(:select
-                                 'coordinates
-                                 :from ',aggregate-view-name
-                                 :natural :left-join 'sys-presentation
-                                 :where
-                                 (:= 'presentation-project-id
-                                     ,presentation-project-id))))
-                         all-coordinates)))
-         :single!))))))
 
 (defun get-user-points (user-point-table-name &key
                         (bounding-box "-180,-90,180,90")
