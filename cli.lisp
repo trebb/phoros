@@ -327,7 +327,7 @@
 (defparameter *cli-user-options*
   '(("create-user"
      :type string :action #'create-user-action
-     :documentation "(*) Create or update user (specified by their ID) of certain presentation projects.")
+     :documentation "(*) Create or update user (specified by their alphanummeric ID) of certain presentation projects, deleting any pre-existing permissions of that user.")
     ("user-password" :type string :documentation "User's password.")
     ("user-full-name" :type string :documentation "User's real name.")
     ("user-role"
@@ -634,7 +634,7 @@ created stuff."
             Proceed?"
            database host port)
       (with-connection (list database user password host :port port
-                             :use-ssl (s-sql:from-sql-name use-ssl)) ; string to keyword
+                             :use-ssl (s-sql:from-sql-name use-ssl))
         (muffle-postgresql-warnings)
         (nuke-all-tables))
       (cl-log:log-message
@@ -968,9 +968,10 @@ trigger-time to stdout."
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
-      (remove-from-presentation-project presentation-project-name
-                                        :measurement-ids measurement-id
-                                        :acquisition-project acquisition-project))
+      (remove-from-presentation-project
+       presentation-project-name
+       :measurement-ids measurement-id
+       :acquisition-project acquisition-project))
     (cl-log:log-message
      :db-dat
      "Removed ~@[measurement-ids ~{~D~#^, ~}~]~
@@ -1027,8 +1028,8 @@ a view."
                           (password "") (aux-password password)
                           use-ssl (aux-use-ssl use-ssl)
                           log-dir
-                          aux-table coordinates-column
-                          numeric-column text-column)
+                          coordinates-column numeric-column text-column
+                          aux-table)
     (launch-logger log-dir)
     (with-connection (list aux-database aux-user aux-password aux-host
                            :port aux-port
@@ -1051,11 +1052,13 @@ a view."
           (muffle-postgresql-warnings)
           (when aux-view-exists-p
             (delete-aux-view presentation-project-name))
-          (create-aux-view
-           presentation-project-name aux-table
-           :coordinates-column (s-sql:to-sql-name coordinates-column)
-           :numeric-columns numeric-column
-           :text-columns text-column)
+          (apply #'create-aux-view
+                 presentation-project-name
+                 :coordinates-column (s-sql:to-sql-name coordinates-column)
+                 :numeric-columns numeric-column
+                 :text-columns text-column
+                 :allow-other-keys t
+                 (cli-remaining-options))
           (add-spherical-mercator-ref)
           (cl-log:log-message
            :db-dat
@@ -1082,7 +1085,9 @@ a view."
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (multiple-value-bind
             (points-stored points-already-in-db points-tried)
-          (store-user-points presentation-project json-file)
+          (apply #'store-user-points presentation-project
+                 :allow-other-keys t
+                 (cli-remaining-options))
         (cl-log:log-message
          :db-dat
          "Tried to store the ~D user point~:P I found in file ~A ~
@@ -1114,6 +1119,8 @@ a view."
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (multiple-value-bind (user-points user-point-count)
           (get-user-points (user-point-table-name presentation-project))
+        (assert json-file ()
+                "Don't know where to store.  Try option --json-file")
         (with-open-file (stream json-file
                                 :direction :output
                                 :if-exists :supersede)
@@ -1131,17 +1138,17 @@ a view."
   (let (fresh-user-p)
     (with-cli-options (host port database (user "") (password "") use-ssl
                             log-dir
-                            user-password user-full-name
-                            user-role presentation-project)
+                            presentation-project
+                            user-full-name user-role)
       (launch-logger log-dir)
       (with-connection (list database user password host :port port
                              :use-ssl (s-sql:from-sql-name use-ssl))
         (setf fresh-user-p
-              (create-user presentation-project-user
-                           :password user-password
-                           :full-name user-full-name
-                           :user-role user-role
-                           :presentation-projects presentation-project)))
+              (apply #'create-user
+                     presentation-project-user
+                     :allow-other-keys t
+                     :presentation-projects presentation-project
+                     (cli-remaining-options))))
       (cl-log:log-message
        :db-dat ;TODO: We're listing nonexistent p-projects here as well.
        "~:[Updated~;Created~] user ~A (~A) who has ~A access ~
@@ -1219,14 +1226,17 @@ projects."
                     :from
                     'sys-presentation-project 'sys-presentation
                     'sys-measurement 'sys-acquisition-project
-                    :where (:and (:= 'sys-presentation-project.presentation-project-id
-                                     'sys-presentation.presentation-project-id)
-                                 (:= 'sys-presentation.measurement-id
-                                     'sys-measurement.measurement-id)
-                                 (:= 'sys-measurement.acquisition-project-id
-                                     'sys-acquisition-project.acquisition-project-id)
-                                 (:= 'presentation-project-name presentation-project)))
-                   'presentation-project-name 'sys-presentation.measurement-id))
+                    :where
+                    (:and (:= 'sys-presentation-project.presentation-project-id
+                              'sys-presentation.presentation-project-id)
+                          (:= 'sys-presentation.measurement-id
+                              'sys-measurement.measurement-id)
+                          (:= 'sys-measurement.acquisition-project-id
+                              'sys-acquisition-project.acquisition-project-id)
+                          (:= 'presentation-project-name
+                              presentation-project)))
+                   'presentation-project-name
+                   'sys-presentation.measurement-id))
                  (query
                   (:order-by
                    (:select
@@ -1238,17 +1248,21 @@ projects."
                     :from
                     'sys-presentation-project 'sys-presentation
                     'sys-measurement 'sys-acquisition-project
-                    :where (:and (:= 'sys-presentation-project.presentation-project-id
-                                     'sys-presentation.presentation-project-id)
-                                 (:= 'sys-presentation.measurement-id
-                                     'sys-measurement.measurement-id)
-                                 (:= 'sys-measurement.acquisition-project-id
-                                     'sys-acquisition-project.acquisition-project-id)))
-                   'presentation-project-name 'sys-presentation.measurement-id)))))
-        (format-table *standard-output* " | " content
-                      "Presentation Project" "ID" "Meas. ID" "Acquisition Project" "ID")))))
+                    :where
+                    (:and (:= 'sys-presentation-project.presentation-project-id
+                              'sys-presentation.presentation-project-id)
+                          (:= 'sys-presentation.measurement-id
+                              'sys-measurement.measurement-id)
+                          (:= 'sys-measurement.acquisition-project-id
+                              'sys-acquisition-project.acquisition-project-id)))
+                   'presentation-project-name
+                   'sys-presentation.measurement-id)))))
+        (format-table
+         *standard-output* " | " content
+         "Presentation Project" "ID" "Meas. ID" "Acquisition Project" "ID")))))
          
-(defun format-table (destination column-separator content &rest column-headers)
+(defun format-table (destination column-separator content
+                     &rest column-headers)
   "Print content (a list of lists) to destination."
   (let* ((rows
           (append (list column-headers) (list ()) content))

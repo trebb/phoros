@@ -1096,21 +1096,22 @@ presentation-project-name."
            (s-sql:to-sql-name (thread-aux-points-function-name
                                presentation-project-name)))))
 
-(defun create-aux-view (presentation-project-name aux-table-name
+(defun* create-aux-view (presentation-project-name
                         &key (coordinates-column :the-geom)
-                        numeric-columns text-columns)
-  "Create a view into aux-table-name and an SQL function for threading
+                        numeric-columns text-columns
+                        &mandatory-key aux-table)
+  "Create a view into aux-table and an SQL function for threading
 aux-points into a linestring.  coordinates-column goes into column
 coordinates, numeric-columns and text-columns go into arrays in
 aux-numeric and aux-text respectively.
 
-aux-table-name should have an index like so:
+aux-table should have an index like so:
 
-CREATE INDEX idx_<aux-table-name>_the_geom
-  ON <aux-table-name>
+CREATE INDEX idx_<aux-table>_the_geom
+  ON <aux-table>
   USING gist (the_geom);
 
-VACUUM FULL ANALYZE <aux-table-name> (the_geom);"
+VACUUM FULL ANALYZE <aux-table> (the_geom);"
   (create-plpgsql-helpers)
   (let ((aux-point-view-name
          (aux-point-view-name presentation-project-name))
@@ -1126,7 +1127,7 @@ AS (SELECT ~A AS coordinates,
                      coordinates-column
                      (mapcar #'s-sql:to-sql-name numeric-columns)
                      (mapcar #'s-sql:to-sql-name text-columns)
-                     (s-sql:to-sql-name aux-table-name)))
+                     (s-sql:to-sql-name aux-table)))
     (execute (format nil "~
 CREATE OR REPLACE FUNCTION ~0@*~A
   (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT,
@@ -1443,8 +1444,8 @@ wasn't any."
 (defun* create-user (name &key
                           presentation-projects
                           &mandatory-key
-                          password
-                          full-name
+                          user-password
+                          user-full-name
                           user-role)
   "Create a fresh user entry or update an existing one with matching
 name.  Assign it presentation-projects, deleting any previously
@@ -1458,8 +1459,8 @@ existing assignments."
   (let ((user (or (car (select-dao 'sys-user (:= 'user-name name)))                  
                   (make-instance 'sys-user :user-name name)))
         fresh-user-p)
-    (setf (user-password user) password
-          (user-full-name user) full-name)
+    (setf (user-password user) user-password
+          (user-full-name user) user-full-name)
     (setf fresh-user-p (save-dao user))
     (mapcar #'delete-dao (select-dao 'sys-user-role
                                      (:= 'user-id (user-id user))))

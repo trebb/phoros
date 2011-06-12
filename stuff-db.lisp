@@ -563,14 +563,14 @@ user-point table definition."
      (warn "Storing user-points which don't have a version number."))
     (t)))
 
-(defun store-user-points (common-table-name json-file-path)
-  "Store in DB user points given in file at json-file-path, which
+(defun* store-user-points (common-table-name &mandatory-key json-file)
+  "Store in DB user points given in file at json-file, which
 supposedly was created by Phoros.  Return number of points stored,
 number of points that were already in DB, and number of points found
 in JSON file."
   (assert-phoros-db-major-version)
   (let* ((user-point-table-name (user-point-table-name common-table-name))
-         (raw-input (with-open-file (stream json-file-path)
+         (raw-input (with-open-file (stream json-file)
                       (json:decode-json stream)))
          (raw-input-version (cdr (assoc :phoros-version raw-input)))
          (raw-features (cdr (assoc :features raw-input))))
