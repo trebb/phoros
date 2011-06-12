@@ -66,7 +66,7 @@
 (defparameter *number-of-features-per-layer* 500
   "What we think a browser can swallow.")
 
-(defparameter *number-of-points-per-aux-linestring* 100
+(defparameter *number-of-points-per-aux-linestring* 500
   "What we think a browser can swallow.")
 
 (defparameter *user-point-creation-date-format* "IYYY-MM-DD HH24:MI:SS TZ"

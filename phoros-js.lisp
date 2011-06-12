@@ -879,9 +879,9 @@ to Estimated Position."
                        "("
                        n ;let's hope add-features alway stores features in order of arrival
                        ") "
-                       (/ (chain *math (round (* (@ i properties distance)
-                                                 1000)))
-                          1000)))
+                       (chain *open-layers
+                              *number
+                              (format (@ i properties distance) 3 ""))))
                 (chain *aux-point-distance-select*
                        (add aux-point-distance-item null))))
            (chain *streetmap*
@@ -974,7 +974,7 @@ equator."
                  (/ (inner-html-with-id "step-size") 2))))
 
        (defun increase-step-size ()
-         (when (< (inner-html-with-id "step-size") 4999)
+         (when (< (inner-html-with-id "step-size") 100)
            (setf (inner-html-with-id "step-size")
                  (* (inner-html-with-id "step-size") 2))))
 
@@ -1667,11 +1667,6 @@ image-index in array *images*."
                (chain document (get-element-by-id "point-attribute-select")))
          (setf *aux-point-distance-select*
                (chain document (get-element-by-id "aux-point-distance")))
-         ;; (loop for i in '("solitary" "polyline" "polygon") do
-         ;;      (setf point-attribute-item (chain document (create-element "option")))
-         ;;      (setf (@ point-attribute-item text) i)
-         ;;      (chain *point-attributes-select* (add point-attribute-item null)))
-                                        ;TODO: input of user-defined attributes
          (hide-aux-data-choice)
          (let ((cursor-layer-style
                 (create
