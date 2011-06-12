@@ -138,7 +138,8 @@
    (bounding-box
     :col-type text
     :initform "-180,-90,180,90"
-    :accessor bounding-box))
+    :accessor bounding-box
+    :documentation "Extent of this presentation project."))
   (:metaclass dao-class)
   (:keys presentation-project-name))
 
@@ -159,7 +160,15 @@
    (user-role
     :initarg :user-role
     :col-type text
-    :documentation "One of read, write, admin."))
+    :documentation "One of read, write, admin.")
+   (bounding-box
+    :col-type (or db-null text)
+    :accessor bounding-box
+    :documentation "Streetmap zoom extent last time user left Phoros.")
+   (cursor
+    :col-type (or db-null geometry)
+    :accessor cursor
+    :documentation "Point; users work coordinate in streetmap last time they left Phoros."))
   (:metaclass dao-class)
   (:keys user-id presentation-project-id))
 

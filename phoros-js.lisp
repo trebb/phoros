@@ -132,8 +132,9 @@
            (:p "View some info about Phoros."))
           :logout-button
           (who-ps-html
-           (:p "Finish this session.  Fresh login is required to
-           continue."))
+           (:p "Finish this session after storing current streetmap
+           zoom status and your cursor position.")
+           (:p "Fresh login is required to continue."))
           :streetmap
           (who-ps-html
            (:p "Clicking into the streetmap fetches images which most
@@ -489,7 +490,7 @@ shadow any other control."
          (chain layer (refresh (create :force t))))
 
        (defun present-photos ()
-         "Handle the response triggered by request-photos."
+         "Handle the response triggered by request-photos-for-point."
          (let ((photo-parameters
                 (chain *json-parser*
                        (read (@ *streetmap*
@@ -599,12 +600,16 @@ shadow any other control."
                         :success (lambda ()
                                    (stuff-user-point-comboboxes selectp))))))
 
-       (defun request-photos (event)
+       (defun request-photos-after-click (event)
          "Handle the response to a click into *streetmap*; fetch photo
           data.  Set or update streetmap cursor."
-         (setf (@ *streetmap* clicked-lonlat)
-               (chain *streetmap*
-                      (get-lon-lat-from-pixel (@ event xy))))
+         (request-photos (chain *streetmap*
+                                (get-lon-lat-from-pixel (@ event xy)))))
+
+       (defun request-photos (lonlat)
+         "Fetch photo data for a point near lonlat.  Set or update
+          streetmap cursor."
+         (setf (@ *streetmap* clicked-lonlat) lonlat)
          (if (checkbox-status-with-id "walk-p")
              (request-aux-data-linestring-for-point
               (@ *streetmap* clicked-lonlat))
@@ -1604,7 +1609,28 @@ image-index in array *images*."
                  (html-ordered-list aux-numeric))
            (setf (inner-html-with-id "aux-text-list")
                  (html-ordered-list aux-text))))
-       
+
+       (defun bye ()
+         "Store user's current map extent and log out."
+         (let* ((bbox (chain *streetmap*
+                             (get-extent)
+                             (transform +spherical-mercator+ +geographic+)
+                             (to-b-b-o-x)))
+                (href (+ "/phoros/lib/logout?bbox=" bbox)))
+           (when (@ *streetmap* cursor-layer features length)
+             (let* ((lonlat-geographic (chain *streetmap*
+                                              cursor-layer
+                                              features
+                                              0
+                                              geometry 
+                                              (clone)
+                                              (transform +spherical-mercator+
+                                                         +geographic+))))
+               (setf href (+ href
+                             "&longitude=" (@ lonlat-geographic x)
+                             "&latitude=" (@ lonlat-geographic y)))))
+           (setf (@ location href) href)))
+
        (defun init ()
          "Prepare user's playground."
          (unless +presentation-project-bbox-text+
@@ -1797,7 +1823,8 @@ image-index in array *images*."
                            *layer
                            (*osm* "OpenStreetMap"))))
          (setf (@ *streetmap* click-streetmap)
-               (new (*click-control* (create :trigger request-photos))))
+               (new (*click-control*
+                     (create :trigger request-photos-after-click))))
          (setf (@ *streetmap* nirvana-layer)
                (new (chain
                      *open-layers
@@ -1954,14 +1981,27 @@ image-index in array *images*."
                  (chain document (get-element-by-id
                                   "streetmap-overview-element")))
            (chain *streetmap* (add-control overview-map))
-           (chain *streetmap*
-                  (zoom-to-extent +presentation-project-bounds+))
            (chain *streetmap* (add-control mouse-position-control))
            (chain *streetmap* (add-control scale-line-control)))
          (loop
             for i from 0 to (lisp (1- *number-of-images*))
             do (initialize-image i))
-         (add-help-events))))))
+         (add-help-events)
+         (chain *streetmap*
+                (zoom-to-extent
+                 (new (chain *open-layers
+                             *bounds
+                             (from-string (lisp (stored-bbox)))
+                             (transform +geographic+ +spherical-mercator+)))
+                 t))
+           (let ((stored-cursor (lisp (stored-cursor))))
+             (when stored-cursor
+               (request-photos
+                (new (chain *open-layers
+                            *lon-lat
+                            (from-string stored-cursor)
+                            (transform +geographic+
+                                       +spherical-mercator+)))))))))))
 
 (pushnew (create-regex-dispatcher
           (format nil "/phoros/lib/phoros-~A-\\S*-\\S*\.js"

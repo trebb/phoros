@@ -147,9 +147,15 @@ session."
            (setf (session-value 'presentation-project-id)
                  presentation-project-id)
            (setf (session-value 'presentation-project-bbox)
-                 (ignore-errors ;in case presentation-project is still empty
-                   (bounding-box (get-dao 'sys-presentation-project
-                                          presentation-project-name))))
+                 (let ((bbox
+                        (bounding-box (get-dao 'sys-presentation-project
+                                               presentation-project-name))))
+                   (if (eq :null bbox)
+                       "-180,-89,180,89"
+                       ;; "-180,-90,180,90" doesn't work wit
+                       ;; OpenLayer's zoom-to-extent when it's passed
+                       ;; a second argument.
+                       bbox)))
            (setf (session-value 'aux-data-p)
                  (with-connection *postgresql-aux-credentials*
                    (view-exists-p (aux-point-view-name
@@ -185,6 +191,36 @@ session."
 
 (pushnew (create-regex-dispatcher "/phoros/(?!lib/)" 'phoros-handler)
          *dispatch-table*)
+
+(defun stored-bbox ()
+  "Return stored bounding box for user and presentation project of
+current session."
+  (with-connection *postgresql-credentials*
+    (let ((bbox (bounding-box
+                 (get-dao 'sys-user-role
+                          (session-value 'user-id)
+                          (session-value 'presentation-project-id)))))
+      (if (eq :null bbox)
+          (session-value 'presentation-project-bbox)
+          bbox))))
+
+(defun stored-cursor ()
+  "Return stored cursor position for user and presentation project of
+current session."
+  (with-connection *postgresql-credentials*
+    (let ((cursor (query
+                   (:select (:st_x 'cursor) (:st_y 'cursor)
+                            :from 'sys-user-role
+                            :where (:and (:= 'user-id
+                                             (session-value 'user-id))
+                                         (:= 'presentation-project-id
+                                             (session-value
+                                              'presentation-project-id))
+                                         (:raw "cursor IS NOT NULL")))
+                   :list)))
+      (when cursor
+        (format nil "~{~F~#^,~}" cursor)))))
+
 
 (define-easy-handler
     (authenticate-handler :uri "/phoros/lib/authenticate"
@@ -223,27 +259,42 @@ session."
                       :add-session-id t))
           "Rejected."))))
 
-(define-easy-handler logout-handler ()
-  (if (session-verify *request*)
-      (let ((presentation-project-name
-             (session-value 'presentation-project-name)))
-        (remove-session *session*)
-        (who:with-html-output-to-string (s nil :prologue t :indent t)
-          (:html
-           (:head
-            (:title (who:str
-                     (concatenate
-                      'string
-                      "Phoros: logged out" )))
-            (:link :rel "stylesheet"
-                   :href (format nil "/phoros/lib/css-~A/style.css"
-                                 (phoros-version))
-                   :type "text/css"))
-           (:body
-            (:h1 :id "title" "Phoros: logged out")
-            (:p "Log back in to project "
-                (:a :href (format nil "/phoros/~A" presentation-project-name)
-                    (who:fmt "~A." presentation-project-name)))))))
+(define-easy-handler logout-handler (bbox longitude latitude)
+  (if (session-value 'authenticated-p)
+      (with-connection *postgresql-credentials*
+        (let ((presentation-project-name
+               (session-value 'presentation-project-name))
+              (sys-user-role
+               (get-dao 'sys-user-role
+                        (session-value 'user-id)
+                        (session-value 'presentation-project-id))))
+          (when bbox
+            (setf (bounding-box sys-user-role) bbox))
+          (when (and longitude latitude)
+            (let* ;; kludge: should be done by some library, not by DB query
+                ((point-form (format nil "POINT(~F ~F)" longitude latitude))
+                 (point-wkb (query (:select
+                                    (:st_geomfromtext point-form))
+                                   :single)))
+              (setf (cursor sys-user-role) point-wkb)))
+          (update-dao sys-user-role)
+          (remove-session *session*)
+          (who:with-html-output-to-string (s nil :prologue t :indent t)
+            (:html
+             (:head
+              (:title (who:str
+                       (concatenate
+                        'string
+                        "Phoros: logged out" )))
+              (:link :rel "stylesheet"
+                     :href (format nil "/phoros/lib/css-~A/style.css"
+                                   (phoros-version))
+                     :type "text/css"))
+             (:body
+              (:h1 :id "title" "Phoros: logged out")
+              (:p "Log back in to project "
+                  (:a :href (format nil "/phoros/~A" presentation-project-name)
+                      (who:fmt "~A." presentation-project-name))))))))
       "Bye (again)."))
 
 (pushnew (create-regex-dispatcher "/logout" 'logout-handler)
@@ -257,19 +308,18 @@ containing picture url, calibration parameters, and car position,
 wrapped in an array."
   (when (session-value 'authenticated-p)
     (setf (content-type*) "application/json")
-    (let* ((presentation-project-id (session-value 'presentation-project-id))
-           (common-table-names (common-table-names presentation-project-id))
-           (data (json:decode-json-from-string (raw-post-data)))
-           (longitude-input (cdr (assoc :longitude data)))
-           (latitude-input (cdr (assoc :latitude data)))
-           (count (cdr (assoc :count data)))
-           (zoom-input (cdr (assoc :zoom data)))
-           (snap-distance (* 10d-5 (expt 2 (- 18 zoom-input)))) ; assuming geographic coordinates
-           (point-form
-            (format nil "POINT(~F ~F)" longitude-input latitude-input))
-           (result
-            (ignore-errors
-              (with-connection *postgresql-credentials*
+    (with-connection *postgresql-credentials*
+      (let* ((presentation-project-id (session-value 'presentation-project-id))
+             (common-table-names (common-table-names presentation-project-id))
+             (data (json:decode-json-from-string (raw-post-data)))
+             (longitude (cdr (assoc :longitude data)))
+             (latitude (cdr (assoc :latitude data)))
+             (count (cdr (assoc :count data)))
+             (zoom (cdr (assoc :zoom data)))
+             (snap-distance (* 10d-5 (expt 2 (- 18 zoom)))) ; assuming geographic coordinates
+             (point-form (format nil "POINT(~F ~F)" longitude latitude))
+             (result
+              (ignore-errors
                 (query
                  (sql-compile
                   `(:limit
@@ -293,7 +343,8 @@ wrapped in an array."
                              'longitude 'latitude 'ellipsoid-height
                              'cartesian-system
                              'east-sd 'north-sd 'height-sd
-                             'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
+                             'roll 'pitch 'heading
+                             'roll-sd 'pitch-sd 'heading-sd
                              'sensor-width-pix 'sensor-height-pix 'pix-size
                              'mounting-angle
                              'dx 'dy 'dz 'omega 'phi 'kappa
@@ -312,8 +363,8 @@ wrapped in an array."
                                                 ,snap-distance)))))
                      'distance)
                     ,count))
-                 :alists)))))
-      (json:encode-json-to-string result))))
+                 :alists))))
+        (json:encode-json-to-string result)))))
 
 (define-easy-handler
     (store-point :uri "/phoros/lib/store-point" :default-request-type :post)
@@ -325,9 +376,9 @@ wrapped in an array."
            (user-id (session-value 'user-id))
            (user-role (session-value 'user-role))
            (data (json:decode-json-from-string (raw-post-data)))
-           (longitude-input (cdr (assoc :longitude data)))
-           (latitude-input (cdr (assoc :latitude data)))
-           (ellipsoid-height-input (cdr (assoc :ellipsoid-height data)))
+           (longitude (cdr (assoc :longitude data)))
+           (latitude (cdr (assoc :latitude data)))
+           (ellipsoid-height (cdr (assoc :ellipsoid-height data)))
            (stdx-global (cdr (assoc :stdx-global data)))
            (stdy-global (cdr (assoc :stdy-global data)))
            (stdz-global (cdr (assoc :stdz-global data)))
@@ -337,7 +388,7 @@ wrapped in an array."
            (numeric-description (cdr (assoc :numeric-description data)))
            (point-form
             (format nil "SRID=4326; POINT(~S ~S ~S)"
-                    longitude-input latitude-input ellipsoid-height-input))
+                    longitude latitude ellipsoid-height))
            (aux-numeric-raw (cdr (assoc :aux-numeric data)))
            (aux-text-raw (cdr (assoc :aux-text data)))
            (aux-numeric (if aux-numeric-raw
@@ -580,18 +631,18 @@ coordinates received, wrapped in an array."
     (let* ((aux-view-name
             (aux-point-view-name (session-value 'presentation-project-name)))
            (data (json:decode-json-from-string (raw-post-data)))
-           (longitude-input (cdr (assoc :longitude data)))
-           (latitude-input (cdr (assoc :latitude data)))
+           (longitude (cdr (assoc :longitude data)))
+           (latitude (cdr (assoc :latitude data)))
            (count (cdr (assoc :count data)))
            (point-form
-            (format nil "POINT(~F ~F)" longitude-input latitude-input))
+            (format nil "POINT(~F ~F)" longitude latitude))
            (snap-distance 1e-3)         ;about 100 m, TODO: make this a defparameter
            (bounding-box
             (format nil "~A,~A,~A,~A"
-                    (- longitude-input snap-distance)
-                    (- latitude-input snap-distance)
-                    (+ longitude-input snap-distance)
-                    (+ latitude-input snap-distance))))
+                    (- longitude snap-distance)
+                    (- latitude snap-distance)
+                    (+ longitude snap-distance)
+                    (+ latitude snap-distance))))
       (encode-geojson-to-string
        (ignore-errors
          (with-connection *postgresql-aux-credentials*
@@ -642,15 +693,15 @@ respectively)."
             (thread-aux-points-function-name (session-value
                                               'presentation-project-name)))
            (data (json:decode-json-from-string (raw-post-data)))
-           (longitude-input (cdr (assoc :longitude data)))
-           (latitude-input (cdr (assoc :latitude data)))
+           (longitude (cdr (assoc :longitude data)))
+           (latitude (cdr (assoc :latitude data)))
            (radius (cdr (assoc :radius data)))
            (step-size (cdr (assoc :step-size data)))
            (azimuth (if (numberp (cdr (assoc :azimuth data)))
                         (cdr (assoc :azimuth data))
                         0))
            (point-form 
-            (format nil "POINT(~F ~F)" longitude-input latitude-input))
+            (format nil "POINT(~F ~F)" longitude latitude))
            (sql-response
             (ignore-errors
               (with-connection *postgresql-aux-credentials*
@@ -1031,7 +1082,7 @@ table."
                             :height 20))
              (:button :id "logout-button"
                       :type "button"
-                      :onclick "self.location.href = \"/phoros/lib/logout\""
+                      :onclick (ps-inline (bye))
                       "bye")
              (:h2 :id "h2-help" "Help")
              (:div :id "help-display"))
