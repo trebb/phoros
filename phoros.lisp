@@ -161,7 +161,7 @@ session."
                    (view-exists-p (aux-point-view-name
                                    presentation-project-name))))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
-             (:div
+             (:body
               :style "font-family:sans;"
               (:form
                :method "post" :enctype "multipart/form-data"
@@ -178,8 +178,15 @@ session."
                     (:input :type "text" :name "user-name"))
                 (:p "Password:"
                     :br
-                    (:input :type "password" :name "user-password"))
-                (:input :type "submit" :value "Submit"))
+                    (:input :type "password" :name "user-password")
+                    "&nbsp;&nbsp;&nbsp;"
+                    (:span :id "cackle"))
+                (:input :type "submit" :value "Submit"
+                        :onclick (ps-inline
+                                  (setf (chain document
+                                               (get-element-by-id "cackle")
+                                               inner-h-t-m-l)
+                                        "Ok, let&#039;s see&#8230;"))))
                (:script :type "text/javascript"
                         (who:str (ps (chain document
                                             :login-form
@@ -257,7 +264,13 @@ current session."
                   (session-value 'user-role) user-role)            
             (redirect (format nil "/phoros/lib/view-~A" (phoros-version))
                       :add-session-id t))
-          "Rejected."))))
+          (who:with-html-output-to-string (s nil :prologue t :indent t)
+            (:body
+             :style "font-family:sans;"
+             (:b "Rejected. ")
+             (:a :href (format nil "/phoros/~A/" (session-value
+                                                  'presentation-project-name))
+                 "Retry?")))))))
 
 (define-easy-handler logout-handler (bbox longitude latitude)
   (if (session-value 'authenticated-p)
