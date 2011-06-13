@@ -17,9 +17,9 @@
 
 (in-package :phoros)
 
-(define-easy-handler (phoros.js) ()
+(hunchentoot:define-easy-handler (phoros.js) ()
   "Serve some Javascript."
-  (when (session-value 'authenticated-p)
+  (when (hunchentoot:session-value 'authenticated-p)
     (ps*
      '(progn
        (setf debug-info (@ *open-layers *console info))
@@ -284,13 +284,14 @@
        (defvar +spherical-mercator+
          (new (chain *open-layers (*projection "EPSG:900913"))))
 
-       (defvar +user-name+ (lisp (session-value 'user-name))
+       (defvar +user-name+ (lisp (hunchentoot:session-value 'user-name))
          "User's (short) name.")
-       (defvar +user-role+ (lisp (string-downcase (session-value 'user-role)))
+       (defvar +user-role+ (lisp (string-downcase (hunchentoot:session-value
+                                                   'user-role)))
          "User's permissions.")
 
        (defvar +presentation-project-bbox-text+
-         (lisp (session-value 'presentation-project-bbox)))
+         (lisp (hunchentoot:session-value 'presentation-project-bbox)))
 
        (defvar +presentation-project-bounds+
          (chain (new (chain *open-layers
@@ -302,7 +303,7 @@
          "Bounding box of the entire presentation project.")
 
        (defvar +aux-data-p+
-         (lisp (session-value 'aux-data-p)))
+         (lisp (hunchentoot:session-value 'aux-data-p)))
 
        (defvar *images* (array) "Collection of the photos currently shown.")
 
@@ -1998,8 +1999,8 @@ image-index in array *images*."
                             (transform +geographic+
                                        +spherical-mercator+)))))))))))
 
-(pushnew (create-regex-dispatcher
+(pushnew (hunchentoot:create-regex-dispatcher
           (format nil "/phoros/lib/phoros-~A-\\S*-\\S*\.js"
                   (phoros-version))
           'phoros.js)
-         *dispatch-table*)
+         hunchentoot:*dispatch-table*)

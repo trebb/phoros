@@ -138,19 +138,19 @@
 (defun log-http-access (&key return-code content content-length)
   "Log HTTP access.  Use as :access-logger in a hunchentoot:accessor."
   (cl-log:log-message :access nil
-                      (remote-addr*)
-                      (header-in* :x-forwarded-for)
-                      (authorization)
-                      ;;(iso-time)
-                      (request-method*)
-                      (script-name*)
-                      (query-string*)
-                      (server-protocol*)
+                      (hunchentoot:remote-addr*)
+                      (hunchentoot:header-in* :x-forwarded-for)
+                      (hunchentoot:authorization)
+                      ;;(hunchentoot:iso-time)
+                      (hunchentoot:request-method*)
+                      (hunchentoot:script-name*)
+                      (hunchentoot:query-string*)
+                      (hunchentoot:server-protocol*)
                       return-code
                       content
                       content-length
-                      (referer)
-                      (user-agent)))
+                      (hunchentoot:referer)
+                      (hunchentoot:user-agent)))
 
 (defun log-hunchentoot-message (severity format-string &rest args)
   "Log hunchentoot messages.  Use as :message-logger in a

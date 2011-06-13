@@ -17,9 +17,11 @@
 
 (in-package :phoros)
 
-(define-easy-handler (blurb :uri "/phoros/lib/blurb") (openlayers-version)
+(hunchentoot:define-easy-handler
+    (blurb :uri "/phoros/lib/blurb")
+    (openlayers-version)
   (when
-      (session-value 'authenticated-p)
+      (hunchentoot:session-value 'authenticated-p)
     (who:with-html-output-to-string (s nil :indent t)
       (:html
        :xmlns "http://www.w3.org/1999/xhtml"
@@ -102,4 +104,4 @@
         (:p "is given below for reference.")
         (:pre (who:str (who:escape-string-minimal
                         (with-output-to-string (*standard-output*)
-                          (cli-help-action))))))))))
+                          (cli:help-action))))))))))

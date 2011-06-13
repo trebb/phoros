@@ -72,6 +72,36 @@
 (defparameter *user-point-creation-date-format* "IYYY-MM-DD HH24:MI:SS TZ"
   "SQL date format used for display and GeoJSON export of user points.")
 
+(defun phoros-version (&key major minor revision)
+  "Return version of this program, either one integer part as denoted by
+the key argument, or the whole dotted string."
+  (let* ((version-string
+          (handler-bind ((warning #'ignore-warnings))
+            (asdf:component-version (asdf:find-system :phoros))))
+         (version-components
+          (mapcar #'parse-integer
+                  (cl-utilities:split-sequence #\. version-string))))
+    (cond (major (first version-components))
+          (minor (second version-components))
+          (revision (third version-components))
+          (t version-string))))
+
+(defun check-dependencies ()
+  "Say OK if the necessary external dependencies are available."
+  (handler-case
+      (progn
+        (geographic-to-utm 33 13 52)    ;check cs2cs
+        (phoros-photogrammetry:del-all) ;check photogrammetry
+        (initialize-leap-seconds)    ;check source of leap second info
+        (format *error-output* "~&OK~%"))
+    (error (e) (format *error-output* "~A~&" e))))
+
+(defun muffle-postgresql-warnings ()
+  "For current DB, silence PostgreSQL's warnings about implicitly
+created stuff."
+  (unless *postgresql-warnings*
+    (execute "SET client_min_messages TO ERROR;")))
+
 (defun check-db (db-credentials)
   "Check postgresql connection.  Return t if successful; show error on
 *error-output* otherwise.  db-credentials is a list like so: (database
@@ -84,6 +114,8 @@ user password host &key (port 5432) use-ssl)."
     (when connection
       (disconnect connection)
       t)))
+
+(defun ignore-warnings (c) (declare (ignore c)) (muffle-warning))
 
 (defmethod hunchentoot:session-cookie-name (acceptor)
   (declare (ignore acceptor))
@@ -98,7 +130,7 @@ at address.  Address defaults to all addresses of the local machine."
                        :address address
                        :access-logger #'log-http-access
                        :message-logger #'log-hunchentoot-message))
-  (setf *session-max-time* (* 3600 24))
+  (setf hunchentoot:*session-max-time* (* 3600 24))
   (setf *common-root* common-root)
   (check-db *postgresql-credentials*)
   (with-connection *postgresql-credentials*
@@ -111,18 +143,18 @@ at address.  Address defaults to all addresses of the local machine."
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (register-sql-operators :2+-ary :&& :overlaps))
 
-(setf *default-handler*
+(setf hunchentoot:*default-handler*
       #'(lambda ()
           "Http default response."
-          (setf (return-code*) +http-not-found+)))
+          (setf (hunchentoot:return-code*) hunchentoot:+http-not-found+)))
 
-(define-easy-handler phoros-handler ()
+(hunchentoot:define-easy-handler phoros-handler ()
   "First HTTP contact: if necessary, check credentials, establish new
 session."
   (with-connection *postgresql-credentials*
     (let* ((presentation-project-name
             (second (cl-utilities:split-sequence
-                     #\/ (script-name*) :remove-empty-subseqs t)))
+                     #\/ (hunchentoot:script-name*) :remove-empty-subseqs t)))
            (presentation-project-id
             (ignore-errors
               (query
@@ -133,20 +165,20 @@ session."
                :single))))
       (cond
         ((null presentation-project-id)
-         (setf (return-code*) +http-not-found+))
-        ((and (equal (session-value 'presentation-project-name)
+         (setf (hunchentoot:return-code*) hunchentoot:+http-not-found+))
+        ((and (equal (hunchentoot:session-value 'presentation-project-name)
                      presentation-project-name)
-              (session-value 'authenticated-p))
-         (redirect
+              (hunchentoot:session-value 'authenticated-p))
+         (hunchentoot:redirect
           (format nil "/phoros/lib/view-~A" (phoros-version))
           :add-session-id t))
         (t
          (progn
-           (setf (session-value 'presentation-project-name)
+           (setf (hunchentoot:session-value 'presentation-project-name)
                  presentation-project-name)
-           (setf (session-value 'presentation-project-id)
+           (setf (hunchentoot:session-value 'presentation-project-id)
                  presentation-project-id)
-           (setf (session-value 'presentation-project-bbox)
+           (setf (hunchentoot:session-value 'presentation-project-bbox)
                  (let ((bbox
                         (bounding-box (get-dao 'sys-presentation-project
                                                presentation-project-name))))
@@ -156,7 +188,7 @@ session."
                        ;; OpenLayer's zoom-to-extent when it's passed
                        ;; a second argument.
                        bbox)))
-           (setf (session-value 'aux-data-p)
+           (setf (hunchentoot:session-value 'aux-data-p)
                  (with-connection *postgresql-aux-credentials*
                    (view-exists-p (aux-point-view-name
                                    presentation-project-name))))
@@ -196,8 +228,9 @@ session."
                  for i in *login-intro*
                  do (who:htm (:p (who:str i))))))))))))
 
-(pushnew (create-regex-dispatcher "/phoros/(?!lib/)" 'phoros-handler)
-         *dispatch-table*)
+(pushnew (hunchentoot:create-regex-dispatcher "/phoros/(?!lib/)"
+                                              'phoros-handler)
+         hunchentoot:*dispatch-table*)
 
 (defun stored-bbox ()
   "Return stored bounding box for user and presentation project of
@@ -205,39 +238,43 @@ current session."
   (with-connection *postgresql-credentials*
     (let ((bbox (bounding-box
                  (get-dao 'sys-user-role
-                          (session-value 'user-id)
-                          (session-value 'presentation-project-id)))))
+                          (hunchentoot:session-value
+                           'user-id)
+                          (hunchentoot:session-value
+                           'presentation-project-id)))))
       (if (eq :null bbox)
-          (session-value 'presentation-project-bbox)
+          (hunchentoot:session-value 'presentation-project-bbox)
           bbox))))
 
 (defun stored-cursor ()
   "Return stored cursor position for user and presentation project of
 current session."
   (with-connection *postgresql-credentials*
-    (let ((cursor (query
-                   (:select (:st_x 'cursor) (:st_y 'cursor)
-                            :from 'sys-user-role
-                            :where (:and (:= 'user-id
-                                             (session-value 'user-id))
-                                         (:= 'presentation-project-id
-                                             (session-value
-                                              'presentation-project-id))
-                                         (:raw "cursor IS NOT NULL")))
-                   :list)))
+    (let ((cursor
+           (query
+            (:select (:st_x 'cursor) (:st_y 'cursor)
+                     :from 'sys-user-role
+                     :where (:and (:= 'user-id
+                                      (hunchentoot:session-value 'user-id))
+                                  (:= 'presentation-project-id
+                                      (hunchentoot:session-value
+                                       'presentation-project-id))
+                                  (:raw "cursor IS NOT NULL")))
+            :list)))
       (when cursor
         (format nil "~{~F~#^,~}" cursor)))))
 
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (authenticate-handler :uri "/phoros/lib/authenticate"
                           :default-request-type :post)
     ()
   "Check user credentials."
   (with-connection *postgresql-credentials*
-    (let* ((user-name (post-parameter "user-name"))
-           (user-password (post-parameter "user-password"))
-           (presentation-project-id (session-value 'presentation-project-id))
+    (let* ((user-name (hunchentoot:post-parameter "user-name"))
+           (user-password (hunchentoot:post-parameter "user-password"))
+           (presentation-project-id (hunchentoot:session-value
+                                     'presentation-project-id))
            (user-info
             (when presentation-project-id
               (query
@@ -257,30 +294,31 @@ current session."
            (user-role (third user-info)))
       (if user-role
           (progn
-            (setf (session-value 'authenticated-p) t
-                  (session-value 'user-name) user-name
-                  (session-value 'user-full-name) user-full-name
-                  (session-value 'user-id) user-id
-                  (session-value 'user-role) user-role)            
-            (redirect (format nil "/phoros/lib/view-~A" (phoros-version))
-                      :add-session-id t))
+            (setf (hunchentoot:session-value 'authenticated-p) t
+                  (hunchentoot:session-value 'user-name) user-name
+                  (hunchentoot:session-value 'user-full-name) user-full-name
+                  (hunchentoot:session-value 'user-id) user-id
+                  (hunchentoot:session-value 'user-role) user-role)            
+            (hunchentoot:redirect (format nil "/phoros/lib/view-~A"
+                                          (phoros-version))
+                                  :add-session-id t))
           (who:with-html-output-to-string (s nil :prologue t :indent t)
             (:body
              :style "font-family:sans;"
              (:b "Rejected. ")
-             (:a :href (format nil "/phoros/~A/" (session-value
+             (:a :href (format nil "/phoros/~A/" (hunchentoot:session-value
                                                   'presentation-project-name))
                  "Retry?")))))))
 
-(define-easy-handler logout-handler (bbox longitude latitude)
-  (if (session-value 'authenticated-p)
+(hunchentoot:define-easy-handler logout-handler (bbox longitude latitude)
+  (if (hunchentoot:session-value 'authenticated-p)
       (with-connection *postgresql-credentials*
         (let ((presentation-project-name
-               (session-value 'presentation-project-name))
+               (hunchentoot:session-value 'presentation-project-name))
               (sys-user-role
                (get-dao 'sys-user-role
-                        (session-value 'user-id)
-                        (session-value 'presentation-project-id))))
+                        (hunchentoot:session-value 'user-id)
+                        (hunchentoot:session-value 'presentation-project-id))))
           (when bbox
             (setf (bounding-box sys-user-role) bbox))
           (when (and longitude latitude)
@@ -291,7 +329,7 @@ current session."
                                    :single)))
               (setf (cursor sys-user-role) point-wkb)))
           (update-dao sys-user-role)
-          (remove-session *session*)
+          (hunchentoot:remove-session hunchentoot:*session*)
           (who:with-html-output-to-string (s nil :prologue t :indent t)
             (:html
              (:head
@@ -310,21 +348,23 @@ current session."
                       (who:fmt "~A." presentation-project-name))))))))
       "Bye (again)."))
 
-(pushnew (create-regex-dispatcher "/logout" 'logout-handler)
-         *dispatch-table*)
+(pushnew (hunchentoot:create-regex-dispatcher "/logout" 'logout-handler)
+         hunchentoot:*dispatch-table*)
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (local-data :uri "/phoros/lib/local-data" :default-request-type :post)
     ()
   "Receive coordinates, respond with the count nearest json objects
 containing picture url, calibration parameters, and car position,
 wrapped in an array."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (with-connection *postgresql-credentials*
-      (let* ((presentation-project-id (session-value 'presentation-project-id))
-             (common-table-names (common-table-names presentation-project-id))
-             (data (json:decode-json-from-string (raw-post-data)))
+      (let* ((presentation-project-id (hunchentoot:session-value
+                                       'presentation-project-id))
+             (common-table-names (common-table-names
+                                  presentation-project-id))
+             (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
              (longitude (cdr (assoc :longitude data)))
              (latitude (cdr (assoc :latitude data)))
              (count (cdr (assoc :count data)))
@@ -379,16 +419,16 @@ wrapped in an array."
                  :alists))))
         (json:encode-json-to-string result)))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (store-point :uri "/phoros/lib/store-point" :default-request-type :post)
     ()
   "Receive point sent by user; store it into database."
-  (when (session-value 'authenticated-p)
-    (let* ((presentation-project-name (session-value
+  (when (hunchentoot:session-value 'authenticated-p)
+    (let* ((presentation-project-name (hunchentoot:session-value
                                        'presentation-project-name))
-           (user-id (session-value 'user-id))
-           (user-role (session-value 'user-role))
-           (data (json:decode-json-from-string (raw-post-data)))
+           (user-id (hunchentoot:session-value 'user-id))
+           (user-role (hunchentoot:session-value 'user-role))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
            (longitude (cdr (assoc :longitude data)))
            (latitude (cdr (assoc :latitude data)))
            (ellipsoid-height (cdr (assoc :ellipsoid-height data)))
@@ -432,15 +472,16 @@ wrapped in an array."
                                      'aux-text aux-text)))
          () "No point stored.  This should not happen.")))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (update-point :uri "/phoros/lib/update-point" :default-request-type :post)
     ()
   "Update point sent by user in database."
-  (when (session-value 'authenticated-p)
-    (let* ((presentation-project-name (session-value 'presentation-project-name))
-           (user-id (session-value 'user-id))
-           (user-role (session-value 'user-role))
-           (data (json:decode-json-from-string (raw-post-data)))
+  (when (hunchentoot:session-value 'authenticated-p)
+    (let* ((presentation-project-name (hunchentoot:session-value
+                                       'presentation-project-name))
+           (user-id (hunchentoot:session-value 'user-id))
+           (user-role (hunchentoot:session-value 'user-role))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
            (user-point-id (cdr (assoc :user-point-id data)))
            (attribute (cdr (assoc :attribute data)))
            (description (cdr (assoc :description data)))
@@ -458,24 +499,26 @@ wrapped in an array."
                                 'numeric-description numeric-description
                                 'creation-date 'current-timestamp
                                 :where (:and (:= 'user-point-id user-point-id)
-                                             (:= (if (string-equal user-role "admin")
+                                             (:= (if (string-equal user-role
+                                                                   "admin")
                                                      user-id
                                                      'user-id)
                                                  user-id)))))
          () "No point stored.  Did you try to update someone else's point ~
              without having admin permission?")))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (delete-point :uri "/phoros/lib/delete-point" :default-request-type :post)
     ()
   "Delete user point if user is allowed to do so."
-  (when (session-value 'authenticated-p)
-    (let* ((presentation-project-name (session-value 'presentation-project-name))
-           (user-id (session-value 'user-id))
-           (user-role (session-value 'user-role))
+  (when (hunchentoot:session-value 'authenticated-p)
+    (let* ((presentation-project-name (hunchentoot:session-value
+                                       'presentation-project-name))
+           (user-id (hunchentoot:session-value 'user-id))
+           (user-role (hunchentoot:session-value 'user-role))
            (user-point-table-name
             (user-point-table-name presentation-project-name))
-           (data (json:decode-json-from-string (raw-post-data))))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data))))
       (with-connection *postgresql-credentials*
         (assert
          (eql 1 (cond ((string-equal user-role "admin")
@@ -499,9 +542,12 @@ of presentation project with presentation-project-id."
                   :distinct
                   :from 'sys-presentation 'sys-measurement 'sys-acquisition-project
                   :where (:and
-                          (:= 'sys-presentation.presentation-project-id presentation-project-id)
-                          (:= 'sys-presentation.measurement-id 'sys-measurement.measurement-id)
-                          (:= 'sys-measurement.acquisition-project-id 'sys-acquisition-project.acquisition-project-id)))
+                          (:= 'sys-presentation.presentation-project-id
+                              presentation-project-id)
+                          (:= 'sys-presentation.measurement-id
+                              'sys-measurement.measurement-id)
+                          (:= 'sys-measurement.acquisition-project-id
+                              'sys-acquisition-project.acquisition-project-id)))
                :column))
     (condition (c)
       (cl-log:log-message
@@ -551,13 +597,13 @@ junk-keys."
                            :from-end t :count 1)
                ")"))
 
-(define-easy-handler (points :uri "/phoros/lib/points.json") (bbox)
+(hunchentoot:define-easy-handler (points :uri "/phoros/lib/points.json") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (handler-case 
         (let* ((presentation-project-id
-                (session-value 'presentation-project-id))
+                (hunchentoot:session-value 'presentation-project-id))
                (common-table-names
                 (common-table-names presentation-project-id)))
           (encode-geojson-to-string
@@ -600,14 +646,14 @@ junk-keys."
          :error "While fetching points from inside bbox ~S: ~A"
          bbox c)))))
 
-(define-easy-handler (aux-points :uri "/phoros/lib/aux-points.json") (bbox)
+(hunchentoot:define-easy-handler (aux-points :uri "/phoros/lib/aux-points.json") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (handler-case 
         (let ((limit *number-of-features-per-layer*)
               (aux-view-name
-               (aux-point-view-name (session-value
+               (aux-point-view-name (hunchentoot:session-value
                                      'presentation-project-name))))
           (encode-geojson-to-string
            (with-connection *postgresql-aux-credentials*
@@ -632,24 +678,25 @@ junk-keys."
          :error "While fetching aux-points from inside bbox ~S: ~A"
          bbox c)))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (aux-local-data :uri "/phoros/lib/aux-local-data"
                     :default-request-type :post)
     ()
   "Receive coordinates, respond with the count nearest json objects
 containing arrays aux-numeric, aux-text, and distance to the
 coordinates received, wrapped in an array."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (let* ((aux-view-name
-            (aux-point-view-name (session-value 'presentation-project-name)))
-           (data (json:decode-json-from-string (raw-post-data)))
+            (aux-point-view-name (hunchentoot:session-value
+                                  'presentation-project-name)))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
            (longitude (cdr (assoc :longitude data)))
            (latitude (cdr (assoc :latitude data)))
            (count (cdr (assoc :count data)))
            (point-form
             (format nil "POINT(~F ~F)" longitude latitude))
-           (snap-distance 1e-3)         ;about 100 m, TODO: make this a defparameter
+           (snap-distance 1e-3) ;about 100 m, TODO: make this a defparameter
            (bounding-box
             (format nil "~A,~A,~A,~A"
                     (- longitude snap-distance)
@@ -689,7 +736,7 @@ coordinates received, wrapped in an array."
                 ,count))
              :plists))))))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
                           :default-request-type :post)
     ()
@@ -700,12 +747,12 @@ within radius around coordinates), current-point (the point on
 linestring closest to coordinates), and previous-point and next-point
 \(points on linestring step-size before and after current-point
 respectively)."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (let* ((thread-aux-points-function-name
-            (thread-aux-points-function-name (session-value
+            (thread-aux-points-function-name (hunchentoot:session-value
                                               'presentation-project-name)))
-           (data (json:decode-json-from-string (raw-post-data)))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
            (longitude (cdr (assoc :longitude data)))
            (latitude (cdr (assoc :latitude data)))
            (radius (cdr (assoc :radius data)))
@@ -780,18 +827,20 @@ and the number of points returned."
      (encode-geojson-to-string (nsubst nil :null user-point-plist))
      (length user-point-plist))))
 
-(define-easy-handler (user-points :uri "/phoros/lib/user-points.json") (bbox)
+(hunchentoot:define-easy-handler
+    (user-points :uri "/phoros/lib/user-points.json")
+    (bbox)
   "Send *number-of-features-per-layer* randomly chosen GeoJSON-encoded
 points from inside bbox to client.  If there is no bbox parameter,
 send all points."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (handler-case 
         (let ((bounding-box (or bbox "-180,-90,180,90"))
               (limit (if bbox *number-of-features-per-layer* :null))
               (order-criterion (if bbox '(:random) 'id))
               (user-point-table-name
-               (user-point-table-name (session-value
+               (user-point-table-name (hunchentoot:session-value
                                        'presentation-project-name))))
           (with-connection *postgresql-credentials*
             (nth-value 0 (get-user-points user-point-table-name
@@ -803,18 +852,18 @@ send all points."
          :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
          bbox c)))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (user-point-attributes :uri "/phoros/lib/user-point-attributes.json")
     ()
   "Send JSON object comprising arrays attributes and descriptions,
 each containing unique values called attribute and description
 respectively, and count being the frequency of value in the user point
 table."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (handler-case 
         (let ((user-point-table-name
-               (user-point-table-name (session-value
+               (user-point-table-name (hunchentoot:session-value
                                        'presentation-project-name))))
           (with-connection *postgresql-credentials*
             (with-output-to-string (s)
@@ -860,13 +909,13 @@ table."
          :error "While fetching user-point-attributes: ~A"
          c)))))
 
-(define-easy-handler photo-handler
+(hunchentoot:define-easy-handler photo-handler
     ((bayer-pattern :init-form "#00ff00,#ff0000")
      (color-raiser :init-form "1,1,1"))
   "Serve an image from a .pictures file."
-  (when (session-value 'authenticated-p)
+  (when (hunchentoot:session-value 'authenticated-p)
     (handler-case
-        (let* ((s (cdr (cl-utilities:split-sequence #\/ (script-name*)
+        (let* ((s (cdr (cl-utilities:split-sequence #\/ (hunchentoot:script-name*)
                                                     :remove-empty-subseqs t)))
                (directory (last (butlast s 2)))
                (file-name-and-type (cl-utilities:split-sequence
@@ -881,52 +930,54 @@ table."
                    :name (first file-name-and-type)
                    :type (second file-name-and-type)))))
                stream)
-          (setf (content-type*) "image/png")
-          (setf stream (send-headers))
+          (setf (hunchentoot:content-type*) "image/png")
+          (setf stream (hunchentoot:send-headers))
           (send-png stream path-to-file byte-position
-                    :bayer-pattern (canonicalize-bayer-pattern bayer-pattern)
-                    :color-raiser (canonicalize-color-raiser color-raiser)))
+                    :bayer-pattern (cli:canonicalize-bayer-pattern bayer-pattern)
+                    :color-raiser (cli:canonicalize-color-raiser color-raiser)))
       (condition (c)
         (cl-log:log-message
-         :error "While serving image ~S: ~A" (request-uri*) c)))))
+         :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c)))))
 
-(pushnew (create-prefix-dispatcher "/phoros/lib/photo" 'photo-handler)
-         *dispatch-table*)
+(pushnew (hunchentoot:create-prefix-dispatcher "/phoros/lib/photo"
+                                               'photo-handler)
+         hunchentoot:*dispatch-table*)
 
 ;;; for debugging; this is the multi-file OpenLayers
-(pushnew (create-folder-dispatcher-and-handler
+(pushnew (hunchentoot:create-folder-dispatcher-and-handler
           "/phoros/lib/openlayers/" "OpenLayers-2.10/")
-         *dispatch-table*)
+         hunchentoot:*dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler "/phoros/lib/ol/" "ol/")
-         *dispatch-table*)
+(pushnew (hunchentoot:create-folder-dispatcher-and-handler "/phoros/lib/ol/" "ol/")
+         hunchentoot:*dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler
+(pushnew (hunchentoot:create-folder-dispatcher-and-handler
           (format nil "/phoros/lib/css-~A/" (phoros-version)) "css/") ;TODO: merge this style.css into public_html/style.css
-         *dispatch-table*)
+         hunchentoot:*dispatch-table*)
 
-(pushnew (create-folder-dispatcher-and-handler
+(pushnew (hunchentoot:create-folder-dispatcher-and-handler
           "/phoros/lib/public_html/" "public_html/")
-         *dispatch-table*)
+         hunchentoot:*dispatch-table*)
 
-(pushnew (create-static-file-dispatcher-and-handler
+(pushnew (hunchentoot:create-static-file-dispatcher-and-handler
           "/favicon.ico" "public_html/favicon.ico")
-         *dispatch-table*)
+         hunchentoot:*dispatch-table*)
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (view :uri (format nil "/phoros/lib/view-~A" (phoros-version))
           :default-request-type :post)
     ()
   "Serve the client their main workspace."
   (if
-   (session-value 'authenticated-p)
+   (hunchentoot:session-value 'authenticated-p)
    (who:with-html-output-to-string (s nil :prologue t :indent t)
      (:html
       (:head
        (:title (who:str
                 (concatenate
                  'string
-                 "Phoros: " (session-value 'presentation-project-name))))
+                 "Phoros: " (hunchentoot:session-value
+                             'presentation-project-name))))
        (if *use-multi-file-openlayers*
            (who:htm
             (:script :src "/phoros/lib/openlayers/lib/Firebug/firebug.js")
@@ -940,20 +991,21 @@ table."
                       nil            ; supposed to fight browser cache
                       "/phoros/lib/phoros-~A-~A-~A.js"
                       (phoros-version)
-                      (session-value 'user-name)
-                      (session-value 'presentation-project-name)))
+                      (hunchentoot:session-value 'user-name)
+                      (hunchentoot:session-value 'presentation-project-name)))
        (:script :src "http://maps.google.com/maps/api/js?sensor=false"))
       (:body
        :onload (ps (init))
        (:noscript (:b (:em "You can't do much without JavaScript here.")))
        (:h1 :id "title"
-            "Phoros: " (who:str (session-value 'user-full-name))
-            (who:fmt " (~A)" (session-value 'user-name))
+            "Phoros: " (who:str (hunchentoot:session-value 'user-full-name))
+            (who:fmt " (~A)" (hunchentoot:session-value 'user-name))
             "with " (:span :id "user-role"
-                           (who:str (session-value 'user-role)))
+                           (who:str (hunchentoot:session-value 'user-role)))
             "permission on "
             (:span :id "presentation-project-name"
-                   (who:str (session-value 'presentation-project-name)))
+                   (who:str (hunchentoot:session-value
+                             'presentation-project-name)))
             (:span :id "presentation-project-emptiness")
             (:span :id "phoros-version" :class "h1-right"
                    (who:fmt "v~A" (phoros-version))))
@@ -1114,20 +1166,23 @@ table."
                                    :class "image-trigger-time"))
                        (:div :id (format nil "image-~S" i)
                              :class "image" :style "cursor:crosshair"))))))))
-   (redirect
-    (concatenate 'string "/phoros/" (session-value 'presentation-project-name))
+   (hunchentoot:redirect
+    (concatenate 'string "/phoros/" (hunchentoot:session-value
+                                     'presentation-project-name))
     :add-session-id t)))
 
-(define-easy-handler (epipolar-line :uri "/phoros/lib/epipolar-line") ()
+(hunchentoot:define-easy-handler
+    (epipolar-line :uri "/phoros/lib/epipolar-line")
+    ()
   "Receive vector of two sets of picture parameters, respond with
 JSON encoded epipolar-lines."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
-    (let* ((data (json:decode-json-from-string (raw-post-data))))
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
+    (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
       (json:encode-json-to-string
        (photogrammetry :epipolar-line (first data) (second data))))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (estimated-positions :uri "/phoros/lib/estimated-positions")
     ()
   "Receive a two-part JSON vector comprising (1) a vector containing
@@ -1139,10 +1194,10 @@ image coordinates (m, n) for the global point that correspond to the
 images from the received second vector.  TODO: report error on bad
 data (ex: points too far apart)."
   ;; TODO: global-point-for-display should probably contain a proj string in order to make sense of the (cartesian) standard deviations.
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (let* ((data
-            (json:decode-json-from-string (raw-post-data)))
+            (json:decode-json-from-string (hunchentoot:raw-post-data)))
            (active-point-photo-parameters
             (first data))
            (number-of-active-points
@@ -1183,7 +1238,7 @@ data (ex: points too far apart)."
       (json:encode-json-to-string
         (list global-point-for-display image-coordinates)))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (user-point-positions :uri "/phoros/lib/user-point-positions")
     ()
   "Receive a two-part JSON vector comprising
@@ -1197,11 +1252,12 @@ respond with a JSON object comprising the elements
      coordinates) for each user-point-id received;
 - user-point-count, the number of user-points we tried to fetch
   image-points for."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
     (let* ((user-point-table-name
-            (user-point-table-name (session-value 'presentation-project-name)))
-           (data (json:decode-json-from-string (raw-post-data)))
+            (user-point-table-name (hunchentoot:session-value
+                                    'presentation-project-name)))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
            (user-point-ids (first data))
            (user-point-count (length user-point-ids))
            (destination-photo-parameters (second data))
@@ -1271,12 +1327,12 @@ respond with a JSON object comprising the elements
               (loop for i in image-coordinates do
                    (json:as-array-member (s) (princ i s))))))))))
 
-(define-easy-handler
+(hunchentoot:define-easy-handler
     (multi-position-intersection :uri "/phoros/lib/intersection")
     ()
   "Receive vector of sets of picture parameters, respond with stuff."
-  (when (session-value 'authenticated-p)
-    (setf (content-type*) "application/json")
-    (let* ((data (json:decode-json-from-string (raw-post-data))))
+  (when (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:content-type*) "application/json")
+    (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
       (json:encode-json-to-string
        (photogrammetry :multi-position-intersection data)))))
