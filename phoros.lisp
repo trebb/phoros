@@ -531,24 +531,22 @@ wrapped in an array."
                                                     (:= 'user-id user-id)))))))
             () "No point deleted.  This should not happen.")))))
 
-
 (defun common-table-names (presentation-project-id)
   "Return a list of common-table-names of table sets that contain data
 of presentation project with presentation-project-id."
   (handler-case
-      (with-connection *postgresql-credentials*
-        (query
-         (:select 'common-table-name
-                  :distinct
-                  :from 'sys-presentation 'sys-measurement 'sys-acquisition-project
-                  :where (:and
-                          (:= 'sys-presentation.presentation-project-id
-                              presentation-project-id)
-                          (:= 'sys-presentation.measurement-id
-                              'sys-measurement.measurement-id)
-                          (:= 'sys-measurement.acquisition-project-id
-                              'sys-acquisition-project.acquisition-project-id)))
-               :column))
+      (query
+       (:select 'common-table-name
+                :distinct
+                :from 'sys-presentation 'sys-measurement 'sys-acquisition-project
+                :where (:and
+                        (:= 'sys-presentation.presentation-project-id
+                            presentation-project-id)
+                        (:= 'sys-presentation.measurement-id
+                            'sys-measurement.measurement-id)
+                        (:= 'sys-measurement.acquisition-project-id
+                            'sys-acquisition-project.acquisition-project-id)))
+       :column)
     (condition (c)
       (cl-log:log-message
        :error
@@ -602,12 +600,12 @@ junk-keys."
   (when (hunchentoot:session-value 'authenticated-p)
     (setf (hunchentoot:content-type*) "application/json")
     (handler-case 
-        (let* ((presentation-project-id
-                (hunchentoot:session-value 'presentation-project-id))
-               (common-table-names
-                (common-table-names presentation-project-id)))
-          (encode-geojson-to-string
-           (with-connection *postgresql-credentials*
+        (with-connection *postgresql-credentials*
+          (let* ((presentation-project-id
+                  (hunchentoot:session-value 'presentation-project-id))
+                 (common-table-names
+                  (common-table-names presentation-project-id)))
+            (encode-geojson-to-string
              (query
               (sql-compile
                `(:limit
@@ -639,8 +637,8 @@ junk-keys."
                                           ,*standard-coordinates*))))))
                   random)
                  ,*number-of-features-per-layer*))
-              :plists))
-           :junk-keys '(:random)))
+              :plists)
+             :junk-keys '(:random))))
       (condition (c)
         (cl-log:log-message
          :error "While fetching points from inside bbox ~S: ~A"
