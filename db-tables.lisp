@@ -1030,6 +1030,7 @@ belonging to images."
          'east-sd 'north-sd 'height-sd
          'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
          'sensor-width-pix 'sensor-height-pix 'pix-size
+         'bayer-pattern 'color-raiser
          'mounting-angle
          'dx 'dy 'dz 'omega 'phi 'kappa
          'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
@@ -1068,10 +1069,12 @@ belonging to images."
                 (:desc 'date))
                1))
           (:<= (:extract :epoch 'sys-device-stage-of-life.mounting-date)
-               (:dot ',point-data-table-name 'trigger-time))
+               (:- (:dot ',point-data-table-name 'trigger-time)
+                   *unix-epoch*))
           (:or (:is-null 'sys-device-stage-of-life.unmounting-date)
-               (:>= (:extract :epoch 'sys-device-stage-of-life.mounting-date)
-                    (:dot ',point-data-table-name 'trigger-time))))))))
+               (:>= (:extract :epoch 'sys-device-stage-of-life.unmounting-date)
+                    (:- (:dot ',point-data-table-name 'trigger-time)
+                        *unix-epoch*))))))))
     ;;(eval
     ;; `(defclass ,aggregate-view-name (aggregate-data)
     ;;    ()

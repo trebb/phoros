@@ -394,7 +394,10 @@ current-owner or, without arguments, new stuff."
 an image url."
          (+ "/phoros/lib/photo/" (@ photo-parameters directory) "/"
             (@ photo-parameters filename) "/"
-            (@ photo-parameters byte-position) ".png"))
+            (@ photo-parameters byte-position) ".png"
+            "?mounting-angle=" (@ photo-parameters mounting-angle)
+            "&bayer-pattern=" (@ photo-parameters bayer-pattern)
+            "&color-raiser=" (@ photo-parameters color-raiser)))
 
        (defun has-layer-p (map layer-name)
          "False if map doesn't have a layer called layer-name."

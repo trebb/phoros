@@ -65,5 +65,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :drakma
                :command-line-arguments
                :cl-utilities
+               :parse-number
                :cl-log
                :trivial-backtrace))

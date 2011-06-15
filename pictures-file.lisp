@@ -128,28 +128,41 @@ start-position or, if that is nil, at stream's file position."
      finally (return result)))
 
 (defun uncompress-picture (huffman-table compressed-picture
-                           height width color-type)
-  "Return the Bayer pattern extracted from compressed-picture in a
-zpng:png image, everything in color channel 0."
-  (let* ((png (make-instance 'zpng:png
-                             :color-type color-type
-                             :width width :height height))
-         (uncompressed-picture (zpng:data-array png))
+                           height width color-type &key reversep)
+  "Return the Bayer pattern extracted from compressed-picture, turned
+upside-down if reversep is t, in a zpng:png image, everything in color
+channel 0."
+  (let* ((samples-per-pixel
+          (zpng:samples-per-pixel (make-instance 'zpng:png
+                                                 :color-type color-type
+                                                 :width 1 :height 1)))
+         (image-data
+          (make-array (list (* height width samples-per-pixel))
+                      :element-type '(unsigned-byte 8)))
+         (uncompressed-image
+          (make-array (list height width samples-per-pixel)
+                      :element-type '(unsigned-byte 8)
+                      :displaced-to image-data))
+         (channel (if reversep
+                      (1- samples-per-pixel) ;becomes 0 by reversal
+                      0))
          (compressed-picture-index 0)
-         (min-key-length (loop
-                            for code being the hash-key in huffman-table
-                            minimize (length code)))
-         (max-key-length (loop
-                            for code being the hash-key in huffman-table
-                            maximize (length code))))
+         (min-key-length
+          (loop
+             for code being the hash-key in huffman-table
+             minimize (length code)))
+         (max-key-length
+          (loop
+             for code being the hash-key in huffman-table
+             maximize (length code))))
     (loop
        for row from 0 below height
        do
-         (setf (aref uncompressed-picture row 0 0)
+         (setf (aref uncompressed-image row 0 channel)
                (get-leading-byte compressed-picture
                                  (prog1 compressed-picture-index
                                    (incf compressed-picture-index 8))))
-         (setf (aref uncompressed-picture row 1 0)
+         (setf (aref uncompressed-image row 1 channel)
                (get-leading-byte compressed-picture
                                  (prog1 compressed-picture-index
                                    (incf compressed-picture-index 8))))
@@ -164,8 +177,8 @@ zpng:png image, everything in color channel 0."
                for pixel-delta-maybe = (gethash huffman-code huffman-table)
                when pixel-delta-maybe
                do
-                 (setf (aref uncompressed-picture row column 0)
-                       (- (aref uncompressed-picture row (- column 2) 0)
+                 (setf (aref uncompressed-image row column channel)
+                       (- (aref uncompressed-image row (- column 2) channel)
                           pixel-delta-maybe))
                and do (incf try-start (1- key-length))
                and return nil
@@ -173,31 +186,45 @@ zpng:png image, everything in color channel 0."
                         "Decoder out of step at row ~S, column ~S.  Giving up."
                         row column))
             finally
-            (setf compressed-picture-index (1+ try-start))
-            ;;(print compressed-picture-index)
-            ))
-      png))
+            (setf compressed-picture-index (1+ try-start))))
+    (make-instance 'zpng:png
+                   :color-type color-type
+                   :width width :height height
+                   :image-data (if reversep
+                                   (reverse image-data)
+                                   image-data))))
 
-(defun fetch-picture (stream start-position length height width color-type)
+(defun fetch-picture (stream start-position length height width color-type
+                      &key reversep)
   "Return the Bayer pattern taken from stream in a zpng:png image,
 everything in color channel 0.  Start at start-position or, if that is
 nil, at stream's file position."
   (when start-position (file-position stream start-position))
-  (let* ((png (make-instance 'zpng:png
-                             :color-type color-type
-                             :width width :height height))
-         (png-image-data (zpng:image-data png))
+  (let* ((samples-per-pixel
+          (zpng:samples-per-pixel (make-instance 'zpng:png
+                                                 :color-type color-type
+                                                 :width 1 :height 1)))
+         (image-data
+          (make-array (list (* height width samples-per-pixel))
+                      :element-type '(unsigned-byte 8)))
          (raw-image
           (make-array (list length) :element-type 'unsigned-byte)))
     (ecase color-type
       (:grayscale
-       (read-sequence png-image-data stream))
-      (:truecolor                       ; TODO: needs testing
-       (read-sequence raw-image stream)
-       (loop
-          for pixel across raw-image and red from 0 by 3 do
-            (setf (svref png-image-data red) pixel))))
-    png))
+       (read-sequence image-data stream))
+      (:truecolor
+       (error "Not implemented: fetch-picture for (uncompressed) truecolor images")
+       ;; (read-sequence raw-image stream)
+       ;; (loop
+       ;;    for pixel across raw-image and red from 0 by 3 do
+       ;;      (setf (svref png-image-data red) pixel))
+       ))
+    (make-instance 'zpng:png
+                   :color-type color-type
+                   :width width :height height
+                   :image-data (if reversep
+                                   (reverse image-data)
+                                   image-data))))
 
 (defun complete-horizontally (png row column color)
   "Fake a color component of a pixel based its neighbors."
@@ -366,10 +393,13 @@ in postmodern.  For a grayscale image do nothing."
   png)
                             
 (defun* send-png (output-stream path start
-                                &key (color-raiser #(1 1 1))
+                                &key (color-raiser #(1 1 1)) reversep
                                 &mandatory-key bayer-pattern)
   "Read an image at position start in .pictures file at path and send
-it to the binary output-stream.  Return UNIX trigger-time of image."
+it to the binary output-stream.  Return UNIX trigger-time of image.
+If reversep is t, turn it upside-down.  Bayer-pattern is applied after
+turning, which is a wart."              
+  ;; TODO: bayer-pattern should be applied to the unturned image
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
         (blob-size (find-keyword-value path "dataSize=" start))
         (huffman-table-size (* 511 (+ 1 4)))
@@ -390,10 +420,12 @@ it to the binary output-stream.  Return UNIX trigger-time of image."
                                 input-stream
                                 (+ blob-start huffman-table-size)
                                 (- blob-size huffman-table-size))
-                               image-height image-width color-type))
+                               image-height image-width color-type
+                               :reversep reversep))
           (0                            ;uncompressed
            (fetch-picture input-stream blob-start blob-size
-                          image-height image-width color-type)))
+                          image-height image-width color-type
+                          :reversep reversep)))
         bayer-pattern
         color-raiser)
        output-stream))
@@ -424,10 +456,6 @@ send it to the binary output-stream.  Return UNIX trigger-time of
 image."
   (send-png output-stream path (find-nth-picture n path)
             :bayer-pattern bayer-pattern :color-raiser color-raiser))
-
-;;(defstruct picture-header               ; TODO: perhaps not needed
-;;  "Information for one image from a .pictures file."
-;;  trigger-time fake-trigger-time-p camera-timestamp recorded-device-id path file-position)
 
 
 ;; TODO: (perhaps)

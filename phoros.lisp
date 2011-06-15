@@ -399,6 +399,7 @@ wrapped in an array."
                              'roll 'pitch 'heading
                              'roll-sd 'pitch-sd 'heading-sd
                              'sensor-width-pix 'sensor-height-pix 'pix-size
+                             'bayer-pattern 'color-raiser
                              'mounting-angle
                              'dx 'dy 'dz 'omega 'phi 'kappa
                              'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
@@ -908,12 +909,14 @@ table."
          c)))))
 
 (hunchentoot:define-easy-handler photo-handler
-    ((bayer-pattern :init-form "#00ff00,#ff0000")
-     (color-raiser :init-form "1,1,1"))
+    ((bayer-pattern :init-form "65280,16711680")
+     (color-raiser :init-form "1,1,1")
+     (mounting-angle :init-form "0"))
   "Serve an image from a .pictures file."
   (when (hunchentoot:session-value 'authenticated-p)
     (handler-case
-        (let* ((s (cdr (cl-utilities:split-sequence #\/ (hunchentoot:script-name*)
+        (let* ((s (cdr (cl-utilities:split-sequence #\/
+                                                    (hunchentoot:script-name*)
                                                     :remove-empty-subseqs t)))
                (directory (last (butlast s 2)))
                (file-name-and-type (cl-utilities:split-sequence
@@ -930,9 +933,17 @@ table."
                stream)
           (setf (hunchentoot:content-type*) "image/png")
           (setf stream (hunchentoot:send-headers))
-          (send-png stream path-to-file byte-position
-                    :bayer-pattern (cli:canonicalize-bayer-pattern bayer-pattern)
-                    :color-raiser (cli:canonicalize-color-raiser color-raiser)))
+          (send-png
+           stream path-to-file byte-position
+           :bayer-pattern
+           (apply #'vector (mapcar
+                            #'parse-integer
+                            (cl-utilities:split-sequence  #\, bayer-pattern)))
+           :color-raiser
+           (apply #'vector (mapcar
+                            #'parse-number:parse-positive-real-number
+                            (cl-utilities:split-sequence  #\, color-raiser)))
+           :reversep (= 180 (parse-integer mounting-angle))))
       (condition (c)
         (cl-log:log-message
          :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c)))))
