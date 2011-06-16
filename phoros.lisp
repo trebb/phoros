@@ -180,13 +180,11 @@ session."
                  presentation-project-id)
            (setf (hunchentoot:session-value 'presentation-project-bbox)
                  (let ((bbox
-                        (bounding-box (get-dao 'sys-presentation-project
-                                               presentation-project-name))))
-                   (if (eq :null bbox)
-                       "-180,-89,180,89"
-                       ;; "-180,-90,180,90" doesn't work wit
-                       ;; OpenLayer's zoom-to-extent when it's passed
-                       ;; a second argument.
+                        (ignore-errors
+                          (bounding-box (get-dao 'sys-presentation-project
+                                                 presentation-project-name)))))
+                   (if (or (null bbox) (eq :null bbox))
+                       nil
                        bbox)))
            (setf (hunchentoot:session-value 'aux-data-p)
                  (with-connection *postgresql-aux-credentials*
@@ -319,16 +317,17 @@ current session."
                (get-dao 'sys-user-role
                         (hunchentoot:session-value 'user-id)
                         (hunchentoot:session-value 'presentation-project-id))))
-          (when bbox
-            (setf (bounding-box sys-user-role) bbox))
-          (when (and longitude latitude)
-            (let* ;; kludge: should be done by some library, not by DB query
-                ((point-form (format nil "POINT(~F ~F)" longitude latitude))
-                 (point-wkb (query (:select
-                                    (:st_geomfromtext point-form))
-                                   :single)))
-              (setf (cursor sys-user-role) point-wkb)))
-          (update-dao sys-user-role)
+          (when sys-user-role
+            (when bbox
+              (setf (bounding-box sys-user-role) bbox))
+            (when (and longitude latitude)
+              (let* ;; kludge: should be done by some library, not by DB query
+                  ((point-form (format nil "POINT(~F ~F)" longitude latitude))
+                   (point-wkb (query (:select
+                                      (:st_geomfromtext point-form))
+                                     :single)))
+                (setf (cursor sys-user-role) point-wkb)))
+            (update-dao sys-user-role))
           (hunchentoot:remove-session hunchentoot:*session*)
           (who:with-html-output-to-string (s nil :prologue t :indent t)
             (:html
@@ -389,6 +388,9 @@ wrapped in an array."
                                                  ,point-form
                                                  ,*standard-coordinates*))
                                   'distance)
+                             'recorded-device-id      ;debug
+                             'device-stage-of-life-id ;debug
+                             'generic-device-id       ;debug
                              'directory
                              'filename 'byte-position 'point-id
                              'trigger-time

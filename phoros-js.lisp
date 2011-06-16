@@ -298,7 +298,7 @@
                             *bounds
                             (from-string
                              (or +presentation-project-bbox-text+
-                                 "-180,-90,180,90"))))
+                                 "-180,-89,180,89"))))
                 (transform +geographic+ +spherical-mercator+))
          "Bounding box of the entire presentation project.")
 
@@ -1988,11 +1988,12 @@ image-index in array *images*."
          (add-help-events)
          (chain *streetmap*
                 (zoom-to-extent
-                 (new (chain *open-layers
+                 (if (lisp (stored-bbox))
+                     (new (chain *open-layers
                              *bounds
                              (from-string (lisp (stored-bbox)))
                              (transform +geographic+ +spherical-mercator+)))
-                 t))
+                     +presentation-project-bounds+)))
            (let ((stored-cursor (lisp (stored-cursor))))
              (when stored-cursor
                (request-photos

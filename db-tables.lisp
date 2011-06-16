@@ -136,8 +136,7 @@
     :col-type text
     :initarg :presentation-project-name)
    (bounding-box
-    :col-type text
-    :initform "-180,-90,180,90"
+    :col-type (or db-null text)
     :accessor bounding-box
     :documentation "Extent of this presentation project."))
   (:metaclass dao-class)
@@ -1014,6 +1013,9 @@ belonging to images."
        (:create-view
         ,aggregate-view-name
         (:select
+         'sys-device-stage-of-life.recorded-device-id      ;debug
+         'sys-device-stage-of-life.device-stage-of-life-id ;debug
+         'sys-device-stage-of-life.generic-device-id       ;debug
          'random
          'presentation-project-id
          'directory
@@ -1527,35 +1529,39 @@ acquisition-project (denoted by its common-table-name)."
             (t (error
                 "Don't know what to add.  ~
                  Need either measurement-id or acquisition-project."))))
-    (let ((common-table-names
-           (common-table-names presentation-project-id)))
-      (setf (bounding-box presentation-project)
-            (substitute
-             #\, #\Space
-             (string-trim
-              "BOX()"
-              (query
-               (sql-compile
-                `(:select
-                  (:st_extent 'coordinates)
-                  :from
-                  (:as (:union
-                        ,@(loop
-                             for common-table-name in common-table-names
-                             for point-table-name
-                             = (point-data-table-name common-table-name)
-                             ;; would have been nice, was too slow:
-                             ;; = (aggregate-view-name common-table-name)
-                             collect
-                             `(:select
-                               'coordinates
-                               :from ',point-table-name
-                               :natural :left-join 'sys-presentation
-                               :where
-                               (:= 'presentation-project-id
-                                   ,presentation-project-id))))
-                       all-coordinates)))
-               :single!))))
+    (let* ((common-table-names
+            (common-table-names presentation-project-id))
+           (presentation-project-bounding-box
+            (ignore-errors             ;for empty presentation project
+              (substitute
+               #\, #\Space
+               (string-trim
+                "BOX()"
+                (query
+                 (sql-compile
+                  `(:select
+                    (:st_extent 'coordinates)
+                    :from
+                    (:as (:union
+                          ,@(loop
+                               for common-table-name in common-table-names
+                               for point-table-name
+                               = (point-data-table-name common-table-name)
+                               ;; would have been nice, was too slow:
+                               ;; = (aggregate-view-name common-table-name)
+                               collect
+                               `(:select
+                                 'coordinates
+                                 :from ',point-table-name
+                                 :natural :left-join 'sys-presentation
+                                 :where
+                                 (:= 'presentation-project-id
+                                     ,presentation-project-id))))
+                         all-coordinates)))
+                 :single!))))))
+      (when presentation-project-bounding-box
+        (setf (bounding-box presentation-project)
+              presentation-project-bounding-box))
       (update-dao presentation-project))))
 
 (defun remove-from-presentation-project (presentation-project-name
