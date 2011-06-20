@@ -192,7 +192,7 @@ session."
                                    presentation-project-name))))
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:body
-              :style "font-family:sans;"
+              :style "font-family:sans-serif;"
               (:form
                :method "post" :enctype "multipart/form-data"
                :action "/phoros/lib/authenticate" :name "login-form"
@@ -302,7 +302,7 @@ current session."
                                   :add-session-id t))
           (who:with-html-output-to-string (s nil :prologue t :indent t)
             (:body
-             :style "font-family:sans;"
+             :style "font-family:sans-serif;"
              (:b "Rejected. ")
              (:a :href (format nil "/phoros/~A/" (hunchentoot:session-value
                                                   'presentation-project-name))
