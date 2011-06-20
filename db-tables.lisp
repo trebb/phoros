@@ -1245,6 +1245,8 @@ BEGIN
     st_azimuth(previous_point.coordinates, new_point.coordinates);
 
   IF abs(new_azimuth - old_azimuth) > radians(90)
+     AND
+     abs(new_azimuth - old_azimuth) < radians(270)
   THEN
     new_azimuth :=
       st_azimuth(new_point.coordinates, previous_point.coordinates);
