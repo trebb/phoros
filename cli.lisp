@@ -397,7 +397,8 @@ according to the --verbose option given."
       ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist
       ;; obeyed by both hunchentoot and Phoros' own logging:
       (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 verbose))
-      ;; necessary for (ps ... (debug-info ...)...):
+      ;; necessary for (ps ... (debug-info ...)...); doesn't work with
+      ;; (OpenLayers 2.10 AND Firefox 4), though:
       (setf *use-multi-file-openlayers* (logbitp 14 verbose))
       (setf *ps-print-pretty* (logbitp 15 verbose))
       (setf hunchentoot:*show-lisp-errors-p* (logbitp 16 verbose)))

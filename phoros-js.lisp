@@ -598,9 +598,8 @@ shadow any other control."
          (setf (@ *streetmap* user-point-choice-response)
                ((@ *open-layers *Request *POST*)
                 (create :url "/phoros/lib/user-point-attributes.json"
-                        :data content
-                        :headers (create "Content-type" "text/plain"
-                                         "Content-length" (@ content length))
+                        :data nil
+                        :headers (create "Content-type" "text/plain")
                         :success (lambda ()
                                    (stuff-user-point-comboboxes selectp))))))
 
@@ -633,7 +632,7 @@ shadow any other control."
                                         (step-size-degrees))))
 
        (defun request-photos-for-point (lonlat-spherical-mercator)
-         "Fetch photo data near lonlat-spherical-marcator; set or
+         "Fetch photo data near lonlat-spherical-mercator; set or
           update streetmap cursor."
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "remove-work-layers-button")
