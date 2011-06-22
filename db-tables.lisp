@@ -393,6 +393,9 @@ TODO: /images/ part not currently enforced.")
    (main-description
     :col-type text
     :documentation "Regarding this entire set of calibration data.  Note the special-purpose description fields inner-orientation-description, outer-orientation-description, boresight-description.")
+   (usable
+    :col-type boolean
+    :documentation "If false: just display images, don't perform photogrammetric calculations.")
    (debug
     :col-type boolean
     :documentation "If true: not for production use; may be altered or deleted at any time.")
@@ -708,105 +711,6 @@ $$ LANGUAGE plpgsql;"
   (:keys measurement-id filename byte-position)
   (:documentation "One row per image, originating from a .pictures file."))
 
-;;(defclass aggregate-template ()
-;;  ((date                                ;TODO: debug only
-;;    :col-type :timestamp-with-time-zone)
-;;   (measurement-id                      ;TODO: debug only
-;;    :col-type integer)
-;;   (recorded-device-id                  ;TODO: debug only
-;;    :col-type integer)
-;;   (device-stage-of-life-id             ;TODO: debug only
-;;    :col-type integer)
-;;   (filename
-;;    :col-type string)
-;;   (byte-position
-;;    :col-type integer)
-;;   (point-id
-;;    :col-type integer)
-;;   (trigger-time
-;;    :col-type double-precision)
-;;   (longitude
-;;    :col-type double-precision)
-;;   (latitude
-;;    :col-type double-precision)
-;;   (ellipsoid-height
-;;    :col-type double-precision)
-;;   (east-sd
-;;    :col-type double-precision)
-;;   (north-sd
-;;    :col-type double-precision)
-;;   (height-sd
-;;    :col-type double-precision)
-;;   (roll
-;;    :col-type double-precision)
-;;   (pitch
-;;    :col-type double-precision)
-;;   (heading
-;;    :col-type double-precision)
-;;   (roll-sd
-;;    :col-type double-precision)
-;;   (pitch-sd
-;;    :col-type double-precision)
-;;   (heading-sd
-;;    :col-type double-precision)
-;;   (sensor-width-pix
-;;    :col-type double-precision)
-;;   (sensor-height-pix
-;;    :col-type double-precision)
-;;   (pix-size
-;;    :col-type double-precision)
-;;   (mounting-angle
-;;    :col-type integer)
-;;   (dx
-;;    :col-type double-precision)
-;;   (dy
-;;    :col-type double-precision)
-;;   (dz
-;;    :col-type double-precision)
-;;   (omega
-;;    :col-type double-precision)
-;;   (phi
-;;    :col-type double-precision)
-;;   (kappa
-;;    :col-type double-precision)
-;;   (c
-;;    :col-type double-precision)
-;;   (xh
-;;    :col-type double-precision)
-;;   (yh
-;;    :col-type double-precision)
-;;   (a1
-;;    :col-type double-precision)
-;;   (a2
-;;    :col-type double-precision)
-;;   (a3
-;;    :col-type double-precision)
-;;   (b1
-;;    :col-type double-precision)
-;;   (b2
-;;    :col-type double-precision)
-;;   (c1
-;;    :col-type double-precision)
-;;   (c2
-;;    :col-type double-precision)
-;;   (r0
-;;    :col-type double-precision)
-;;   (b-dx
-;;    :col-type double-precision)
-;;   (b-dy
-;;    :col-type double-precision)
-;;   (b-dz
-;;    :col-type double-precision)
-;;   (b-rotx
-;;    :col-type double-precision)
-;;   (b-roty
-;;    :col-type double-precision)
-;;   (b-rotz
-;;    :col-type double-precision))
-;;  (:metaclass dao-class)
-;;  (:documentation
-;;   "Representation of a view into all relevant data for one image.  TODO: use mixins to avoid repetition."))
-
 (defclass user-point-template ()
   (;; We need a slot user-point-id which is defined in our subclasses.
    (user-id
@@ -871,11 +775,6 @@ $$ LANGUAGE plpgsql;"
   ()
   (:metaclass dao-class)
   (:table-name nil))                    ;to be redefined
-
-;;(defclass aggregate-data (aggregate-template)
-;;  ()
-;;  (:metaclass dao-class)
-;;  (:table-name nil))                    ;to be redefined
 
 (defclass user-point-data (user-point-template)
   ((user-point-id
@@ -1031,6 +930,7 @@ belonging to images."
          'cartesian-system
          'east-sd 'north-sd 'height-sd
          'roll 'pitch 'heading 'roll-sd 'pitch-sd 'heading-sd
+         'usable
          'sensor-width-pix 'sensor-height-pix 'pix-size
          'bayer-pattern 'color-raiser
          'mounting-angle

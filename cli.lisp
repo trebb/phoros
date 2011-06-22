@@ -173,6 +173,8 @@
      :documentation "Person who did the calibration.")
     ("main-description" :type string
      :documentation "Regarding this entire set of calibration data")
+    ("usable" :type string :initial-value "yes"
+     :documentation "Set to no to just display images and inhibit photogrammetric calculations.")
     ("debug" :type string
      :documentation "If true: not for production use; may be altered or deleted at any time.")
     ("photogrammetry-version" :type string

@@ -208,6 +208,10 @@
           :image-layer-switcher
           (who-ps-html
            (:p "Toggle display of image."))
+          :image-usable
+          (who-ps-html
+           (:p "No photogrammetric survey possible as there isn't any
+           usable calibration data available for this image."))
           :image-trigger-time
           (who-ps-html
            (:p "Time this image was taken."))
@@ -504,9 +508,7 @@ shadow any other control."
               for i across *images*
               do
               (setf (getprop i 'photo-parameters) p)
-              ((getprop i 'show-photo)))
-           ;; (setf (@ (aref photo-parameters 0) angle180) 1) ; Debug: coordinate flipping
-           ))
+              ((getprop i 'show-photo)))))
 
        (defun consolidate-combobox (combobox-id)
          "Help faking a combobox: copy selected option into input."
@@ -1233,79 +1235,80 @@ equator."
                   (photo-parameters
                    (getprop clicked-image 'photo-parameters))
                   pristine-image-p content request)
-             (setf (@ photo-parameters m) (@ lonlat lon)
-                   (@ photo-parameters n) (@ lonlat lat))
-             (remove-layer (getprop clicked-image 'map) "Active Point")
-             (remove-any-layers "Epipolar Line")
-             (setf *pristine-images-p* (not (some-active-point-p)))
-             (setf (@ clicked-image active-point-layer)
-                   (new (chain *open-layers
-                               *layer
-                               (*vector "Active Point"
-                                        (create display-in-layer-switcher
-                                                nil)))))
-             ((@ clicked-image map add-layer)
-              (@ clicked-image active-point-layer))
-             ((getprop clicked-image 'draw-active-point))
-             (if
-              *pristine-images-p*
-              (progn
-                (chain *streetmap* user-points-select-control (unselect-all))
-                (reset-controls)
-                (setf (value-with-id "point-numeric-description")
-                      (increment-numeric-text
-                       (value-with-id "point-numeric-description")))
-                (remove-any-layers "User Point") ;from images
-                (loop
-                   for i across *images* do
-                   (unless (equal i clicked-image)
-                     (setf
-                      (@ i epipolar-layer)
-                      (new (chain *open-layers
-                                  *layer
-                                  (*vector "Epipolar Line"
-                                           (create
-                                            display-in-layer-switcher nil))))
-                      content (chain *json-parser*
-                                     (write
-                                      (append (array photo-parameters)
-                                              (@ i photo-parameters))))
-                      (@ i epipolar-request-response)
-                      ((@ *open-layers *Request *POST*)
-                       (create :url "/phoros/lib/epipolar-line"
-                               :data content
-                               :headers (create "Content-type" "text/plain"
-                                                "Content-length"
-                                                (@ content length))
-                               :success (getprop i 'draw-epipolar-line)
-                               :scope i)))
-                     ((@ i map add-layer) (@ i epipolar-layer)))))
-              (progn
-                (remove-any-layers "Epipolar Line")
-                (remove-any-layers "Estimated Position")
-                (let* ((active-pointed-photo-parameters
-                        (loop
-                           for i across *images*
-                           when (has-layer-p (getprop i 'map) "Active Point")
-                           collect (getprop i 'photo-parameters)))
-                       (content
-                        (chain *json-parser*
-                               (write
-                                (list active-pointed-photo-parameters
-                                      (chain *images*
-                                             (map #'(lambda (x)
-                                                      (getprop
-                                                       x 'photo-parameters)))))))))
-                  (setf (@ clicked-image estimated-positions-request-response)
+             (when (@ photo-parameters usable)
+               (setf (@ photo-parameters m) (@ lonlat lon)
+                     (@ photo-parameters n) (@ lonlat lat))
+               (remove-layer (getprop clicked-image 'map) "Active Point")
+               (remove-any-layers "Epipolar Line")
+               (setf *pristine-images-p* (not (some-active-point-p)))
+               (setf (@ clicked-image active-point-layer)
+                     (new (chain *open-layers
+                                 *layer
+                                 (*vector "Active Point"
+                                          (create display-in-layer-switcher
+                                                  nil)))))
+               ((@ clicked-image map add-layer)
+                (@ clicked-image active-point-layer))
+               ((getprop clicked-image 'draw-active-point))
+               (if
+                *pristine-images-p*
+                (progn
+                  (chain *streetmap* user-points-select-control (unselect-all))
+                  (reset-controls)
+                  (setf (value-with-id "point-numeric-description")
+                        (increment-numeric-text
+                         (value-with-id "point-numeric-description")))
+                  (remove-any-layers "User Point") ;from images
+                  (loop
+                     for i across *images* do
+                     (unless (equal i clicked-image)
+                       (setf
+                        (@ i epipolar-layer)
+                        (new (chain *open-layers
+                                    *layer
+                                    (*vector "Epipolar Line"
+                                             (create
+                                              display-in-layer-switcher nil))))
+                        content (chain *json-parser*
+                                       (write
+                                        (append (array photo-parameters)
+                                                (@ i photo-parameters))))
+                        (@ i epipolar-request-response)
                         ((@ *open-layers *Request *POST*)
-                         (create :url "/phoros/lib/estimated-positions"
+                         (create :url "/phoros/lib/epipolar-line"
                                  :data content
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
                                                   (@ content length))
-                                 :success (getprop clicked-image
-                                                   'draw-estimated-positions)
-                                 :scope clicked-image)))))))))
+                                 :success (getprop i 'draw-epipolar-line)
+                                 :scope i)))
+                       ((@ i map add-layer) (@ i epipolar-layer)))))
+                (progn
+                  (remove-any-layers "Epipolar Line")
+                  (remove-any-layers "Estimated Position")
+                  (let* ((active-pointed-photo-parameters
+                          (loop
+                             for i across *images*
+                             when (has-layer-p (getprop i 'map) "Active Point")
+                             collect (getprop i 'photo-parameters)))
+                         (content
+                          (chain *json-parser*
+                                 (write
+                                  (list active-pointed-photo-parameters
+                                        (chain *images*
+                                               (map #'(lambda (x)
+                                                        (getprop
+                                                         x 'photo-parameters)))))))))
+                    (setf (@ clicked-image estimated-positions-request-response)
+                          ((@ *open-layers *Request *POST*)
+                           (create :url "/phoros/lib/estimated-positions"
+                                   :data content
+                                   :headers (create "Content-type" "text/plain"
+                                                    "Content-length"
+                                                    (@ content length))
+                                   :success (getprop clicked-image
+                                                     'draw-estimated-positions)
+                                   :scope clicked-image))))))))))
 
        (defun iso-time-string (lisp-time)
          "Return Lisp universal time formatted as ISO time string"
@@ -1325,16 +1328,16 @@ equator."
                 (parse-int (chain (get-computed-style (@ this map div) nil)
                                   height)))
                (image-width
-                (getprop this 'photo-parameters 'sensor-width-pix))
+                (@ this photo-parameters sensor-width-pix))
                (image-height
-                (getprop this 'photo-parameters 'sensor-height-pix)))
+                (@ this photo-parameters sensor-height-pix)))
            ((getprop this 'map 'add-layer)
             (new (chain
                   *open-layers
                   *layer
                   (*image
                    "Photo"
-                   (photo-path (getprop this 'photo-parameters))
+                   (photo-path (@ this photo-parameters))
                    (new (chain *open-layers
                                (*bounds
                                 -.5 -.5
@@ -1348,8 +1351,11 @@ equator."
                                     (max (/ image-width image-div-width)
                                          (/ image-height image-div-height))))))))
            (chain this map (zoom-to-max-extent))
+           (if (@ this photo-parameters usable)
+               (hide-element-with-id (@ this usable-id))
+               (reveal-element-with-id (@ this usable-id)))
            (setf (@ this trigger-time-div inner-h-t-m-l)
-                 (iso-time-string (getprop this 'photo-parameters 'trigger-time)))))
+                 (iso-time-string (@ this photo-parameters trigger-time)))))
 
        (defun zoom-images-to-max-extent ()
          "Zoom out all images."
@@ -1384,6 +1390,9 @@ Estimated Position, zoom in and recenter."
          "Create an image usable for displaying photos at position
 image-index in array *images*."
          (setf (aref *images* image-index) (new *image))
+         (setf (@ (aref *images* image-index) usable-id)
+               (+ "image-" image-index "-usable"))
+         (hide-element-with-id (+ "image-" image-index "-usable"))
          (setf (@ (aref *images* image-index) trigger-time-div)
                (chain
                 document

@@ -818,7 +818,9 @@ date.  Return device-stage-of-life-id of the altered record."
     (update-dao record)
     (device-stage-of-life-id record)))
 
-(defun* store-camera-calibration (&mandatory-key
+(defun* store-camera-calibration (&key
+                                  (usable "yes")
+                                  &mandatory-key
                                   device-stage-of-life-id
                                   date
                                   person
@@ -877,6 +879,7 @@ device-stage-of-life-id and date of the altered record."
            (date-slot date)
            (person-slot person)
            (main-description-slot main-description)
+           (usable-slot usable)
            (debug-slot debug)
            (photogrammetry-version-slot photogrammetry-version)
            (mounting-angle-slot mounting-angle)
@@ -921,6 +924,7 @@ device-stage-of-life-id and date of the altered record."
             date-slot date
             person-slot person
             main-description-slot main-description
+            usable-slot usable
             debug-slot debug
             photogrammetry-version-slot photogrammetry-version
             mounting-angle-slot mounting-angle

@@ -330,11 +330,18 @@ button, select {
     height: 18px;
     float: left;
 }
+.image-usable {
+    color: red;
+    float: left;
+    width: 5px;
+    height: 18px;
+    font-size: small;
+}
 .image-trigger-time {
     font: smaller 'andale mono', 'lucida console', monospace;
     color: white; 
     float: right;
-    height: 18px;
+    height: 15px;
     margin-right: 5px;
     margin-top: 3px;
     float: right;

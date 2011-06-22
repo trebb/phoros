@@ -388,6 +388,7 @@ wrapped in an array."
                                                  ,point-form
                                                  ,*standard-coordinates*))
                                   'distance)
+                             'usable
                              'recorded-device-id      ;debug
                              'device-stage-of-life-id ;debug
                              'generic-device-id       ;debug
@@ -1173,6 +1174,9 @@ table."
                                    :class "image-zoom")
                              (:div :id (format nil "image-~S-layer-switcher" i)
                                    :class "image-layer-switcher")
+                             (:div :id (format nil "image-~S-usable" i)
+                                   :class "image-usable"
+                                   (:b "!"))
                              (:div :id (format nil "image-~S-trigger-time" i)
                                    :class "image-trigger-time"))
                        (:div :id (format nil "image-~S" i)
