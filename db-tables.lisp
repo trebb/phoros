@@ -1280,7 +1280,7 @@ dao if one was created, or nil if it existed already."
 CREATE TRIGGER ~A
   AFTER INSERT OR UPDATE OR DELETE
   ON ~:*~A
-  EXECUTE PROCEDURE ~:*~A();"
+  FOR EACH ROW EXECUTE PROCEDURE ~:*~A();"
                      (s-sql:to-sql-name (user-point-table-name project-name))))
     (execute (sql-compile
               `(:create-table ,(user-line-table-name project-name)

@@ -35,6 +35,8 @@ DECLARE
   previous_point point_bag%ROWTYPE;
   starting_point GEOMETRY;
   point_group RECORD;
+  old_description text;
+  new_description text;
   -- Set max_bend = 180 in order not to discard any points, and to get
   -- crazy zigzag lines.
   max_bend DOUBLE PRECISION DEFAULT 91; -- degrees
@@ -44,15 +46,32 @@ BEGIN
   -- Muffle warnings about implicitly created stuff:
   SET client_min_messages TO ERROR;
 
+  IF TG_OP = 'UPDATE'
+  THEN
+    old_description := OLD.description;
+    new_description := NEW.description;
+  END IF;
+
+  IF TG_OP = 'INSERT'
+  THEN
+    new_description := NEW.description;
+  END IF;
+
+  IF TG_OP = 'DELETE'
+  THEN
+    old_description := OLD.description;
+  END IF;
+
   CREATE TEMPORARY TABLE point_bag
     (id SERIAL primary key, coordinates GEOMETRY, description TEXT)
     ON COMMIT DROP;
 
   <<thread_one_line>>
   FOR point_group
-  IN SELECT description FROM ~0@*~A GROUP BY description
+  IN SELECT description FROM ~0@*~A
+  WHERE description = old_description OR description = new_description
+  GROUP BY description
   LOOP
-
     INSERT INTO point_bag (coordinates, description)
       SELECT coordinates, description
         FROM ~0@*~A
