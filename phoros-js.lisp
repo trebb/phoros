@@ -535,9 +535,9 @@ shadow any other control."
                         selected-index)
                  -1)))
           
-       (defun stuff-combobox (combobox-id values &optional selection)
-         "Stuff combobox with values.  If selection is a number,
-         select the respective item."
+       (defun stuff-combobox (combobox-id values &optional (selection -1))
+         "Stuff combobox with values.  If selection is a non-negative
+         integer, select the respective item."
          (let ((combobox-select (+ combobox-id "-select"))
                (combobox-input (+ combobox-id "-input")))
            (setf (chain document
@@ -552,12 +552,11 @@ shadow any other control."
                 (chain document
                        (get-element-by-id combobox-select)
                        (add combobox-item null)))
-           (when selection
-             (setf (chain document
-                          (get-element-by-id combobox-select)
-                          selected-index)
-                   selection)
-             (consolidate-combobox combobox-id))))
+           (setf (chain document
+                        (get-element-by-id combobox-select)
+                        selected-index)
+                 selection)
+           (consolidate-combobox combobox-id)))
 
        (defun stuff-user-point-comboboxes (&optional selectp)
          "Stuff user point attribute comboboxes with sensible values.
@@ -572,8 +571,8 @@ shadow any other control."
                 (descriptions
                  (chain response descriptions (map (lambda (x)
                                                      (@ x description)))))
-                best-used-attribute
-                best-used-description)
+                (best-used-attribute -1)
+                (best-used-description -1))
            (when selectp
              (loop
                 with maximum = 0
@@ -1476,6 +1475,8 @@ image-index in array *images*."
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Estimated Position")
+         (unselect-combobox-selection "point-attribute")
+         (unselect-combobox-selection "point-description")
          (user-point-selection-changed))
 
        (defun user-point-unselected (event)
