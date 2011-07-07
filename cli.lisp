@@ -1058,6 +1058,7 @@ a view."
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
+      (muffle-postgresql-warnings)
       (multiple-value-bind
             (points-stored points-already-in-db points-tried)
           (apply #'store-user-points presentation-project
