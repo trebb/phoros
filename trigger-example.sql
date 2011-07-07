@@ -62,7 +62,9 @@ BEGIN
     old_description := OLD.description;
   END IF;
 
-  CREATE TEMPORARY TABLE point_bag
+  DROP TABLE IF EXISTS point_bag_table;
+
+  CREATE TEMPORARY TABLE point_bag_table
     (id SERIAL primary key, coordinates GEOMETRY, description TEXT)
     ON COMMIT DROP;
 
@@ -72,7 +74,7 @@ BEGIN
   WHERE description = old_description OR description = new_description
   GROUP BY description
   LOOP
-    INSERT INTO point_bag (coordinates, description)
+    INSERT INTO point_bag_table (coordinates, description)
       SELECT coordinates, description
         FROM ~0@*~A
         WHERE attribute = 'polyline'
@@ -81,27 +83,27 @@ BEGIN
   
     starting_point :=
       (SELECT st_centroid(st_collect(coordinates))
-         FROM point_bag);
+         FROM point_bag_table);
   
     previous_point := 
       (SELECT ROW(id, coordinates) 
-         FROM point_bag 
-         ORDER BY st_distance(point_bag.coordinates, starting_point)
+         FROM point_bag_table 
+         ORDER BY st_distance(point_bag_table.coordinates, starting_point)
          LIMIT 1);
   
-    DELETE FROM point_bag WHERE id = previous_point.id;
+    DELETE FROM point_bag_table WHERE id = previous_point.id;
   
     new_point := 
       (SELECT ROW(id, coordinates)
-         FROM point_bag
-         ORDER BY st_distance(point_bag.coordinates,
+         FROM point_bag_table
+         ORDER BY st_distance(point_bag_table.coordinates,
                               previous_point.coordinates)
          LIMIT 1);
   
     polyline := st_makeline(previous_point.coordinates,
                         new_point.coordinates);
   
-    DELETE FROM point_bag WHERE id = new_point.id;
+    DELETE FROM point_bag_table WHERE id = new_point.id;
   
     <<add_or_discard_point>>
     LOOP
@@ -109,7 +111,7 @@ BEGIN
   
       new_point :=
         (SELECT ROW(id, coordinates)
-           FROM point_bag
+           FROM point_bag_table
            ORDER BY st_distance(coordinates, previous_point.coordinates)
            LIMIT 1);
   
@@ -127,12 +129,12 @@ BEGIN
          < radians(max_bend)
       THEN
           polyline := st_addpoint(polyline, new_point.coordinates, 0);
-          DELETE FROM point_bag WHERE id = new_point.id;
+          DELETE FROM point_bag_table WHERE id = new_point.id;
       END IF;
   
       polyline := st_reverse(polyline);
   
-      DELETE FROM point_bag WHERE id = tried_point.id;
+      DELETE FROM point_bag_table WHERE id = tried_point.id;
   
       tried_point := new_point;
     END LOOP add_or_discard_point;
