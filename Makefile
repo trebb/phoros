@@ -40,7 +40,7 @@ MACHINE_TYPE = $(shell uname -m)
 PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
 
-phoros : $(SOURCE) $(LIBPHOML_DIR)/$(LIBPHOML) $(OPENLAYERS_JS) \
+phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)
 	$(LISP) --lose-on-corruption --disable-ldb --end-runtime-options \
@@ -69,7 +69,7 @@ $(OPENLAYERS_THEME) : $(PRISTINE_OPENLAYERS_DIR)/theme $(OPENLAYERS_JS)
 $(OPENLAYERS_IMG) : $(PRISTINE_OPENLAYERS_DIR)/img $(OPENLAYERS_JS)
 	cp -R $< $@
 
-$(LIBPHOML_DIR)/$(LIBPHOML) :
+photogrammetry_lib :
 	cd phoml; $(MAKE)
 
 public_html :
@@ -167,5 +167,7 @@ clean :
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)\
 		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
+	cd phoml; $(MAKE) clean
+
 
 .PHONY : bin-tarball src-tarball html git-tag clean
