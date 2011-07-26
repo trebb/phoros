@@ -114,6 +114,31 @@ n in photo, and floor."
           (list
            (get-x-global) (get-y-global) (get-z-global))))
 
+(defun point-radians-to-degrees (point)
+  "Convert (the first and second element of) point from radians to degrees."
+  (setf (first point) (proj:radians-to-degrees (first point)))
+  (setf (second point) (proj:radians-to-degrees (second point)))
+  point)
+
+(defmethod photogrammetry ((mode (eql :footprint)) photo &optional (floor photo))
+  (set-global-reference-frame)
+  (add-cam* photo)
+  (add-global-car-reference-point* photo t)
+  (add-ref-ground-surface* floor)
+  (set-distance-for-epipolar-line 20d0)
+  (calculate)
+  (let ((source-cs
+         (car (photogrammetry-arglist photo :cartesian-system))))
+    (acons
+     :footprint
+     (loop
+        for i in '(0 1 2 3 0) collect
+          (point-radians-to-degrees (proj:cs2cs (list (get-fp-easting i)
+                                                      (get-fp-northing i)
+                                                      (get-fp-e-height i))
+                                                :source-cs source-cs)))
+     nil)))
+
 (defun flip-m-maybe (m photo)
   "Flip coordinate m when :mounting-angle in photo suggests it
 necessary."

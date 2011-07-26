@@ -413,11 +413,46 @@ wrapped in an array."
                              :where
                              (:and (:= 'presentation-project-id
                                        ,presentation-project-id)
-                                   (:st_dwithin 'coordinates
-                                                (:st_geomfromtext
-                                                 ,point-form
-                                                 ,*standard-coordinates*)
-                                                ,snap-distance)))))
+                                   (:st_contains
+                                    'footprint
+                                    (:limit
+                                     (:select
+                                      'centroid :from
+                                      (:as
+                                       (:order-by
+                                        (:union
+                                         ,@(loop
+                                              for common-table-name
+                                              in common-table-names
+                                              for aggregate-view-name
+                                                = (aggregate-view-name
+                                                   common-table-name)
+                                              collect  
+                                              `(:select
+                                                (:as
+                                                 (:st_distance
+                                                  (:st_centroid 'footprint)
+                                                  (:st_geomfromtext
+                                                   ,point-form
+                                                   ,*standard-coordinates*))
+                                                 'distance)
+                                                (:as (:st_centroid 'footprint)
+                                                     'centroid)
+                                                :from
+                                                ',aggregate-view-name
+                                                :where
+                                                (:and
+                                                 (:= 'presentation-project-id
+                                                     ,presentation-project-id)
+                                                 (:st_dwithin
+                                                  'footprint
+                                                  (:st_geomfromtext
+                                                   ,point-form
+                                                   ,*standard-coordinates*)
+                                                  ,snap-distance)))))
+                                        'distance)
+                                           'centroids))
+                                     1))))))
                      'distance)
                     ,count))
                  :alists))))

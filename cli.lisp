@@ -254,11 +254,13 @@
     ("epsilon" :type string :initial-value ".001"
      :documentation "Difference in seconds below which two timestamps are considered equal.")
     ("aggregate-events" :type nil
-     :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")))
+     :documentation "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case.")
+    ("insert-footprints" :type string :action #'cli:insert-footprints-action
+     :documentation "(*) Update image footprints (the area on the ground that is most probably covered by the respective image).  The string argument is the acquisition project name.")))
 
 (defparameter cli:*start-server-options*
   '(("server" :action #'cli:server-action
-     :documentation "(*) Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>")
+     :documentation "(*) Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>.  Asynchronously update lacking image footprints (which should have been done already using --insert-footprints).")
     ("address" :type string
      :documentation "Address (of local machine) server is to listen to.  Default is listening to all available addresses.")
     ("http-port" :type integer :initial-value 8080
@@ -742,6 +744,24 @@ according to the --verbose option given."
      "Finish: storing data from ~A into acquisition project ~A ~
       in database ~A at ~A:~D."
      directory common-table-name database host port)))
+
+(defun cli:insert-footprints-action (common-table-name)
+  "Update image footprints."
+  (cli:with-options (host port database (user "") (password "") use-ssl
+                          log-dir)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let ((number-of-updated-footprints
+             (insert-footprints common-table-name)))
+        (cl-log:log-message
+         :db-dat
+         "~:[All image footprints belonging to acquisition project ~*~A ~
+             in database ~A at ~A:~D are up to date.~
+             ~;Updated ~D image footprint~:P of acquisition project ~A ~
+               in database ~A at ~A:~D.~]"
+         (plusp number-of-updated-footprints) number-of-updated-footprints
+         common-table-name database host port)))))
 
 ;;; We don't seem to have two-dimensional arrays in postmodern
 ;;(defun cli:canonicalize-bayer-pattern (raw &optional sql-string-p)
@@ -1277,6 +1297,7 @@ projects."
     (setf *postgresql-aux-credentials*
           (list aux-database aux-user aux-password aux-host :port aux-port
                 :use-ssl (s-sql:from-sql-name aux-use-ssl)))
+    (insert-all-footprints *postgresql-credentials*)
     (start-server :http-port http-port :address address
                   :common-root common-root)
     (cl-log:log-message

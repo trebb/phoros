@@ -77,6 +77,7 @@
            :delete-measurement-action
            :list-acquisition-project-action
            :store-images-and-points-action
+           :insert-footprints-action
            :canonicalize-bayer-pattern
            :canonicalize-color-raiser
            :store-stuff

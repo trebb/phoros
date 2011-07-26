@@ -139,8 +139,6 @@
           (who-ps-html
            (:p "Clicking into the streetmap fetches images which most
            probably feature the clicked point.")
-           (:p "TODO: This is not quite so.  Currently images taken
-           from points nearest to the clicked one are displayed.")
            (:p "To pan the map, drag the mouse.  To zoom, spin the
            mouse wheel, or hold shift down whilst dragging a box, or
            double-click (shift double-click for larger zoom steps) a

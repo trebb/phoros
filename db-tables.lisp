@@ -684,9 +684,12 @@ $$ LANGUAGE plpgsql;"
     :reader recorded-device-id
     :col-type text
     :documentation "As found in .pictures file, header tag `cam=´.")
-   ;;(footprint
-   ;; :col-type (or db-null geometry)
-   ;; :documentation "Polygon on the ground describing the approximate area covered by this image.")
+   (footprint
+   :col-type (or db-null geometry)
+   :documentation "Polygon on the ground describing the approximate area covered by this image.")
+   (footprint-device-stage-of-life-id
+    :col-type (or db-null integer)
+    :documentation "device-stage-of-life denoting the set of calibration data the footprint of this record has been calculated with.")
    (gain
     :initarg :gain
     :col-type double-precision
@@ -801,6 +804,10 @@ $$ LANGUAGE plpgsql;"
 
   (defun aggregate-view-name (common-table-name)
     (make-symbol (format nil "~A~A-aggregate"
+                         table-prefix common-table-name)))
+
+  (defun aggregate-view-update-rule-name (common-table-name)
+    (make-symbol (format nil "~A~A-aggregate-update"
                          table-prefix common-table-name))))
 
 (let ((table-prefix "usr-"))
@@ -872,7 +879,7 @@ common-table-name plus type-specific prefix and suffix."
       (!!index image-data-table-name 'point-id)
       ;; (!!index image-data-table-name 'gain)
       ;; (!!index image-data-table-name 'shutter)
-      ;;TODO: disabled as we don't have footprints: (!!index image-data-table-name 'footprint :index-type :gist)
+      (!!index image-data-table-name 'footprint :index-type :gist)
       ;; The following let shouldn't be necessary. (Wart in !foreign.)
       (let ((*table-symbol* image-data-table-name)
             (*table-name*  (s-sql:to-sql-name image-data-table-name)))
@@ -906,7 +913,9 @@ type-specific prefix and suffix."
 belonging to images."
   (let ((image-data-table-name (image-data-table-name common-table-name))
         (point-data-table-name (point-data-table-name common-table-name))
-        (aggregate-view-name (aggregate-view-name common-table-name)))
+        (aggregate-view-name (aggregate-view-name common-table-name))
+        (aggregate-view-update-rule-name (aggregate-view-update-rule-name
+                                          common-table-name)))
     (eval
      `(execute
        (:create-view
@@ -918,7 +927,10 @@ belonging to images."
          'random
          'presentation-project-id
          'directory
-         'filename 'byte-position (:dot ',point-data-table-name 'point-id)
+         (:dot ',image-data-table-name 'measurement-id)
+         'filename 'byte-position
+         (:dot ',point-data-table-name 'point-id)
+         'footprint 'footprint-device-stage-of-life-id
          'trigger-time
          'coordinates                   ;the search target
          (:as (:st_x (:st_transform 'coordinates *standard-coordinates*))
@@ -938,6 +950,7 @@ belonging to images."
          'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
          'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
          'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
+         'nx 'ny 'nz 'd
          :from
          'sys-measurement
          'sys-presentation
@@ -977,12 +990,20 @@ belonging to images."
                (:>= (:extract :epoch 'sys-device-stage-of-life.unmounting-date)
                     (:- (:dot ',point-data-table-name 'trigger-time)
                         *unix-epoch*))))))))
-    ;;(eval
-    ;; `(defclass ,aggregate-view-name (aggregate-data)
-    ;;    ()
-    ;;    (:metaclass dao-class)
-    ;;    (:table-name ,aggregate-view-name))) ;redefinition
-    ))
+    (execute
+     (format
+      nil
+      "CREATE OR REPLACE RULE ~A ~
+         AS ON UPDATE TO ~A DO INSTEAD ~
+           UPDATE ~A ~
+             SET footprint = NEW.footprint, ~
+             footprint_device_stage_of_life_id = OLD.device_stage_of_life_id
+             WHERE byte_position = OLD.byte_position ~
+               AND filename = OLD.filename ~
+               AND measurement_id = OLD.measurement_id;"
+      (s-sql:to-sql-name aggregate-view-update-rule-name)
+      (s-sql:to-sql-name aggregate-view-name)
+      (s-sql:to-sql-name image-data-table-name)))))
 
 (defun aux-view-exists-p (presentation-project-name)
   "See if there is a view into auxiliary point table that belongs to

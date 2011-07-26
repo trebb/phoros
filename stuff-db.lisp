@@ -655,6 +655,69 @@ in JSON file."
                                points-already-in-db
                                points-tried)))))
 
+(defun update-footprint (common-table-name
+                         measurement-id filename byte-position)
+  "Update footprint of an image."
+  (let* ((aggregate-view-name
+          (aggregate-view-name common-table-name))
+         (raw-footprint
+          (photogrammetry
+           :footprint
+           ;; KLUDGE: translate keys, e.g. a1 -> a_1
+           (json:decode-json-from-string
+            (json:encode-json-to-string
+             (query (:select '*
+                             :from aggregate-view-name
+                             :where (:and (:= 'measurement-id measurement-id)
+                                          (:= 'filename filename)
+                                          (:= 'byte-position byte-position)))
+                    :alist)))))
+         (ewkt-footprint
+          (format nil "SRID=4326; POLYGON((~{~{~A~#^ ~}~#^, ~}))"
+                  (cdr (assoc :footprint raw-footprint)))))
+    (execute
+     (:update aggregate-view-name :set
+              'footprint (:st_geomfromewkt ewkt-footprint)
+              :where (:and (:= 'measurement-id measurement-id)
+                           (:= 'filename filename)
+                           (:= 'byte-position byte-position))))))
+
+(defun insert-footprints (common-table-name)
+  "Give images of acquisition project common-table-name that don't
+have up-to-date footprints fresh footprints."
+  (let* ((aggregate-view-name
+          (aggregate-view-name common-table-name))
+         (image-records
+          (query (:select 'measurement-id 'filename 'byte-position
+                          :from aggregate-view-name
+                          :where (:or (:is-null 'footprint)
+                                      (:!= 'footprint-device-stage-of-life-id
+                                           'device-stage-of-life-id))))))
+    (loop
+       for (measurement-id filename byte-position) in image-records
+       sum (update-footprint
+            common-table-name measurement-id filename byte-position))))
+
+(defun insert-all-footprints (postgresql-credentials)
+  "Asynchronously update image footprints of all acquisition projects
+where necessarcy."
+  (let ((common-table-names
+         (with-connection postgresql-credentials
+           (query (:select 'common-table-name
+                           :from 'sys-acquisition-project)
+                  :list))))
+    (setf bt:*default-special-bindings*
+          (acons '*insert-footprints-postgresql-credentials*
+                 `(list ,@postgresql-credentials)
+                 nil))
+    (dolist (common-table-name common-table-names)
+      (bt:make-thread
+       #'(lambda ()
+           (declare (special *insert-footprints-postgresql-credentials*))
+           (with-connection *insert-footprints-postgresql-credentials*
+             (insert-footprints common-table-name)))
+       :name "insert-all-footprints"))))
+
 (defun* store-camera-hardware (&key
                                (try-overwrite t)
                                &mandatory-key
