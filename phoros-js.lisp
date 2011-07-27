@@ -382,6 +382,8 @@ current-owner or, without arguments, new stuff."
          (setf (getprop this 'dummy) false) ;TODO why? (omitting splices map components directly into *image)
          )
 
+       (setf (getprop *image 'prototype 'delete-photo)
+        delete-photo)
        (setf (getprop *image 'prototype 'show-photo)
         show-photo)
        (setf (getprop *image 'prototype 'draw-epipolar-line)
@@ -501,6 +503,9 @@ shadow any other control."
                 (chain *json-parser*
                        (read (@ *streetmap*
                                 photo-request-response response-text)))))
+           (loop
+              for i across *images*
+              do (chain i (delete-photo)))
            (loop
               for p across photo-parameters
               for i across *images*
@@ -1313,11 +1318,16 @@ equator."
                 (js-date (new (*date (* 1000 unix-time)))))
            (chain *open-layers *date (to-i-s-o-string js-date))))
 
+       (defun delete-photo ()
+         "Delete this object's photo."
+         (loop
+            repeat (chain this map (get-num-layers))
+            do (chain this map layers 0 (destroy)))
+         (hide-element-with-id (@ this usable-id))
+         (setf (@ this trigger-time-div inner-h-t-m-l) nil))
+
        (defun show-photo ()
          "Show the photo described in this object's photo-parameters."
-         (loop
-            repeat ((getprop this 'map 'get-num-layers))
-            do ((getprop this 'map 'layers 0 'destroy)))
          (let ((image-div-width
                 (parse-int (chain (get-computed-style (@ this map div) nil)
                                   width)))
@@ -1990,7 +2000,7 @@ image-index in array *images*."
            (chain *streetmap* (add-control mouse-position-control))
            (chain *streetmap* (add-control scale-line-control)))
          (loop
-            for i from 0 to (lisp (1- *number-of-images*))
+            for i from 0 below (lisp *number-of-images*)
             do (initialize-image i))
          (add-help-events)
          (chain *streetmap*
