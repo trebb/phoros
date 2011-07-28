@@ -395,7 +395,7 @@ wrapped in an array."
                              'directory
                              'filename 'byte-position 'point-id
                              'trigger-time
-                                        ;'coordinates   ;the search target
+                             ;;'coordinates   ;the search target
                              'longitude 'latitude 'ellipsoid-height
                              'cartesian-system
                              'east-sd 'north-sd 'height-sd
@@ -425,8 +425,8 @@ wrapped in an array."
                                               for common-table-name
                                               in common-table-names
                                               for aggregate-view-name
-                                                = (aggregate-view-name
-                                                   common-table-name)
+                                              = (aggregate-view-name
+                                                 common-table-name)
                                               collect  
                                               `(:select
                                                 (:as
@@ -451,11 +451,63 @@ wrapped in an array."
                                                    ,*standard-coordinates*)
                                                   ,snap-distance)))))
                                         'distance)
-                                           'centroids))
+                                       'centroids))
                                      1))))))
                      'distance)
                     ,count))
                  :alists))))
+        (unless result      ;no footprints yet, or no calibration data
+          (setf result
+                (ignore-errors
+                  (query
+                   (sql-compile
+                    `(:limit
+                      (:order-by
+                       (:union
+                        ,@(loop
+                             for common-table-name in common-table-names
+                             for aggregate-view-name
+                             = (aggregate-view-name common-table-name)
+                             collect  
+                             `(:select
+                               (:as (:st_distance 'coordinates
+                                                  (:st_geomfromtext
+                                                   ,point-form
+                                                   ,*standard-coordinates*))
+                                    'distance)
+                               'usable
+                               'recorded-device-id      ;debug
+                               'device-stage-of-life-id ;debug
+                               'generic-device-id       ;debug
+                               'directory
+                               'filename 'byte-position 'point-id
+                               'trigger-time
+                               ;;'coordinates   ;the search target
+                               'longitude 'latitude 'ellipsoid-height
+                               'cartesian-system
+                               'east-sd 'north-sd 'height-sd
+                               'roll 'pitch 'heading
+                               'roll-sd 'pitch-sd 'heading-sd
+                               'sensor-width-pix 'sensor-height-pix 'pix-size
+                               'bayer-pattern 'color-raiser
+                               'mounting-angle
+                               'dx 'dy 'dz 'omega 'phi 'kappa
+                               'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                               'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                               'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
+                               :from
+                               ',aggregate-view-name
+                               :where
+                               (:and (:= 'presentation-project-id
+                                         ,presentation-project-id)
+                                     (:st_dwithin 'coordinates
+                                                  (:st_geomfromtext
+                                                   ,point-form
+                                                   ,*standard-coordinates*)
+                                                  ,snap-distance)))))
+                       'distance)
+                      ,count))
+                   :alists))))
         (json:encode-json-to-string result)))))
 
 (hunchentoot:define-easy-handler
