@@ -272,7 +272,7 @@ button, select {
     margin-bottom: 2px;
     clear: right;
 }
-#remove-work-layers-button, #step-button {
+#step-button {
     color: #00008B;
     cursor: pointer;
     font-size: smaller;
@@ -286,6 +286,22 @@ button, select {
     margin-top: 2px;
     margin-bottom: 2px;
     margin-left: 10px;
+    margin-right: 5px;
+}
+#remove-work-layers-button {
+    color: #00008B;
+    cursor: pointer;
+    font-size: smaller;
+    font-weight: bold;
+    background-color: white;
+    float: right;
+    height: 12px;
+    padding-left: 3px;
+    padding-right: 3px;
+    padding-bottom: 2px;
+    margin-top: 2px;
+    margin-bottom: 2px;
+    margin-left: 6px;
     margin-right: 5px;
 }
 #auto-zoom, #walk-mode {
@@ -313,8 +329,15 @@ button, select {
     height: 18px;
     width: 18px;
     margin-left: 10px;
-    margin-right: 10px;
+    margin-right: 6px;
 }    
+#no-footprints-p {
+    color: red;
+    float: left;
+    width: 8px;
+    height: 18px;
+    font-size: small;
+}
 .image-controls {
     width: 100%;
     height: 18px;

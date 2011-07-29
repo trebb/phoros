@@ -394,6 +394,8 @@ wrapped in an array."
                              'generic-device-id       ;debug
                              'directory
                              'filename 'byte-position 'point-id
+                             (:as (:not (:is-null 'footprint))
+                                  'footprintp)
                              'trigger-time
                              ;;'coordinates   ;the search target
                              'longitude 'latitude 'ellipsoid-height
@@ -481,6 +483,8 @@ wrapped in an array."
                                'generic-device-id       ;debug
                                'directory
                                'filename 'byte-position 'point-id
+                               (:as (:not (:is-null 'footprint))
+                                    'footprintp)
                                'trigger-time
                                ;;'coordinates   ;the search target
                                'longitude 'latitude 'ellipsoid-height
@@ -1225,6 +1229,8 @@ table."
                           "auto zoom"))
                    (:div :id "zoom-images-to-max-extent"
                          :onclick (ps-inline (zoom-images-to-max-extent)))
+                   (:div :id "no-footprints-p"
+                         (:b "?"))
                    (:div :id "remove-work-layers-button" :disabled t
                          :onclick (ps-inline (reset-layers-and-controls))
                          "start over")))

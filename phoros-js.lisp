@@ -180,6 +180,14 @@
           (who-ps-html
            (:p "Zoom all images out completely, restoring the original
            view."))
+          :no-footprints-p
+          (who-ps-html
+           (:p "I haven't been able to display a set of images that
+           cover a common area because I couldn't find the necessary
+           information.  As a fallback, I'm displaying a set of images
+           with points of view close to the point you selected.")
+           (:p "The server is probably trying to remedy this problem
+           but this may take some time."))
           :auto-zoom
           (who-ps-html
            (:p "Check this to automatically zoom into images once they
@@ -508,12 +516,15 @@ shadow any other control."
            (loop
               for i across *images*
               do (chain i (delete-photo)))
+           (if (@ photo-parameters 0 footprintp)
+               (hide-element-with-id "no-footprints-p")
+               (reveal-element-with-id "no-footprints-p"))
            (loop
               for p across photo-parameters
               for i across *images*
               do
-              (setf (getprop i 'photo-parameters) p)
-              ((getprop i 'show-photo)))))
+              (setf (@ i photo-parameters) p)
+              (chain i (show-photo)))))
 
        (defun consolidate-combobox (combobox-id)
          "Help faking a combobox: copy selected option into input."
