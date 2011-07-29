@@ -384,6 +384,8 @@ current-owner or, without arguments, new stuff."
 
        (setf (getprop *image 'prototype 'delete-photo)
         delete-photo)
+       (setf (getprop *image 'prototype 'photop)
+        photop)
        (setf (getprop *image 'prototype 'show-photo)
         show-photo)
        (setf (getprop *image 'prototype 'draw-epipolar-line)
@@ -1235,12 +1237,13 @@ equator."
                    ((@ (@ clicked-image map) get-lon-lat-from-view-port-px)
                     (@ event xy)))
                   (photo-parameters
-                   (getprop clicked-image 'photo-parameters))
+                   (@ clicked-image photo-parameters))
                   pristine-image-p content request)
-             (when (@ photo-parameters usable)
+             (when (and (@ photo-parameters usable)
+                        (chain clicked-image (photop)))
                (setf (@ photo-parameters m) (@ lonlat lon)
                      (@ photo-parameters n) (@ lonlat lat))
-               (remove-layer (getprop clicked-image 'map) "Active Point")
+               (remove-layer (@ clicked-image map) "Active Point")
                (remove-any-layers "Epipolar Line")
                (setf *pristine-images-p* (not (some-active-point-p)))
                (setf (@ clicked-image active-point-layer)
@@ -1251,7 +1254,7 @@ equator."
                                                   nil)))))
                ((@ clicked-image map add-layer)
                 (@ clicked-image active-point-layer))
-               ((getprop clicked-image 'draw-active-point))
+               ((@ clicked-image draw-active-point))
                (if
                 *pristine-images-p*
                 (progn
@@ -1282,7 +1285,7 @@ equator."
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
                                                   (@ content length))
-                                 :success (getprop i 'draw-epipolar-line)
+                                 :success (@ i draw-epipolar-line)
                                  :scope i)))
                        ((@ i map add-layer) (@ i epipolar-layer)))))
                 (progn
@@ -1291,16 +1294,16 @@ equator."
                   (let* ((active-pointed-photo-parameters
                           (loop
                              for i across *images*
-                             when (has-layer-p (getprop i 'map) "Active Point")
-                             collect (getprop i 'photo-parameters)))
+                             when (has-layer-p (@ i map) "Active Point")
+                             collect (@ i photo-parameters)))
                          (content
                           (chain *json-parser*
                                  (write
                                   (list active-pointed-photo-parameters
                                         (chain *images*
-                                               (map #'(lambda (x)
-                                                        (getprop
-                                                         x 'photo-parameters)))))))))
+                                               (map
+                                                #'(lambda (x)
+                                                    (@ x photo-parameters)))))))))
                     (setf (@ clicked-image estimated-positions-request-response)
                           ((@ *open-layers *Request *POST*)
                            (create :url "/phoros/lib/estimated-positions"
@@ -1308,8 +1311,8 @@ equator."
                                    :headers (create "Content-type" "text/plain"
                                                     "Content-length"
                                                     (@ content length))
-                                   :success (getprop clicked-image
-                                                     'draw-estimated-positions)
+                                   :success (@ clicked-image
+                                               draw-estimated-positions)
                                    :scope clicked-image))))))))))
 
        (defun iso-time-string (lisp-time)
@@ -1325,6 +1328,10 @@ equator."
             do (chain this map layers 0 (destroy)))
          (hide-element-with-id (@ this usable-id))
          (setf (@ this trigger-time-div inner-h-t-m-l) nil))
+
+       (defun photop ()
+         "Check if this object contains a photo."
+         (@ this trigger-time-div inner-h-t-m-l))
 
        (defun show-photo ()
          "Show the photo described in this object's photo-parameters."
