@@ -343,7 +343,6 @@
                                     aux-text undefined))
          "Attributes of currently selected point of auxiliary data.")
 
-
        (defvar *bbox-strategy* (@ *open-layers *strategy *bbox*))
        (setf (@ *bbox-strategy* prototype ratio) 1.5)
        (setf (@ *bbox-strategy* prototype res-factor) 1.5)
@@ -376,7 +375,7 @@
 
        (defun write-permission-p (&optional (current-owner +user-name+))
          "Nil if current user can't edit stuff created by
-current-owner or, without arguments, new stuff."
+         current-owner or, without arguments, new stuff."
          (or (equal +user-role+ "admin")
              (and (equal +user-role+ "write")
                   (equal +user-name+ current-owner))))
@@ -384,31 +383,34 @@ current-owner or, without arguments, new stuff."
        (defun *image ()
          "Anything necessary to deal with a photo."
          (setf (@ this map)
-               (new ((@ *open-layers *map)
-                     (create projection +spherical-mercator+
-                             all-overlays t
-                             controls (array (new (chain *open-layers
-                                                         *control
-                                                         (*navigation))))))))
-         (setf (getprop this 'dummy) false) ;TODO why? (omitting splices map components directly into *image)
+               (new
+                (chain
+                 *open-layers
+                 (*map
+                  (create projection +spherical-mercator+
+                          all-overlays t
+                          controls (array (new (chain *open-layers
+                                                      *control
+                                                      (*navigation)))))))))
+         (setf (@ this dummy) false) ;TODO why? (omitting splices map components directly into *image)
          )
 
-       (setf (getprop *image 'prototype 'delete-photo)
+       (setf (@ *image prototype delete-photo)
         delete-photo)
-       (setf (getprop *image 'prototype 'photop)
+       (setf (@ *image prototype photop)
         photop)
-       (setf (getprop *image 'prototype 'show-photo)
+       (setf (@ *image prototype show-photo)
         show-photo)
-       (setf (getprop *image 'prototype 'draw-epipolar-line)
+       (setf (@ *image prototype draw-epipolar-line)
         draw-epipolar-line)
-       (setf (getprop *image 'prototype 'draw-active-point)
+       (setf (@ *image prototype draw-active-point)
         draw-active-point)
-       (setf (getprop *image 'prototype 'draw-estimated-positions)
+       (setf (@ *image prototype draw-estimated-positions)
         draw-estimated-positions)
 
        (defun photo-path (photo-parameters)
          "Create from stuff found in photo-parameters a path for use in
-an image url."
+         an image url."
          (+ "/phoros/lib/photo/" (@ photo-parameters directory) "/"
             (@ photo-parameters filename) "/"
             (@ photo-parameters byte-position) ".png"
@@ -424,7 +426,7 @@ an image url."
          "False if no image in *images* has an Active Point."
          (loop
             for i across *images*
-            sum (has-layer-p (getprop i 'map) "Active Point")))
+            sum (has-layer-p (@ i map) "Active Point")))
 
        (defun remove-layer (map layer-name)
          "Destroy layer layer-name in map."
@@ -435,7 +437,7 @@ an image url."
          "Destroy in all *images* and in *streetmap* the layer named layer-name."
          (loop
             for i across *images* do
-            (remove-layer (getprop i 'map) layer-name))
+            (remove-layer (@ i map) layer-name))
          (remove-layer *streetmap* layer-name))
 
        (defun reset-controls ()
@@ -453,15 +455,15 @@ an image url."
 
        (defun disable-streetmap-nearest-aux-points-layer ()
          "Get (@ *streetmap* nearest-aux-points-layer) out of the way,
-I.e., remove features and disable feature select control so it won't
-shadow any other control."
+         I.e., remove features and disable feature select control so
+         it won't shadow any other control."
          (chain *streetmap* nearest-aux-points-layer (remove-all-features))
          (chain *streetmap* nearest-aux-points-select-control (deactivate))
          (chain *streetmap* user-points-select-control (activate)))
 
        (defun reset-layers-and-controls ()
          "Destroy user-generated layers in *streetmap* and in all
-*images*, and put controls into pristine state."
+         *images*, and put controls into pristine state."
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Active Point")
          (remove-any-layers "Estimated Position")
@@ -616,22 +618,25 @@ shadow any other control."
          "Stuff user point attribute comboboxes with sensible values.
          If selectp it t, select the most frequently used one."
          (setf (@ *streetmap* user-point-choice-response)
-               ((@ *open-layers *Request *POST*)
-                (create :url "/phoros/lib/user-point-attributes.json"
-                        :data nil
-                        :headers (create "Content-type" "text/plain")
-                        :success (lambda ()
-                                   (stuff-user-point-comboboxes selectp))))))
+               (chain
+                *open-layers
+                *Request
+                (*POST*
+                 (create :url "/phoros/lib/user-point-attributes.json"
+                         :data nil
+                         :headers (create "Content-type" "text/plain")
+                         :success (lambda ()
+                                    (stuff-user-point-comboboxes selectp)))))))
 
        (defun request-photos-after-click (event)
          "Handle the response to a click into *streetmap*; fetch photo
-          data.  Set or update streetmap cursor."
+         data.  Set or update streetmap cursor."
          (request-photos (chain *streetmap*
                                 (get-lon-lat-from-pixel (@ event xy)))))
 
        (defun request-photos (lonlat)
          "Fetch photo data for a point near lonlat.  Set or update
-          streetmap cursor."
+         streetmap cursor."
          (setf (@ *streetmap* clicked-lonlat) lonlat)
          (if (checkbox-status-with-id "walk-p")
              (request-aux-data-linestring-for-point
@@ -640,7 +645,7 @@ shadow any other control."
 
        (defun request-aux-data-linestring-for-point (lonlat-spherical-mercator)
          "Fetch a linestring along auxiyliary points near
-          lonlat-spherical-mercator."
+         lonlat-spherical-mercator."
          (let ((lonlat-geographic
                 (chain lonlat-spherical-mercator
                        (clone)
@@ -653,7 +658,7 @@ shadow any other control."
 
        (defun request-photos-for-point (lonlat-spherical-mercator)
          "Fetch photo data near lonlat-spherical-mercator; set or
-          update streetmap cursor."
+         update streetmap cursor."
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "remove-work-layers-button")
          (remove-any-layers "Estimated Position")
@@ -668,7 +673,7 @@ shadow any other control."
                         (write
                          (create :longitude (@ lonlat-geographic lon)
                                  :latitude (@ lonlat-geographic lat)
-                                 :zoom ((@ *streetmap* get-zoom))
+                                 :zoom (chain *streetmap* (get-zoom))
                                  :count (lisp *number-of-images*))))))
            (chain *streetmap*
                   cursor-layer
@@ -703,16 +708,20 @@ shadow any other control."
                                               (@ lonlat-spherical-mercator
                                                  lat)))))))))
            (setf (@ *streetmap* photo-request-response)
-                 ((@ *open-layers *Request *POST*)
-                  (create :url "/phoros/lib/local-data"
-                          :data content
-                          :headers (create "Content-type" "text/plain"
-                                           "Content-length" (@ content length))
-                          :success present-photos)))))
+                 (chain
+                  *open-layers
+                  *Request
+                  (*POST*
+                   (create
+                    :url "/phoros/lib/local-data"
+                    :data content
+                    :headers (create "Content-type" "text/plain"
+                                     "Content-length" (@ content length))
+                    :success present-photos))))))
 
        (defun draw-epipolar-line ()
          "Draw an epipolar line from response triggered by clicking
-into a (first) photo."
+         into a (first) photo."
          (enable-element-with-id "remove-work-layers-button")
          (let* ((epipolar-line
                  (chain *json-parser*
@@ -740,24 +749,26 @@ into a (first) photo."
 
        (defun request-nearest-aux-points (global-position count)
          "Draw into streetmap the count nearest points of auxiliary
-data."
+         data."
          (let ((global-position-etc global-position)
                content)
            (setf (@ global-position-etc count) count)
            (setf content (chain *json-parser*
                                 (write global-position-etc)))
            (setf (@ *streetmap* aux-local-data-request-response)
-                 ((@ *open-layers *Request *POST*)
-                  (create :url "/phoros/lib/aux-local-data"
-                          :data content
-                          :headers (create "Content-type" "text/plain"
-                                           "Content-length"
-                                           (@ content length))
-                          :success draw-nearest-aux-points)))))
+                 (chain *open-layers
+                        *Request
+                        (*POST*
+                         (create :url "/phoros/lib/aux-local-data"
+                                 :data content
+                                 :headers (create "Content-type" "text/plain"
+                                                  "Content-length"
+                                                  (@ content length))
+                                 :success draw-nearest-aux-points))))))
 
        (defun request-aux-data-linestring (longitude latitude radius step-size)
          "Draw into streetmap a piece of linestring threaded along the
-          nearest points of auxiliary data inside radius."
+         nearest points of auxiliary data inside radius."
          (let* ((payload (create longitude longitude
                                  latitude latitude
                                  radius radius
@@ -766,20 +777,22 @@ data."
                                             linestring-central-azimuth)))
                 (content (chain *json-parser* (write payload))))
            (setf (@ *streetmap* aux-data-linestring-request-response)
-                 ((@ *open-layers *Request *POST*)
-                  (create :url "/phoros/lib/aux-local-linestring.json"
-                          :data content
-                          :headers (create "Content-type" "text/plain"
-                                           "Content-length"
-                                           (@ content length))
-                          :success draw-aux-data-linestring)))))
+                 (chain *open-layers
+                        *Request
+                        (*POST*
+                         (create :url "/phoros/lib/aux-local-linestring.json"
+                                 :data content
+                                 :headers (create "Content-type" "text/plain"
+                                                  "Content-length"
+                                                  (@ content length))
+                                 :success draw-aux-data-linestring))))))
 
        (defun draw-estimated-positions ()
          "Draw into streetmap and into all images points at Estimated
-Position.  Estimated Position is the point returned so far from
-photogrammetric calculations that are triggered by clicking into
-another photo.  Also draw into streetmap the nearest auxiliary points
-to Estimated Position."
+         Position.  Estimated Position is the point returned so far
+         from photogrammetric calculations that are triggered by
+         clicking into another photo.  Also draw into streetmap the
+         nearest auxiliary points to Estimated Position."
          (when (write-permission-p)
            (setf (chain document
                         (get-element-by-id "finish-point-button")
@@ -789,9 +802,9 @@ to Estimated Position."
          (let* ((estimated-positions-request-response
                  (chain *json-parser*
                         (read
-                         (getprop this
-                                  'estimated-positions-request-response
-                                  'response-text))))
+                         (@ this
+                            estimated-positions-request-response
+                            response-text))))
                 (estimated-positions
                  (aref estimated-positions-request-response 1))
                 (estimated-position-style
@@ -804,11 +817,17 @@ to Estimated Position."
            (setf *global-position*
                  (aref estimated-positions-request-response 0))
            (let ((feature
-                  (new ((@ *open-layers *feature *vector)
-                        ((@ (new ((@ *open-layers *geometry *point)
-                                  (getprop *global-position* 'longitude)
-                                  (getprop *global-position* 'latitude)))
-                            transform) +geographic+ +spherical-mercator+)))))
+                  (new
+                   (chain *open-layers
+                          *feature
+                          (*vector
+                           (chain
+                            (new (chain *open-layers
+                                        *geometry
+                                        (*point
+                                         (@ *global-position* longitude)
+                                         (@ *global-position* latitude))))
+                            (transform +geographic+ +spherical-mercator+)))))))
              (setf (@ feature render-intent) "temporary")
              (setf (@ *streetmap* estimated-position-layer)
                    (new (chain *open-layers
@@ -835,16 +854,14 @@ to Estimated Position."
                                "Estimated Position"
                                (create display-in-layer-switcher nil)))))
                 (setf (@ i estimated-position-lonlat)
-                      (new (chain *open-layers (*lon-lat
-                                                (getprop p 'm)
-                                                (getprop p 'n)))))
+                      (new (chain *open-layers (*lon-lat (@ p m)
+                                                         (@ p n)))))
                 (setf (@ i estimated-position-layer style)
                       estimated-position-style)
                 (let* ((point
                         (new
-                         (chain *open-layers *geometry (*point
-                                                        (getprop p 'm)
-                                                        (getprop p 'n)))))
+                         (chain *open-layers *geometry (*point (@ p m)
+                                                               (@ p n)))))
                        (feature
                         (new
                          (chain *open-layers *feature (*vector point)))))
@@ -864,9 +881,9 @@ to Estimated Position."
          (let ((features
                 (chain *json-parser*
                        (read
-                        (getprop *streetmap*
-                                 'aux-local-data-request-response
-                                 'response-text))
+                        (@ *streetmap*
+                           aux-local-data-request-response
+                           response-text))
                        features)))
            (disable-streetmap-nearest-aux-points-layer)
            (chain *streetmap* user-points-select-control (deactivate))
@@ -917,7 +934,7 @@ to Estimated Position."
 
        (defun draw-aux-data-linestring ()
          "Draw a piece of linestring along a few auxiliary points into
-          streetmap.  Pan streetmap accordingly."
+         streetmap.  Pan streetmap accordingly."
          (let* ((data
                  (@ *streetmap*
                     aux-data-linestring-request-response
@@ -956,7 +973,7 @@ to Estimated Position."
 
        (defun step (&optional back-p)
          "Enable walk-mode if necessary, and do a step along
-          aux-data-linestring."
+         aux-data-linestring."
          (if (checkbox-status-with-id "walk-p")
              (let ((next-point-geometry
                     (if back-p
@@ -986,9 +1003,9 @@ to Estimated Position."
                (flip-walk-mode))))    ; so we have to do it explicitly
 
        (defun step-size-degrees ()
-         "Return inner-html of element step-size (metres)
-converted into map units (degrees).  You should be close to the
-equator."
+         "Return inner-html of element step-size (metres) converted
+         into map units (degrees).  You should be close to the
+         equator."
          (/ (inner-html-with-id "step-size") 1855.325 60))
 
        (defun decrease-step-size ()
@@ -1103,8 +1120,7 @@ equator."
          (let* ((user-point-positions-response
                  (chain *json-parser*
                         (read
-                         (getprop *user-point-in-images-response*
-                                  'response-text))))
+                         (@ *user-point-in-images-response* response-text))))
                 (user-point-collections
                  (chain user-point-positions-response image-points))
                 (user-point-count
@@ -1173,16 +1189,19 @@ equator."
            (let ((content 
                   (chain *json-parser*
                          (write global-position-etc))))
-             ((@ *open-layers *Request *POST*)
-              (create :url "/phoros/lib/store-point"
-                      :data content
-                      :headers (create "Content-type" "text/plain"
-                                       "Content-length" (@ content length))
-                      :success (lambda ()
-                                 (refresh-layer
-                                  (@ *streetmap* user-point-layer))
-                                 (reset-layers-and-controls)
-                                 (request-user-point-choice)))))))
+             (chain
+              *open-layers
+              *Request
+              (*POST*
+               (create :url "/phoros/lib/store-point"
+                       :data content
+                       :headers (create "Content-type" "text/plain"
+                                        "Content-length" (@ content length))
+                       :success (lambda ()
+                                  (refresh-layer
+                                   (@ *streetmap* user-point-layer))
+                                  (reset-layers-and-controls)
+                                  (request-user-point-choice))))))))
            
        (defun increment-numeric-text (text)
          "Increment text if it looks like a number, and return it."
@@ -1206,16 +1225,19 @@ equator."
                 (content 
                  (chain *json-parser*
                         (write point-data))))
-           ((@ *open-layers *Request *POST*)
-            (create :url "/phoros/lib/update-point"
-                    :data content
-                    :headers (create "Content-type" "text/plain"
-                                     "Content-length" (@ content length))
-                    :success (lambda ()
-                               (refresh-layer
-                                (@ *streetmap* user-point-layer))
-                               (reset-layers-and-controls)
-                               (request-user-point-choice))))))
+           (chain *open-layers
+                  *Request
+                  (*POST*
+                   (create :url "/phoros/lib/update-point"
+                           :data content
+                           :headers (create "Content-type" "text/plain"
+                                            "Content-length" (@ content
+                                                                length))
+                           :success (lambda ()
+                                      (refresh-layer
+                                       (@ *streetmap* user-point-layer))
+                                      (reset-layers-and-controls)
+                                      (request-user-point-choice)))))))
 
        (defun delete-point ()
          "Purge currently selected user point from database."
@@ -1223,33 +1245,41 @@ equator."
            (setf content 
                  (chain *json-parser*
                         (write user-point-id)))
-           ((@ *open-layers *Request *POST*)
-            (create :url "/phoros/lib/delete-point"
-                    :data content
-                    :headers (create "Content-type" "text/plain"
-                                     "Content-length" (@ content length))
-                    :success (lambda ()
-                               (refresh-layer
-                                (@ *streetmap* user-point-layer))
-                               (reset-layers-and-controls)
-                               (request-user-point-choice true))))))
+           (chain *open-layers
+                  *Request
+                  (*POST*
+                   (create :url "/phoros/lib/delete-point"
+                           :data content
+                           :headers (create "Content-type" "text/plain"
+                                            "Content-length" (@ content
+                                                                length))
+                           :success (lambda ()
+                                      (refresh-layer
+                                       (@ *streetmap* user-point-layer))
+                                      (reset-layers-and-controls)
+                                      (request-user-point-choice true)))))))
 
        (defun draw-active-point ()
          "Draw an Active Point, i.e. a point used in subsequent
          photogrammetric calculations."
-         (chain this active-point-layer
+         (chain this
+                active-point-layer
                 (add-features
-                 (new ((@ *open-layers *feature *vector)
-                       (new ((@ *open-layers *geometry *point)
-                             (getprop this 'photo-parameters 'm)
-                             (getprop this 'photo-parameters 'n))))))))
+                 (new (chain *open-layers
+                             *feature
+                             (*vector
+                              (new (chain *open-layers
+                                          *geometry
+                                          (*point
+                                           (@ this photo-parameters m)
+                                           (@ this photo-parameters n))))))))))
 
        (defun image-click-action (clicked-image)
          (lambda (event)
            "Do appropriate things when an image is clicked into."
            (let* ((lonlat
-                   ((@ (@ clicked-image map) get-lon-lat-from-view-port-px)
-                    (@ event xy)))
+                   (chain clicked-image map (get-lon-lat-from-view-port-px
+                                             (@ event xy))))
                   (photo-parameters
                    (@ clicked-image photo-parameters))
                   pristine-image-p content request)
@@ -1266,9 +1296,10 @@ equator."
                                  (*vector "Active Point"
                                           (create display-in-layer-switcher
                                                   nil)))))
-               ((@ clicked-image map add-layer)
-                (@ clicked-image active-point-layer))
-               ((@ clicked-image draw-active-point))
+               (chain clicked-image
+                      map
+                      (add-layer (@ clicked-image active-point-layer)))
+               (chain clicked-image (draw-active-point))
                (if
                 *pristine-images-p*
                 (progn
@@ -1294,15 +1325,20 @@ equator."
                                         (append (array photo-parameters)
                                                 (@ i photo-parameters))))
                         (@ i epipolar-request-response)
-                        ((@ *open-layers *Request *POST*)
-                         (create :url "/phoros/lib/epipolar-line"
-                                 :data content
-                                 :headers (create "Content-type" "text/plain"
+                        (chain *open-layers
+                               *Request
+                               (*POST*
+                                (create :url "/phoros/lib/epipolar-line"
+                                        :data content
+                                        :headers (create
+                                                  "Content-type" "text/plain"
                                                   "Content-length"
                                                   (@ content length))
-                                 :success (@ i draw-epipolar-line)
-                                 :scope i)))
-                       ((@ i map add-layer) (@ i epipolar-layer)))))
+                                        :success (@ i draw-epipolar-line)
+                                        :scope i))))
+                       (chain i
+                              map
+                              (add-layer (@ i epipolar-layer))))))
                 (progn
                   (remove-any-layers "Epipolar Line")
                   (remove-any-layers "Estimated Position")
@@ -1318,17 +1354,21 @@ equator."
                                         (chain *images*
                                                (map
                                                 #'(lambda (x)
-                                                    (@ x photo-parameters)))))))))
+                                                    (@ x
+                                                       photo-parameters)))))))))
                     (setf (@ clicked-image estimated-positions-request-response)
-                          ((@ *open-layers *Request *POST*)
-                           (create :url "/phoros/lib/estimated-positions"
-                                   :data content
-                                   :headers (create "Content-type" "text/plain"
+                          (chain *open-layers
+                                 *Request
+                                 (*POST*
+                                  (create :url "/phoros/lib/estimated-positions"
+                                          :data content
+                                          :headers (create
+                                                    "Content-type" "text/plain"
                                                     "Content-length"
                                                     (@ content length))
-                                   :success (@ clicked-image
-                                               draw-estimated-positions)
-                                   :scope clicked-image))))))))))
+                                          :success (@ clicked-image
+                                                      draw-estimated-positions)
+                                          :scope clicked-image)))))))))))
 
        (defun iso-time-string (lisp-time)
          "Return Lisp universal time formatted as ISO time string"
@@ -1360,25 +1400,29 @@ equator."
                 (@ this photo-parameters sensor-width-pix))
                (image-height
                 (@ this photo-parameters sensor-height-pix)))
-           ((getprop this 'map 'add-layer)
-            (new (chain
-                  *open-layers
-                  *layer
-                  (*image
-                   "Photo"
-                   (photo-path (@ this photo-parameters))
-                   (new (chain *open-layers
-                               (*bounds
-                                -.5 -.5
-                                (+ image-width .5) (+ image-height .5))))
-                   (new (chain *open-layers
-                               (*size image-div-width
-                                      image-div-height)))
-                   (create
-                    max-resolution (chain
-                                    *math
-                                    (max (/ image-width image-div-width)
-                                         (/ image-height image-div-height))))))))
+           (chain
+            this
+            map
+            (add-layer
+             (new (chain
+                   *open-layers
+                   *layer
+                   (*image
+                    "Photo"
+                    (photo-path (@ this photo-parameters))
+                    (new (chain *open-layers
+                                (*bounds
+                                 -.5 -.5
+                                 (+ image-width .5) (+ image-height .5))))
+                    (new (chain *open-layers
+                                (*size image-div-width
+                                       image-div-height)))
+                    (create
+                     max-resolution (chain
+                                     *math
+                                     (max
+                                      (/ image-width image-div-width)
+                                      (/ image-height image-div-height)))))))))
            (chain this map (zoom-to-max-extent))
            (if (@ this photo-parameters usable)
                (hide-element-with-id (@ this usable-id))
@@ -1392,7 +1436,7 @@ equator."
 
        (defun zoom-anything-to-point ()
          "For streetmap and for images that have an Active Point or an
-Estimated Position, zoom in and recenter."
+         Estimated Position, zoom in and recenter."
          (when (checkbox-status-with-id "zoom-to-point-p")
            (let ((point-lonlat
                   (new (chain *open-layers
@@ -1417,7 +1461,7 @@ Estimated Position, zoom in and recenter."
 
        (defun initialize-image (image-index)
          "Create an image usable for displaying photos at position
-image-index in array *images*."
+         image-index in array *images*."
          (setf (aref *images* image-index) (new *image))
          (setf (@ (aref *images* image-index) usable-id)
                (+ "image-" image-index "-usable"))
@@ -1578,12 +1622,15 @@ image-index in array *images*."
                                  for i across *images*
                                  collect (@ i photo-parameters))))))
          (setf *user-point-in-images-response*
-               ((@ *open-layers *Request *POST*)
-                (create :url "/phoros/lib/user-point-positions"
-                        :data content
-                        :headers (create "Content-type" "text/plain"
-                                         "Content-length" (@ content length))
-                        :success draw-user-points))))
+               (chain *open-layers
+                      *Request
+                      (*POST*
+                       (create :url "/phoros/lib/user-point-positions"
+                               :data content
+                               :headers (create "Content-type" "text/plain"
+                                                "Content-length" (@ content
+                                                                    length))
+                               :success draw-user-points)))))
 
        (defun aux-point-distance-selected ()
          "Things to do on change of aux-point-distance select element."
@@ -1606,8 +1653,8 @@ image-index in array *images*."
 
        (defun flip-walk-mode ()
          "Query status of checkbox walk-p and induce first walking
-          step if it's just been turned on.  Otherwise delete our
-          walking path."
+         step if it's just been turned on.  Otherwise delete our
+         walking path."
          (if (checkbox-status-with-id "walk-p")
              (request-aux-data-linestring-for-point (@ *streetmap*
                                                        clicked-lonlat))
@@ -1617,7 +1664,7 @@ image-index in array *images*."
 
        (defun flip-aux-data-inclusion ()
          "Query status of checkbox include-aux-data-p and act
-          accordingly."
+         accordingly."
          (if (checkbox-status-with-id "include-aux-data-p")
              (chain *streetmap*
                     nearest-aux-points-layer
@@ -1638,7 +1685,8 @@ image-index in array *images*."
              ""))
 
        (defun nearest-aux-point-selected (event)
-         "Things to do once a nearest auxiliary point is selected in streetmap."
+         "Things to do once a nearest auxiliary point is selected in
+         streetmap."
          (setf *current-nearest-aux-point* (@ event feature))
          (let ((aux-numeric
                 (@ event feature attributes aux-numeric))
