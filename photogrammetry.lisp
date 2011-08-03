@@ -115,12 +115,16 @@ n in photo, and floor."
            (get-x-global) (get-y-global) (get-z-global))))
 
 (defun point-radians-to-degrees (point)
-  "Convert (the first and second element of) point from radians to degrees."
+  "Convert (the first and second element of) point from radians to
+degrees."
   (setf (first point) (proj:radians-to-degrees (first point)))
   (setf (second point) (proj:radians-to-degrees (second point)))
   point)
 
-(defmethod photogrammetry ((mode (eql :footprint)) photo &optional (floor photo))
+(defmethod photogrammetry ((mode (eql :footprint)) photo
+                           &optional (floor photo))
+  "Return image footprint as a list of five polygon points, wrapped in
+an alist."
   (set-global-reference-frame)
   (add-cam* photo)
   (add-global-car-reference-point* photo t)
@@ -133,10 +137,11 @@ n in photo, and floor."
      :footprint
      (loop
         for i in '(0 1 2 3 0) collect
-          (point-radians-to-degrees (proj:cs2cs (list (get-fp-easting i)
-                                                      (get-fp-northing i)
-                                                      (get-fp-e-height i))
-                                                :source-cs source-cs)))
+          (point-radians-to-degrees
+           (proj:cs2cs (list (get-fp-easting i)
+                             (get-fp-northing i)
+                             (get-fp-e-height i))
+                       :source-cs source-cs)))
      nil)))
 
 (defun flip-m-maybe (m photo)
@@ -190,7 +195,8 @@ necessary."
                                          :nx :ny :nz :d))))
     (apply #'add-ref-ground-surface double-float-args)))
 
-(defun add-global-car-reference-point* (photo-alist &optional cam-set-global-p)
+(defun add-global-car-reference-point* (photo-alist
+                                        &optional cam-set-global-p)
   "Call add-global-car-reference-point with arguments taken from
 photo-alist.  When cam-set-global-p is t, call
 add-global-car-reference-point-cam-set-global instead."
