@@ -383,8 +383,8 @@ current-owner or, without arguments, new stuff."
 
        (defun *image ()
          "Anything necessary to deal with a photo."
-         (setf (getprop this 'map)
-               (new ((getprop *open-layers '*map)
+         (setf (@ this map)
+               (new ((@ *open-layers *map)
                      (create projection +spherical-mercator+
                              all-overlays t
                              controls (array (new (chain *open-layers
@@ -1280,7 +1280,8 @@ equator."
                   (remove-any-layers "User Point") ;from images
                   (loop
                      for i across *images* do
-                     (unless (equal i clicked-image)
+                     (when (and (not (equal i clicked-image))
+                                (chain i (photop)))
                        (setf
                         (@ i epipolar-layer)
                         (new (chain *open-layers
