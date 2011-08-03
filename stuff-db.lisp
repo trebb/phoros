@@ -721,6 +721,42 @@ where necessarcy."
              (insert-footprints common-table-name)))
        :name "insert-all-footprints"))))
 
+(defun delete-imageless-points (common-table-name)
+  "Delete from acquisition project common-table-name points that have
+no images."
+  (let* ((point-data-table-name (point-data-table-name common-table-name))
+         (image-data-table-name (image-data-table-name common-table-name)))
+    (execute
+     (:delete-from point-data-table-name
+                   :where (:not
+                           (:exists
+                            (:select (:dot image-data-table-name 'point-id)
+                                     :from image-data-table-name
+                                     :where (:= (:dot image-data-table-name
+                                                      'point-id)
+                                                (:dot point-data-table-name
+                                                      'point-id)))))))))
+
+(defun delete-all-imageless-points (postgresql-credentials)
+  "Asynchronously delete imageless footprints of all acquisition
+projects."
+  (let ((common-table-names
+         (with-connection postgresql-credentials
+           (query (:select 'common-table-name
+                           :from 'sys-acquisition-project)
+                  :list))))
+    (setf bt:*default-special-bindings*
+          (acons '*delete-imageless-points-postgresql-credentials*
+                 `(list ,@postgresql-credentials)
+                 nil))
+    (dolist (common-table-name common-table-names)
+      (bt:make-thread
+       #'(lambda ()
+           (declare (special *delete-imageless-points-postgresql-credentials*))
+           (with-connection *delete-imageless-points-postgresql-credentials*
+             (delete-imageless-points common-table-name)))
+       :name "delete-all-imageless-points"))))
+
 (defun* store-camera-hardware (&key
                                (try-overwrite t)
                                &mandatory-key

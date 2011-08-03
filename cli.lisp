@@ -743,7 +743,15 @@ according to the --verbose option given."
      :db-dat
      "Finish: storing data from ~A into acquisition project ~A ~
       in database ~A at ~A:~D."
-     directory common-table-name database host port)))
+     directory common-table-name database host port)
+    (let ((points-deleted
+           (delete-imageless-points common-table-name)))
+      (cl-log:log-message
+       :db-dat
+       "Checked acquisition project ~A in database ~A at ~A:~D ~
+        for imageless points~[; found none.~;. Found and deleted ~:*~D.~]"
+       common-table-name database host port
+       points-deleted))))
 
 (defun cli:insert-footprints-action (common-table-name)
   "Update image footprints."
@@ -1298,6 +1306,7 @@ projects."
           (list aux-database aux-user aux-password aux-host :port aux-port
                 :use-ssl (s-sql:from-sql-name aux-use-ssl)))
     (insert-all-footprints *postgresql-credentials*)
+    (delete-all-imageless-points *postgresql-credentials*)
     (start-server :http-port http-port :address address
                   :common-root common-root)
     (cl-log:log-message
