@@ -690,9 +690,12 @@ have up-to-date footprints fresh footprints."
          (image-records
           (query (:select 'measurement-id 'filename 'byte-position
                           :from aggregate-view-name
-                          :where (:or (:is-null 'footprint)
-                                      (:!= 'footprint-device-stage-of-life-id
-                                           'device-stage-of-life-id))))))
+                          :where (:and
+                                  (:or
+                                   (:is-null 'footprint)
+                                       (:!= 'footprint-device-stage-of-life-id
+                                            'device-stage-of-life-id))
+                                       'usable)))))
     (loop
        for (measurement-id filename byte-position) in image-records
        sum (update-footprint

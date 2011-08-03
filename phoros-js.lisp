@@ -217,7 +217,10 @@
           :image-usable
           (who-ps-html
            (:p "No photogrammetric survey possible as there isn't any
-           usable calibration data available for this image."))
+           usable calibration data available for this image.")
+           (:p "This means no image footprints can be calculated
+           either which prevents me from selecting images covering a
+           common area."))
           :image-trigger-time
           (who-ps-html
            (:p "Time this image was taken."))
