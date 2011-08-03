@@ -85,18 +85,19 @@
           (who-ps-html
            (:h3 "\"attribute\"")
            (:p "The standard ones, polygon, polyline, and solitary are
-           rendered as asterisk, square, and triangle
-           respectively.  Anything else is rendered as an X."))
+           rendered as asterisk, square, and triangle respectively.
+           Anything else is rendered as an X."))
           :point-description
           (who-ps-html
            (:h3 "\"description\"")
-           (:p "Optional textual description of user point."))
+           (:p "Optional textual description of the set of user points
+           the current point belongs to."))
           :point-numeric-description
           (who-ps-html
            (:h3 "\"numeric-description\"")
-           (:p "Optional additional description of user point.  It is
-           occasionally used to label representions of this
-           point in streetmap and in images.")
+           (:p "Optional description of the current user point.  It is
+           occasionally used to label representations of this point in
+           streetmap and in images.")
            (:p "If parts of it look like numbers, the leftmost such
            part is automatically incremented during first click into
            an image."))
