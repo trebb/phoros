@@ -659,7 +659,7 @@ $$ LANGUAGE plpgsql;"
     :documentation "In the same coordinate system as the standard deviations."))
   (:metaclass dao-class)
   (:keys point-id)
-  (:documentation "Information about one GPS point, originally from applanix/**/*event*.txt.  There shouldn't be any point-id without a matching one in the *-image table.  This can't be enforced on database level.  Perhaps we should create some cleaning operation to maintain referential integrity. (TODO)"))
+  (:documentation "Information about one GPS point, originally from applanix/**/*event*.txt.  There shouldn't be any point-id without a matching one in the *-image table.  This can't be enforced on database level.  Use (delete-imageless-points acquisition-project) to maintain referential integrity."))
 
 (defclass image-template ()
   ((measurement-id
