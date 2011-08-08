@@ -368,7 +368,7 @@ wrapped in an array."
              (latitude (cdr (assoc :latitude data)))
              (count (cdr (assoc :count data)))
              (zoom (cdr (assoc :zoom data)))
-             (snap-distance (* 10d-5 (expt 2 (- 18 zoom)))) ; assuming geographic coordinates
+             (snap-distance (* 1d-4 (expt 2 (- 22 zoom)))) ; assuming geographic coordinates
              (point-form (format nil "POINT(~F ~F)" longitude latitude))
              (result
               (ignore-errors
