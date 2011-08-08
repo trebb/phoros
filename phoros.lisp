@@ -1025,6 +1025,8 @@ table."
                    :name (first file-name-and-type)
                    :type (second file-name-and-type)))))
                stream)
+          (setf (hunchentoot:header-out 'cache-control)
+                (format nil "max-age=~D" (* 3600 24 7)))
           (setf (hunchentoot:content-type*) "image/png")
           (setf stream (hunchentoot:send-headers))
           (send-png
