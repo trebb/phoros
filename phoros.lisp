@@ -350,13 +350,22 @@ current session."
 (pushnew (hunchentoot:create-regex-dispatcher "/logout" 'logout-handler)
          hunchentoot:*dispatch-table*)
 
+(define-condition superseded () ()
+  (:documentation
+   "Tell a thread to finish as soon as possible taking any shortcuts
+   available."))
+
 (hunchentoot:define-easy-handler
     (local-data :uri "/phoros/lib/local-data" :default-request-type :post)
     ()
   "Receive coordinates, respond with the count nearest json objects
 containing picture url, calibration parameters, and car position,
-wrapped in an array."
+wrapped in an array.  Wipe away any unfinished business first."
   (when (hunchentoot:session-value 'authenticated-p)
+    (dolist (old-thread (hunchentoot:session-value 'recent-threads))
+      (ignore-errors (bt:interrupt-thread old-thread #'(lambda () (signal 'superseded)))))
+    (setf (hunchentoot:session-value 'recent-threads) nil)
+    (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
     (setf (hunchentoot:content-type*) "application/json")
     (with-connection *postgresql-credentials*
       (let* ((presentation-project-id (hunchentoot:session-value
@@ -371,49 +380,54 @@ wrapped in an array."
              (snap-distance (* 1d-4 (expt 2 (- 22 zoom)))) ; assuming geographic coordinates
              (point-form (format nil "POINT(~F ~F)" longitude latitude))
              (result
-              (ignore-errors
-                (query
-                 (sql-compile
-                  `(:limit
-                    (:order-by
-                     (:union
-                      ,@(loop
-                           for common-table-name in common-table-names
-                           for aggregate-view-name
-                           = (aggregate-view-name common-table-name)
-                           collect  
-                           `(:select
-                             (:as (:st_distance 'coordinates
-                                                (:st_geomfromtext
-                                                 ,point-form
-                                                 ,*standard-coordinates*))
-                                  'distance)
-                             'usable
-                             'recorded-device-id      ;debug
-                             'device-stage-of-life-id ;debug
-                             'generic-device-id       ;debug
-                             'directory
-                             'filename 'byte-position 'point-id
-                             (:as (:not (:is-null 'footprint))
-                                  'footprintp)
-                             'trigger-time
-                             ;;'coordinates   ;the search target
-                             'longitude 'latitude 'ellipsoid-height
-                             'cartesian-system
-                             'east-sd 'north-sd 'height-sd
-                             'roll 'pitch 'heading
-                             'roll-sd 'pitch-sd 'heading-sd
-                             'sensor-width-pix 'sensor-height-pix 'pix-size
-                             'bayer-pattern 'color-raiser
-                             'mounting-angle
-                             'dx 'dy 'dz 'omega 'phi 'kappa
-                             'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                             'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                             'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
-                             :from
-                             ',aggregate-view-name
-                             :where
-                             (:and (:= 'presentation-project-id
+              (handler-case
+                  (ignore-errors
+                    (or
+                     (query
+                      (sql-compile
+                       `(:limit
+                         (:order-by
+                          (:union
+                           ,@(loop
+                                for common-table-name in common-table-names
+                                for aggregate-view-name
+                                = (aggregate-view-name common-table-name)
+                                collect  
+                                `(:select
+                                  (:as (:st_distance 'coordinates
+                                                     (:st_geomfromtext
+                                                      ,point-form
+                                                      ,*standard-coordinates*))
+                                       'distance)
+                                  'usable
+                                  'recorded-device-id  ;debug
+                                  'device-stage-of-life-id ;debug
+                                  'generic-device-id       ;debug
+                                  'directory
+                                  'filename 'byte-position 'point-id
+                                  (:as (:not (:is-null 'footprint))
+                                       'footprintp)
+                                  'trigger-time
+                                  ;;'coordinates   ;the search target
+                                  'longitude 'latitude 'ellipsoid-height
+                                  'cartesian-system
+                                  'east-sd 'north-sd 'height-sd
+                                  'roll 'pitch 'heading
+                                  'roll-sd 'pitch-sd 'heading-sd
+                                  'sensor-width-pix 'sensor-height-pix
+                                  'pix-size
+                                  'bayer-pattern 'color-raiser
+                                  'mounting-angle
+                                  'dx 'dy 'dz 'omega 'phi 'kappa
+                                  'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                                  'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                                  'b-ddx 'b-ddy 'b-ddz
+                                  'b-drotx 'b-droty 'b-drotz
+                                  :from
+                                  ',aggregate-view-name
+                                  :where
+                                  (:and
+                                   (:= 'presentation-project-id
                                        ,presentation-project-id)
                                    (:st_contains
                                     'footprint
@@ -455,63 +469,63 @@ wrapped in an array."
                                         'distance)
                                        'centroids))
                                      1))))))
-                     'distance)
-                    ,count))
-                 :alists))))
-        (unless result      ;no footprints yet, or no calibration data
-          (setf result
-                (ignore-errors
-                  (query
-                   (sql-compile
-                    `(:limit
-                      (:order-by
-                       (:union
-                        ,@(loop
-                             for common-table-name in common-table-names
-                             for aggregate-view-name
-                             = (aggregate-view-name common-table-name)
-                             collect  
-                             `(:select
-                               (:as (:st_distance 'coordinates
-                                                  (:st_geomfromtext
-                                                   ,point-form
-                                                   ,*standard-coordinates*))
-                                    'distance)
-                               'usable
-                               'recorded-device-id      ;debug
-                               'device-stage-of-life-id ;debug
-                               'generic-device-id       ;debug
-                               'directory
-                               'filename 'byte-position 'point-id
-                               (:as (:not (:is-null 'footprint))
-                                    'footprintp)
-                               'trigger-time
-                               ;;'coordinates   ;the search target
-                               'longitude 'latitude 'ellipsoid-height
-                               'cartesian-system
-                               'east-sd 'north-sd 'height-sd
-                               'roll 'pitch 'heading
-                               'roll-sd 'pitch-sd 'heading-sd
-                               'sensor-width-pix 'sensor-height-pix 'pix-size
-                               'bayer-pattern 'color-raiser
-                               'mounting-angle
-                               'dx 'dy 'dz 'omega 'phi 'kappa
-                               'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                               'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                               'b-ddx 'b-ddy 'b-ddz 'b-drotx 'b-droty 'b-drotz
-                               :from
-                               ',aggregate-view-name
-                               :where
-                               (:and (:= 'presentation-project-id
-                                         ,presentation-project-id)
-                                     (:st_dwithin 'coordinates
-                                                  (:st_geomfromtext
-                                                   ,point-form
-                                                   ,*standard-coordinates*)
-                                                  ,snap-distance)))))
-                       'distance)
-                      ,count))
-                   :alists))))
+                          'distance)
+                         ,count))
+                      :alists))
+                    (query
+                     (sql-compile
+                      `(:limit
+                        (:order-by
+                         (:union
+                          ,@(loop
+                               for common-table-name in common-table-names
+                               for aggregate-view-name
+                               = (aggregate-view-name common-table-name)
+                               collect  
+                               `(:select
+                                 (:as (:st_distance 'coordinates
+                                                    (:st_geomfromtext
+                                                     ,point-form
+                                                     ,*standard-coordinates*))
+                                      'distance)
+                                 'usable
+                                 'recorded-device-id  ;debug
+                                 'device-stage-of-life-id ;debug
+                                 'generic-device-id       ;debug
+                                 'directory
+                                 'filename 'byte-position 'point-id
+                                 (:as (:not (:is-null 'footprint))
+                                      'footprintp)
+                                 'trigger-time
+                                 ;;'coordinates   ;the search target
+                                 'longitude 'latitude 'ellipsoid-height
+                                 'cartesian-system
+                                 'east-sd 'north-sd 'height-sd
+                                 'roll 'pitch 'heading
+                                 'roll-sd 'pitch-sd 'heading-sd
+                                 'sensor-width-pix 'sensor-height-pix
+                                 'pix-size
+                                 'bayer-pattern 'color-raiser
+                                 'mounting-angle
+                                 'dx 'dy 'dz 'omega 'phi 'kappa
+                                 'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                                 'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                                 'b-ddx 'b-ddy 'b-ddz
+                                 'b-drotx 'b-droty 'b-drotz
+                                 :from
+                                 ',aggregate-view-name
+                                 :where
+                                 (:and (:= 'presentation-project-id
+                                           ,presentation-project-id)
+                                       (:st_dwithin 'coordinates
+                                                    (:st_geomfromtext
+                                                     ,point-form
+                                                     ,*standard-coordinates*)
+                                                    ,snap-distance)))))
+                         'distance)
+                        ,count))
+                     :alists))
+                (superseded () (terpri) nil))))
         (json:encode-json-to-string result)))))
 
 (hunchentoot:define-easy-handler
@@ -1009,37 +1023,43 @@ table."
   "Serve an image from a .pictures file."
   (when (hunchentoot:session-value 'authenticated-p)
     (handler-case
-        (let* ((s (cdr (cl-utilities:split-sequence #\/
-                                                    (hunchentoot:script-name*)
-                                                    :remove-empty-subseqs t)))
-               (directory (last (butlast s 2)))
-               (file-name-and-type (cl-utilities:split-sequence
-                                    #\. (first (last s 2))))
-               (byte-position (parse-integer (car (last s)) :junk-allowed t))
-               (path-to-file
-                (car
-                 (directory
-                  (make-pathname
-                   :directory (append (pathname-directory *common-root*)
-                                      directory '(:wild-inferiors))
-                   :name (first file-name-and-type)
-                   :type (second file-name-and-type)))))
-               stream)
-          (setf (hunchentoot:header-out 'cache-control)
-                (format nil "max-age=~D" (* 3600 24 7)))
-          (setf (hunchentoot:content-type*) "image/png")
-          (setf stream (hunchentoot:send-headers))
-          (send-png
-           stream path-to-file byte-position
-           :bayer-pattern
-           (apply #'vector (mapcar
-                            #'parse-integer
-                            (cl-utilities:split-sequence  #\, bayer-pattern)))
-           :color-raiser
-           (apply #'vector (mapcar
-                            #'parse-number:parse-positive-real-number
-                            (cl-utilities:split-sequence  #\, color-raiser)))
-           :reversep (= 180 (parse-integer mounting-angle))))
+        (progn
+          (push (bt:current-thread)
+                (hunchentoot:session-value 'recent-threads))
+          (let* ((s (cdr (cl-utilities:split-sequence
+                          #\/
+                          (hunchentoot:script-name*)
+                          :remove-empty-subseqs t)))
+                 (directory (last (butlast s 2)))
+                 (file-name-and-type (cl-utilities:split-sequence
+                                      #\. (first (last s 2))))
+                 (byte-position (parse-integer (car (last s)) :junk-allowed t))
+                 (path-to-file
+                  (car
+                   (directory
+                    (make-pathname
+                     :directory (append (pathname-directory *common-root*)
+                                        directory '(:wild-inferiors))
+                     :name (first file-name-and-type)
+                     :type (second file-name-and-type)))))
+                 stream)
+            (setf (hunchentoot:header-out 'cache-control)
+                  (format nil "max-age=~D" (* 3600 24 7)))
+            (setf (hunchentoot:content-type*) "image/png")
+            (setf stream (hunchentoot:send-headers))
+            (send-png
+             stream path-to-file byte-position
+             :bayer-pattern
+             (apply #'vector (mapcar
+                              #'parse-integer
+                              (cl-utilities:split-sequence
+                               #\, bayer-pattern)))
+             :color-raiser
+             (apply #'vector (mapcar
+                              #'parse-number:parse-positive-real-number
+                              (cl-utilities:split-sequence  #\, color-raiser)))
+             :reversep (= 180 (parse-integer mounting-angle)))))
+      (superseded () (terpri) nil)
       (condition (c)
         (cl-log:log-message
          :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c)))))
