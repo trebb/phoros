@@ -1247,7 +1247,7 @@ common-table-name should in most cases resemble the project name and
 will be stored in table sys-acquisition-project, field
 common-table-name."
   (create-data-table-definitions common-table-name)
-  (handler-case (create-sys-tables) ;Create system tables if necessary.
+  (handler-ggcase (create-sys-tables) ;Create system tables if necessary.
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (assert-phoros-db-major-version)
   (when (select-dao 'sys-acquisition-project

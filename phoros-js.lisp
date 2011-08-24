@@ -350,6 +350,8 @@
 
        (defvar *json-parser* (new (chain *open-layers *format *json*)))
 
+       (defvar *geojson-parser* (new (chain *open-layers *format *geo-j-s-o-n)))
+
        (defvar *geojson-format* (chain *open-layers *format *geo-j-s-o-n))
        (setf (@ *geojson-format* prototype ignore-extra-dims)
         t)                              ;doesn't handle height anyway
@@ -1424,6 +1426,26 @@
                                      (max
                                       (/ image-width image-div-width)
                                       (/ image-height image-div-height)))))))))
+           (when (@ this photo-parameters rendered-footprint)
+             (setf (@ this footprint-layer)
+                   (new (chain
+                         *open-layers
+                         *layer
+                         (*vector "Footprint"
+                                  (create display-in-layer-switcher nil
+                                          style (create stroke-color "yellow"
+                                                        stroke-width 1
+                                                        stroke-opacity .3))))))
+             (chain this
+                    footprint-layer
+                    (add-features
+                     (chain *geojson-parser*
+                            (read (@ this
+                                     photo-parameters
+                                     rendered-footprint)))))
+             (chain this
+                    map
+                    (add-layer (@ this footprint-layer))))
            (chain this map (zoom-to-max-extent))
            (if (@ this photo-parameters usable)
                (hide-element-with-id (@ this usable-id))

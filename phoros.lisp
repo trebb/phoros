@@ -55,6 +55,9 @@
 (defparameter *postgresql-warnings* nil
   "If t, show PostgreSQL's WARNINGs and NOTICEs.")
 
+(defparameter *render-footprints-p* nil
+  "If t, put image footprints into images on client.")
+
 (defparameter *use-multi-file-openlayers* nil
   "If t, use OpenLayers uncompiled from openlayers/*, which makes
   debugging easier.  Otherwise use a single-file shrunk
@@ -321,7 +324,7 @@ current session."
             (when bbox
               (setf (bounding-box sys-user-role) bbox))
             (when (and longitude latitude)
-              (let* ;; kludge: should be done by some library, not by DB query
+              (let* ;; gkludge: should be done by some library, not by DB query
                   ((point-form (format nil "POINT(~F ~F)" longitude latitude))
                    (point-wkb (query (:select
                                       (:st_geomfromtext point-form))
@@ -383,6 +386,7 @@ wrapped in an array.  Wipe away any unfinished business first."
               (handler-case
                   (ignore-errors
                     (or
+                     ;; footprint is ready
                      (query
                       (sql-compile
                        `(:limit
@@ -400,13 +404,16 @@ wrapped in an array.  Wipe away any unfinished business first."
                                                       ,*standard-coordinates*))
                                        'distance)
                                   'usable
-                                  'recorded-device-id  ;debug
+                                  'recorded-device-id      ;debug
                                   'device-stage-of-life-id ;debug
                                   'generic-device-id       ;debug
                                   'directory
                                   'filename 'byte-position 'point-id
                                   (:as (:not (:is-null 'footprint))
                                        'footprintp)
+                                  ,(when *render-footprints-p*
+                                         '(:as (:st_asewkt 'footprint)
+                                           'footprint-wkt))
                                   'trigger-time
                                   ;;'coordinates   ;the search target
                                   'longitude 'latitude 'ellipsoid-height
@@ -471,61 +478,113 @@ wrapped in an array.  Wipe away any unfinished business first."
                                      1))))))
                           'distance)
                          ,count))
-                      :alists))
-                    (query
-                     (sql-compile
-                      `(:limit
-                        (:order-by
-                         (:union
-                          ,@(loop
-                               for common-table-name in common-table-names
-                               for aggregate-view-name
-                               = (aggregate-view-name common-table-name)
-                               collect  
-                               `(:select
-                                 (:as (:st_distance 'coordinates
-                                                    (:st_geomfromtext
-                                                     ,point-form
-                                                     ,*standard-coordinates*))
-                                      'distance)
-                                 'usable
-                                 'recorded-device-id  ;debug
-                                 'device-stage-of-life-id ;debug
-                                 'generic-device-id       ;debug
-                                 'directory
-                                 'filename 'byte-position 'point-id
-                                 (:as (:not (:is-null 'footprint))
-                                      'footprintp)
-                                 'trigger-time
-                                 ;;'coordinates   ;the search target
-                                 'longitude 'latitude 'ellipsoid-height
-                                 'cartesian-system
-                                 'east-sd 'north-sd 'height-sd
-                                 'roll 'pitch 'heading
-                                 'roll-sd 'pitch-sd 'heading-sd
-                                 'sensor-width-pix 'sensor-height-pix
-                                 'pix-size
-                                 'bayer-pattern 'color-raiser
-                                 'mounting-angle
-                                 'dx 'dy 'dz 'omega 'phi 'kappa
-                                 'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                                 'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                                 'b-ddx 'b-ddy 'b-ddz
-                                 'b-drotx 'b-droty 'b-drotz
-                                 :from
-                                 ',aggregate-view-name
-                                 :where
-                                 (:and (:= 'presentation-project-id
-                                           ,presentation-project-id)
-                                       (:st_dwithin 'coordinates
-                                                    (:st_geomfromtext
-                                                     ,point-form
-                                                     ,*standard-coordinates*)
-                                                    ,snap-distance)))))
-                         'distance)
-                        ,count))
-                     :alists))
-                (superseded () (terpri) nil))))
+                      :alists)
+                     ;; No footprint yet
+                     (query
+                      (sql-compile
+                       `(:limit
+                         (:order-by
+                          (:union
+                           ,@(loop
+                                for common-table-name in common-table-names
+                                for aggregate-view-name
+                                = (aggregate-view-name common-table-name)
+                                collect  
+                                `(:select
+                                  (:as (:st_distance 'coordinates
+                                                     (:st_geomfromtext
+                                                      ,point-form
+                                                      ,*standard-coordinates*))
+                                       'distance)
+                                  'usable
+                                  'recorded-device-id     ;debug
+                                  'device-stage-of-life-id ;debug
+                                  'generic-device-id       ;debug
+                                  'directory
+                                  'filename 'byte-position 'point-id
+                                  (:as (:not (:is-null 'footprint))
+                                       'footprintp)
+                                  'trigger-time
+                                  ;;'coordinates   ;the search target
+                                  'longitude 'latitude 'ellipsoid-height
+                                  'cartesian-system
+                                  'east-sd 'north-sd 'height-sd
+                                  'roll 'pitch 'heading
+                                  'roll-sd 'pitch-sd 'heading-sd
+                                  'sensor-width-pix 'sensor-height-pix
+                                  'pix-size
+                                  'bayer-pattern 'color-raiser
+                                  'mounting-angle
+                                  'dx 'dy 'dz 'omega 'phi 'kappa
+                                  'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                                  'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                                  'b-ddx 'b-ddy 'b-ddz
+                                  'b-drotx 'b-droty 'b-drotz
+                                  :from
+                                  ',aggregate-view-name
+                                  :where
+                                  (:and (:= 'presentation-project-id
+                                            ,presentation-project-id)
+                                        (:st_dwithin 'coordinates
+                                                     (:st_geomfromtext
+                                                      ,point-form
+                                                      ,*standard-coordinates*)
+                                                     ,snap-distance)))))
+                          'distance)
+                         ,count))
+                      :alists)))
+                (superseded () nil))))
+        (when *render-footprints-p*
+          (setf
+           result
+           (loop
+              for photo-parameter-set in result
+              for footprint-vertices =  ;something like this:
+                ;; "SRID=4326;POLYGON((14.334342229 51.723293508 118.492667334,14.334386877 51.723294417 118.404764286,14.334347429 51.72327914 118.506316418,14.334383211 51.723279895 118.435823396,14.334342229 51.723293508 118.492667334))"
+                (ignore-errors          ;probably no :footprint-wkt
+                  (mapcar (lambda (p)
+                          (mapcar (lambda (x)
+                                    (parse-number:parse-real-number x))
+                                  (cl-utilities:split-sequence #\Space p)))
+                        (subseq
+                         (cl-utilities:split-sequence-if
+                          (lambda (x)
+                            (or (eq x #\,)
+                                (eq x #\()
+                                (eq x #\))))
+                          (cdr (assoc :footprint-wkt photo-parameter-set)))
+                         2 7)))
+              collect
+                (if footprint-vertices
+                    (acons :rendered-footprint
+                           (pairlis
+                            '(:type :coordinates)
+                            (list
+                             :line-string
+                             (loop
+                                for footprint-vertex in footprint-vertices
+                                for reprojected-vertex =
+                                (photogrammetry
+                                 :reprojection
+                                 ;; KLUDGE: translate keys, e.g. a1 -> a_1
+                                 (json:decode-json-from-string
+                                  (json:encode-json-to-string photo-parameter-set))
+                                 (pairlis '(:x-global :y-global :z-global)
+                                          (proj:cs2cs
+                                           (list
+                                            (proj:degrees-to-radians
+                                             (first footprint-vertex))
+                                            (proj:degrees-to-radians
+                                             (second footprint-vertex))
+                                            (third footprint-vertex))
+                                           :destination-cs
+                                           (cdr (assoc :cartesian-system
+                                                       photo-parameter-set)))))
+                                collect
+                                (list (cdr (assoc :m reprojected-vertex))
+                                      (cdr (assoc :n reprojected-vertex))))))
+                           photo-parameter-set)
+                    photo-parameter-set))))
         (json:encode-json-to-string result)))))
 
 (hunchentoot:define-easy-handler
@@ -1059,7 +1118,7 @@ table."
                               #'parse-number:parse-positive-real-number
                               (cl-utilities:split-sequence  #\, color-raiser)))
              :reversep (= 180 (parse-integer mounting-angle)))))
-      (superseded () (terpri) nil)
+      (superseded () nil)
       (condition (c)
         (cl-log:log-message
          :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c)))))
