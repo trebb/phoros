@@ -739,20 +739,20 @@ according to the --verbose option given."
       (store-images-and-points common-table-name directory
                                :epsilon (read-from-string epsilon nil)
                                :root-dir common-root
-                               :aggregate-events aggregate-events))
-    (cl-log:log-message
-     :db-dat
-     "Finish: storing data from ~A into acquisition project ~A ~
-      in database ~A at ~A:~D."
-     directory common-table-name database host port)
-    (let ((points-deleted
-           (delete-imageless-points common-table-name)))
+                               :aggregate-events aggregate-events)
       (cl-log:log-message
        :db-dat
-       "Checked acquisition project ~A in database ~A at ~A:~D ~
+       "Finish: storing data from ~A into acquisition project ~A ~
+      in database ~A at ~A:~D."
+       directory common-table-name database host port)
+      (let ((points-deleted
+             (delete-imageless-points common-table-name)))
+        (cl-log:log-message
+         :db-dat
+         "Checked acquisition project ~A in database ~A at ~A:~D ~
         for imageless points~[; found none.~;. Found and deleted ~:*~D.~]"
-       common-table-name database host port
-       points-deleted))))
+         common-table-name database host port
+         points-deleted)))))
 
 (defun cli:insert-footprints-action (common-table-name)
   "Update image footprints."
