@@ -1780,6 +1780,7 @@
            (request-user-point-choice true))
          (setf (inner-html-with-id "h2-controls") "Create Point")
          (hide-element-with-id "multiple-points-phoros-controls")
+         (hide-element-with-id "no-footprints-p")
          (setf *point-attributes-select*
                (chain document (get-element-by-id "point-attribute-select")))
          (setf *aux-point-distance-select*
