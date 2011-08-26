@@ -129,7 +129,7 @@ an alist."
   (add-cam* photo)
   (add-global-car-reference-point* photo t)
   (add-ref-ground-surface* floor)
-  (set-distance-for-epipolar-line 20d0)
+  (set-distance-for-epipolar-line 20d0) ;how far ahead we look
   (calculate)
   (let ((source-cs
          (car (photogrammetry-arglist photo :cartesian-system))))
