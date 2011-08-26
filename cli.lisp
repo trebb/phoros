@@ -336,7 +336,7 @@
     ("user-full-name" :type string :documentation "User's real name.")
     ("user-role"
      :type string :initial-value "read"
-     :documentation "User's permission on their projects.  One of \"read\", \"write\", or \"admin\" where \"write\" is the same as \"read\" plus permission to add user points and delete them if written by same user; and \"admin\" is the same as \"write\" plus permission to delete points written by other users.")
+     :documentation "User's permission on their projects.  One of \"read\", \"write\", or \"admin\" where \"write\" is the same as \"read\" plus permission to add user points and delete them if written by themselves (or by unknown user); and \"admin\" is the same as \"write\" plus permission to delete points written by other users.")
     ("presentation-project" :type string :list t :optional t
      :documentation "Presentation project the user is allowed to see.  Repeat if necessary.")
     ("delete-user"
@@ -1089,7 +1089,7 @@ a view."
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (muffle-postgresql-warnings)
       (multiple-value-bind
-            (points-stored points-already-in-db points-tried)
+            (points-stored points-already-in-db points-tried zombie-users)
           (apply #'store-user-points presentation-project
                  :allow-other-keys t
                  (cli:remaining-options))
@@ -1101,7 +1101,9 @@ a view."
             already present.  ~
             ~:[~:[~:[~D points have~;1 point has~*~]~;Nothing has~2*~]~
                ~;All points tried have~3*~] ~
-            been added to the user point table."
+            been added to the user point table.  ~
+            ~15@*~@[I didn't know ~14@*~[~;a~:;any of the~] user~14@*~P ~
+            called ~{~A~#^, ~}; treated them as zombie~14@*~P.~]"
          points-tried
          (truename json-file)
          presentation-project database host port
@@ -1112,7 +1114,9 @@ a view."
          (= points-stored points-tried)
          (zerop points-stored)
          (= 1 points-stored)
-         points-stored)))))
+         points-stored
+         (length zombie-users)          ;arg 14
+         zombie-users)))))              ;arg 15
 
 (defun cli:get-user-points-action (presentation-project)
   "Save user points of presentation project into a GeoJSON file."
@@ -1126,17 +1130,20 @@ a view."
           (get-user-points (user-point-table-name presentation-project))
         (assert json-file ()
                 "Don't know where to store.  Try option --json-file")
-        (with-open-file (stream json-file
-                                :direction :output
-                                :if-exists :supersede)
-          (princ user-points stream))
+        (unless (zerop user-point-count)
+          (with-open-file (stream json-file
+                                  :direction :output
+                                  :if-exists :supersede)
+            (princ user-points stream)))
         (cl-log:log-message
          :db-dat
-         "Saved ~D user point~:P from presentation project ~A in ~
-          database ~A at ~A:~D into file ~A."
+         "~[There are no user points to get from presentation project ~A in ~
+            database ~A at ~A:~D.  Didn't touch any file.~
+          ~:;~:*Saved ~D user point~:P from presentation project ~A in ~
+            database ~A at ~A:~D into file ~A.~]"
          user-point-count
          presentation-project database host port
-         (truename json-file))))))
+         (ignore-errors (truename json-file)))))))
     
 (defun cli:create-user-action (presentation-project-user)
   "Define a new user."

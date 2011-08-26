@@ -41,9 +41,9 @@
           :user-role
           (who-ps-html
            (:p "User role.  \"Read\" can't write or modify anything.
-           \"Write\" may write user points and delete their own
-           ones. \"Admin\" may write user points and delete points
-           written by others."))
+           \"Write\" may write user points and edit/delete their own
+           ones (and ownerless points). \"Admin\" may write user
+           points and edit/delete points written by anyone."))
           :presentation-project-name
           (who-ps-html
            (:p "Presentation project name."))
@@ -381,7 +381,8 @@
          current-owner or, without arguments, new stuff."
          (or (equal +user-role+ "admin")
              (and (equal +user-role+ "write")
-                  (equal +user-name+ current-owner))))
+                  (or (equal +user-name+ current-owner)
+                      (not current-owner)))))
 
        (defun *image ()
          "Anything necessary to deal with a photo."
@@ -1626,9 +1627,11 @@
                     (disable-element-with-id "delete-point-button")
                     (setf (inner-html-with-id "h2-controls") "View Point")))
               (setf (inner-html-with-id "creator")
-                    (+ "(by "
-                       (@ *current-user-point* attributes user-name)
-                       ")")))
+                    (if (@ *current-user-point* attributes user-name)
+                        (+ "(by "
+                           (@ *current-user-point* attributes user-name)
+                           ")")
+                        "(ownerless)")))
              (t
               (hide-element-with-id "multiple-points-phoros-controls")
               (reveal-element-with-id "real-phoros-controls"))))

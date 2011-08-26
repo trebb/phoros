@@ -661,17 +661,25 @@ wrapped in an array.  Wipe away any unfinished business first."
        () "No write permission.")
       (with-connection *postgresql-credentials*
         (assert
-         (= 1 (execute (:update user-point-table-name :set
-                                'attribute attribute
-                                'description description
-                                'numeric-description numeric-description
-                                'creation-date 'current-timestamp
-                                :where (:and (:= 'user-point-id user-point-id)
-                                             (:= (if (string-equal user-role
-                                                                   "admin")
-                                                     user-id
-                                                     'user-id)
-                                                 user-id)))))
+         (= 1 (execute
+               (:update user-point-table-name :set
+                        'user-id user-id
+                        'attribute attribute
+                        'description description
+                        'numeric-description numeric-description
+                        'creation-date 'current-timestamp
+                        :where (:and (:= 'user-point-id user-point-id)
+                                     (:or (:= (if (string-equal user-role
+                                                                "admin")
+                                                  user-id
+                                                  'user-id)
+                                              user-id)
+                                          (:is-null 'user-id)
+                                          (:exists
+                                           (:select 'user-name
+                                                    :from 'sys-user
+                                                    :where (:= 'user-id
+                                                               user-id))))))))
          () "No point stored.  Did you try to update someone else's point ~
              without having admin permission?")))))
 
@@ -693,10 +701,18 @@ wrapped in an array.  Wipe away any unfinished business first."
                      (execute (:delete-from user-point-table-name
                                             :where (:= 'user-point-id data))))
                     ((string-equal user-role "write")
-                     (execute (:delete-from user-point-table-name
-                                            :where (:and
-                                                    (:= 'user-point-id data)
-                                                    (:= 'user-id user-id)))))))
+                     (execute
+                      (:delete-from
+                       user-point-table-name
+                       :where (:and
+                               (:= 'user-point-id data)
+                               (:or (:= 'user-id user-id)
+                                    (:is-null 'user-id)
+                                    (:exists
+                                     (:select 'user-name
+                                              :from 'sys-user
+                                              :where (:= 'user-id
+                                                         user-id))))))))))
             () "No point deleted.  This should not happen.")))))
 
 (defun common-table-names (presentation-project-id)

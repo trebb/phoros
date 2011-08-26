@@ -563,13 +563,15 @@ user-point table definition."
      (warn "Storing user-points which don't have a version number."))
     (t)))
 
-(defun* store-user-points (common-table-name &mandatory-key json-file)
+(defun* store-user-points (presentation-project-name &mandatory-key json-file)
   "Store in DB user points given in file at json-file, which
 supposedly was created by Phoros.  Return number of points stored,
-number of points that were already in DB, and number of points found
-in JSON file."
+number of points that were already in DB, number of points found in
+JSON file, and a list containing user-names from the json file that
+don't exist in DB."
   (assert-phoros-db-major-version)
-  (let* ((user-point-table-name (user-point-table-name common-table-name))
+  (let* ((user-point-table-name
+          (user-point-table-name presentation-project-name))
          (raw-input (with-open-file (stream json-file)
                       (json:decode-json stream)))
          (raw-input-version (cdr (assoc :phoros-version raw-input)))
@@ -602,16 +604,16 @@ in JSON file."
              (sql (:is-null 'aux-text)))
        with points-stored = 0
        with points-already-in-db = 0
+       with unknown-users = nil
        sum 1 into points-tried
        do
          (if
           (query
            (:select
             t
-            :from user-point-table-name :natural :left-join 'sys-user
+            :from user-point-table-name
             :where (:and (:st_equals 'coordinates
                                      (:st_geomfromewkt point-form))
-                         (:= 'user-name user-name)
                          (:= 'attribute attribute)
                          (:= 'description description)
                          (:= 'numeric-description numeric-description)
@@ -626,34 +628,45 @@ in JSON file."
                          (:raw aux-text-comparison))))
           (incf points-already-in-db)
           (progn
+            (unless (and user-name
+                         (query
+                          (:select t
+                                   :from 'sys-user
+                                   :where (:= 'user-name user-name))))
+              (pushnew user-name unknown-users :test #'equal))
             (assert
              (= 1
                 (execute
-                 (:insert-into user-point-table-name :set
-                               'coordinates (:st_geomfromewkt point-form)
-                               'user-id (:select 'user-id
-                                                 :from 'sys-user
-                                                 :where (:= 'user-name
-                                                            user-name))
-                               'attribute attribute
-                               'description description
-                               'numeric-description numeric-description
-                               'creation-date creation-date
-                               'stdx-global stdx-global
-                               'stdy-global stdy-global
-                               'stdz-global stdz-global
-                               'input-size input-size
-                               'aux-numeric (if aux-numeric
-                                                (apply #'vector aux-numeric)
-                                                :null)
-                               'aux-text (if aux-text
-                                             (apply #'vector aux-text)
-                                             :null))))
+                 (sql-compile
+                  `(:insert-into
+                    ,user-point-table-name :set
+                    'coordinates (:st_geomfromewkt ,point-form)
+                    'user-id ,(if user-name
+                                  `(:select 'user-id
+                                            :from 'sys-user
+                                            :where (:= 'user-name
+                                                       ,user-name))
+                                  :null)
+                    'attribute ,attribute
+                    'description ,description
+                    'numeric-description ,numeric-description
+                    'creation-date ,creation-date
+                    'stdx-global ,stdx-global
+                    'stdy-global ,stdy-global
+                    'stdz-global ,stdz-global
+                    'input-size ,input-size
+                    'aux-numeric ,(if aux-numeric
+                                      (apply #'vector aux-numeric)
+                                      :null)
+                    'aux-text ,(if aux-text
+                                   (apply #'vector aux-text)
+                                   :null)))))
              () "Point not stored.  This should not happen.")
             (incf points-stored)))
        finally (return (values points-stored
                                points-already-in-db
-                               points-tried)))))
+                               points-tried
+                               unknown-users)))))
 
 (defun update-footprint (common-table-name
                          measurement-id filename byte-position)

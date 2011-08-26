@@ -718,7 +718,8 @@ $$ LANGUAGE plpgsql;"
   (;; We need a slot user-point-id which is defined in our subclasses.
    (user-id
     :initarg :user-id
-    :col-type integer
+    :col-type (or db-null ;when store-user-points is fed an unknown user-name
+                  integer)
     :documentation "User who stored this point.")
    (attribute
     :initarg :attribute
