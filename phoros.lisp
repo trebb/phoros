@@ -1120,25 +1120,26 @@ table."
                      :directory (append (pathname-directory *common-root*)
                                         directory '(:wild-inferiors))
                      :name (first file-name-and-type)
-                     :type (second file-name-and-type)))))
-                 stream)
+                     :type (second file-name-and-type))))))
             (setf (hunchentoot:header-out 'cache-control)
                   (format nil "max-age=~D" (* 3600 24 7)))
             (setf (hunchentoot:content-type*) "image/png")
-            (setf stream (hunchentoot:send-headers))
-            (send-png
-             stream path-to-file byte-position
-             :bayer-pattern
-             (apply #'vector (mapcar
-                              #'parse-integer
-                              (cl-utilities:split-sequence
-                               #\, bayer-pattern)))
-             :color-raiser
-             (apply #'vector (mapcar
-                              #'parse-number:parse-positive-real-number
-                              (cl-utilities:split-sequence  #\, color-raiser)))
-             :reversep (= 180 (parse-integer mounting-angle)))))
-      (superseded () nil)
+            (flex:with-output-to-sequence (stream)
+              (send-png
+               stream path-to-file byte-position
+               :bayer-pattern
+               (apply #'vector (mapcar
+                                #'parse-integer
+                                (cl-utilities:split-sequence
+                                 #\, bayer-pattern)))
+               :color-raiser
+               (apply #'vector (mapcar
+                                #'parse-number:parse-positive-real-number
+                                (cl-utilities:split-sequence  #\, color-raiser)))
+               :reversep (= 180 (parse-integer mounting-angle))))))
+      (superseded ()
+        (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
+        nil)
       (condition (c)
         (cl-log:log-message
          :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c)))))
