@@ -45,12 +45,19 @@ from m and n in clicked-photo."
   (add-cam* other-photo)
   (add-global-car-reference-point* other-photo t)
   (loop
+     with m and n
      for i = 2d0 then (* i 1.4) until (> i 50)
-     do
-       (set-distance-for-epipolar-line i)
-     when (ignore-errors (calculate))
-     collect (pairlis '(:m :n) (list (flip-m-maybe (get-m) other-photo)
-                                     (flip-n-maybe (get-n) other-photo)))))
+     do (set-distance-for-epipolar-line i)
+     when (ignore-errors
+            (calculate)
+            (setf m (get-m))
+            (setf n (get-n))
+            (assert (not (nan-p m)))  ;On some systems, PhoML gives us
+            (assert (not (nan-p n)))  ; quiet NaN instead of erring.
+            t)
+     collect (pairlis '(:m :n)
+                      (list (flip-m-maybe m other-photo)
+                            (flip-n-maybe n other-photo)))))
 
 (defmethod photogrammetry
     ((mode (eql :reprojection)) photo &optional global-point)
@@ -62,8 +69,8 @@ from m and n in clicked-photo."
   (calculate)
   (let ((m (get-m))
 	(n (get-n)))
-    (assert (not (nan-p m)))		;On some systems, PhoML gives us
-    (assert (not (nan-p n)))		; quiet NaN instead of erring.
+    (assert (not (nan-p m)))          ;On some systems, PhoML gives us
+    (assert (not (nan-p n)))          ; quiet NaN instead of erring.
     (pairlis '(:m :n)
 	     (list (flip-m-maybe m photo) (flip-n-maybe n photo)))))
 
@@ -79,11 +86,23 @@ from m and n in clicked-photo."
        (add-bpoint* photo)
        (add-global-car-reference-point* photo t))
   (calculate)
-  (pairlis '(:x-global :y-global :z-global
-             :stdx-global :stdy-global :stdz-global)
-           (list
-            (get-x-global) (get-y-global) (get-z-global)
-            (get-stdx-global) (get-stdy-global) (get-stdz-global))))
+  (let ((x-global (get-x-global))
+        (y-global (get-y-global))
+        (z-global (get-z-global))
+        (stdx-global (get-stdx-global))
+        (stdy-global (get-stdy-global))
+        (stdz-global (get-stdz-global)))
+    (assert (not (nan-p x-global)))
+    (assert (not (nan-p y-global)))
+    (assert (not (nan-p z-global)))
+    (assert (not (nan-p stdx-global)))
+    (assert (not (nan-p stdy-global)))
+    (assert (not (nan-p stdz-global)))
+    (pairlis '(:x-global :y-global :z-global
+               :stdx-global :stdy-global :stdz-global)
+             (list
+              x-global y-global z-global
+              stdx-global stdy-global stdz-global))))
 
 (defmethod photogrammetry
     ((mode (eql :intersection)) photo &optional other-photo)

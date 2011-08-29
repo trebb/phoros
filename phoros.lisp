@@ -366,7 +366,9 @@ containing picture url, calibration parameters, and car position,
 wrapped in an array.  Wipe away any unfinished business first."
   (when (hunchentoot:session-value 'authenticated-p)
     (dolist (old-thread (hunchentoot:session-value 'recent-threads))
-      (ignore-errors (bt:interrupt-thread old-thread #'(lambda () (signal 'superseded)))))
+      (ignore-errors
+        (bt:interrupt-thread old-thread
+                             #'(lambda () (signal 'superseded)))))
     (setf (hunchentoot:session-value 'recent-threads) nil)
     (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
     (setf (hunchentoot:content-type*) "application/json")
@@ -556,34 +558,34 @@ wrapped in an array.  Wipe away any unfinished business first."
                          2 7)))
               collect
                 (if footprint-vertices
-                    (acons :rendered-footprint
-                           (pairlis
-                            '(:type :coordinates)
-                            (list
-                             :line-string
-                             (loop
-                                for footprint-vertex in footprint-vertices
-                                for reprojected-vertex =
-                                (photogrammetry
-                                 :reprojection
-                                 ;; KLUDGE: translate keys, e.g. a1 -> a_1
-                                 (json:decode-json-from-string
-                                  (json:encode-json-to-string photo-parameter-set))
-                                 (pairlis '(:x-global :y-global :z-global)
-                                          (proj:cs2cs
-                                           (list
-                                            (proj:degrees-to-radians
-                                             (first footprint-vertex))
-                                            (proj:degrees-to-radians
-                                             (second footprint-vertex))
-                                            (third footprint-vertex))
-                                           :destination-cs
-                                           (cdr (assoc :cartesian-system
-                                                       photo-parameter-set)))))
-                                collect
-                                (list (cdr (assoc :m reprojected-vertex))
-                                      (cdr (assoc :n reprojected-vertex))))))
-                           photo-parameter-set)
+                    (acons
+                     :rendered-footprint
+                     (pairlis
+                      '(:type :coordinates)
+                      (list
+                       :line-string
+                       (loop
+                          for footprint-vertex in footprint-vertices
+                          for reprojected-vertex =
+                          (photogrammetry
+                           :reprojection
+                           ;; KLUDGE: translate keys, e.g. a1 -> a_1
+                           (json:decode-json-from-string
+                            (json:encode-json-to-string photo-parameter-set))
+                           (pairlis '(:x-global :y-global :z-global)
+                                    (proj:cs2cs
+                                     (list (proj:degrees-to-radians
+                                            (first footprint-vertex))
+                                           (proj:degrees-to-radians
+                                            (second footprint-vertex))
+                                           (third footprint-vertex))
+                                     :destination-cs
+                                     (cdr (assoc :cartesian-system
+                                                 photo-parameter-set)))))
+                          collect
+                          (list (cdr (assoc :m reprojected-vertex))
+                                (cdr (assoc :n reprojected-vertex))))))
+                     photo-parameter-set)
                     photo-parameter-set))))
         (json:encode-json-to-string result)))))
 
@@ -828,7 +830,9 @@ junk-keys."
          :error "While fetching points from inside bbox ~S: ~A"
          bbox c)))))
 
-(hunchentoot:define-easy-handler (aux-points :uri "/phoros/lib/aux-points.json") (bbox)
+(hunchentoot:define-easy-handler
+    (aux-points :uri "/phoros/lib/aux-points.json")
+    (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (when (hunchentoot:session-value 'authenticated-p)
     (setf (hunchentoot:content-type*) "application/json")
@@ -1148,7 +1152,8 @@ table."
           "/phoros/lib/openlayers/" "OpenLayers-2.10/")
          hunchentoot:*dispatch-table*)
 
-(pushnew (hunchentoot:create-folder-dispatcher-and-handler "/phoros/lib/ol/" "ol/")
+(pushnew (hunchentoot:create-folder-dispatcher-and-handler
+          "/phoros/lib/ol/" "ol/")
          hunchentoot:*dispatch-table*)
 
 (pushnew (hunchentoot:create-folder-dispatcher-and-handler
@@ -1379,8 +1384,9 @@ table."
 (hunchentoot:define-easy-handler
     (epipolar-line :uri "/phoros/lib/epipolar-line")
     ()
-  "Receive vector of two sets of picture parameters, respond with
-JSON encoded epipolar-lines."
+  "Receive vector of two sets of picture parameters, the first of
+which containing coordinates (m, n) of a clicked point. Respond with a
+JSON encoded epipolar-line."
   (when (hunchentoot:session-value 'authenticated-p)
     (setf (hunchentoot:content-type*) "application/json")
     (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
