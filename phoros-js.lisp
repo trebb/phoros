@@ -648,7 +648,7 @@
              (request-photos-for-point (@ *streetmap* clicked-lonlat))))
 
        (defun request-aux-data-linestring-for-point (lonlat-spherical-mercator)
-         "Fetch a linestring along auxiyliary points near
+         "Fetch a linestring along auxiliary points near
          lonlat-spherical-mercator."
          (let ((lonlat-geographic
                 (chain lonlat-spherical-mercator
