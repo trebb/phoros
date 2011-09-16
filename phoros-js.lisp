@@ -51,6 +51,17 @@
           (who-ps-html
            (:p "This presentation project is empty.  You can't do much
            with it."))
+          :caching-indicator
+          (who-ps-html
+           (:p "Caching images.")
+           (:p "As I'm currently idle, I'm preemptively putting images
+           into your browser's cache which later on may help speed up
+           things a bit.")
+           (:p "Type")
+           (:code "about:cache?device=disk")
+           (:p "into your address bar to see what's going on there.")
+           (:p "Your browser cache size should be set to 2000 GB or
+           bigger. Bigger is better."))
           :phoros-version
           (who-ps-html
            (:p "Phoros version.")
@@ -645,7 +656,8 @@
          (if (checkbox-status-with-id "walk-p")
              (request-aux-data-linestring-for-point
               (@ *streetmap* clicked-lonlat))
-             (request-photos-for-point (@ *streetmap* clicked-lonlat))))
+             (request-photos-for-point (@ *streetmap* clicked-lonlat)))
+         (request-cache-fodder (@ *streetmap* clicked-lonlat)))
 
        (defun request-aux-data-linestring-for-point (lonlat-spherical-mercator)
          "Fetch a linestring along auxiliary points near
@@ -722,6 +734,125 @@
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
                     :success present-photos))))))
+
+       (defvar *cache-stuffer*
+         (create xhr undefined          ;instance of XMLHttpRequest
+                 cache-fodder-request-response undefined
+                 photo-url-ingredients undefined
+                 index undefined        ;current element of
+                                        ; photo-url-ingredients
+                 caching-photo-p nil
+                 cache-size (* 2084000 1024)
+                                        ;we assume cache-size is set
+                                        ; to 2000MB by browser user
+                 average-image-size undefined
+                 current-center undefined
+                 cache-photo-timeout undefined
+                 request-cache-fodder-group-timeout undefined)
+         "Things used to preemptively stuff the browser cache.")
+
+       (defun request-cache-fodder (lonlat-spherical-mercator)
+         "Abort any previous cache stuffing activities, wait a few
+         seconds, and start a new cache stuffing session centered at
+         lonlat-spherical-mercator."
+         (setf (@ *cache-stuffer* current-center)
+               (chain lonlat-spherical-mercator
+                      (clone)
+                      (transform +spherical-mercator+ +geographic+)))
+         (setf (@ *cache-stuffer* average-image-size) 0)
+         (clear-timeout (@ *cache-stuffer* cache-photo-timeout))
+         (clear-timeout (@ *cache-stuffer* request-cache-fodder-group-timeout))
+         (hide-element-with-id "caching-indicator")
+         (setf (@ *cache-stuffer* request-cache-fodder-group-timeout)
+               (set-timeout request-cache-fodder-group 15000)))
+
+       (defun request-cache-fodder-group ()
+         "Request a bunch of image url ingredients, initiate caching
+         of the respective images.  Keep trying if unsuccessful."
+         (let ((content
+                (chain *json-parser*
+                       (write
+                        (create
+                         :longitude (@ *cache-stuffer* current-center lon)
+                         :latitude (@ *cache-stuffer* current-center lat))))))
+           (setf (@ *cache-stuffer* cache-fodder-request-response)
+                 (chain
+                  *open-layers
+                  *request
+                  (*post*
+                   (create
+                    :url "/phoros/lib/nearest-image-urls"
+                    :data content
+                    :headers (create "Content-type" "text/plain"
+                                     "Content-length" (@ content length))
+                    :success handle-request-cache-fodder-group
+                    :failure (lambda ()
+                               (clear-timeout
+                                (@ *cache-stuffer*
+                                   request-cache-fodder-group-timeout))
+                               (setf (@ *cache-stuffer*
+                                        request-cache-fodder-group-timeout)
+                                     (set-timeout request-cache-fodder-group
+                                                  5000)))))))))
+
+       (defun handle-request-cache-fodder-group ()
+         "Handle the response triggered by request-cache-fodder-group."
+         (setf (@ *cache-stuffer* photo-url-ingredients)
+               (chain *json-parser*
+                      (read (@ *cache-stuffer*
+                               cache-fodder-request-response
+                               response-text))))
+         (setf (@ *cache-stuffer* index) 0)
+         (reveal-element-with-id "caching-indicator")
+         (cache-photo))
+
+       (defun cache-photo ()
+         "Cache another image if the previous one is done."
+         (if (and (< (@ *cache-stuffer* index)
+                     (length (@ *cache-stuffer* photo-url-ingredients)))
+                  (< (* (@ *cache-stuffer* index)
+                        (@ *cache-stuffer* average-image-size))
+                     (* .5 (@ *cache-stuffer* cache-size))))
+             (if (@ *cache-stuffer* caching-photo-p)
+                 (progn
+                   (clear-timeout (@ *cache-stuffer* cache-photo-timeout))
+                   (setf (@ *cache-stuffer* cache-photo-timeout)
+                         (set-timeout cache-photo 3000)))
+                 (progn
+                   (setf (@ *cache-stuffer* caching-photo-p) t)
+                   (setf (@ *cache-stuffer* xhr) (new (*x-m-l-http-request)))
+                   (chain *cache-stuffer*
+                          xhr
+                          (open "GET"
+                                (photo-path
+                                 (aref (@ *cache-stuffer* photo-url-ingredients)
+                                       (@ *cache-stuffer* index)))
+                                t))
+                   (setf (@ *cache-stuffer* xhr onload)
+                         (lambda (event)
+                           (setf (@ *cache-stuffer* average-image-size)
+                                 (/ (+ (* (@ *cache-stuffer* average-image-size)
+                                          (@ *cache-stuffer* index))
+                                       (@ event total)) ;bytes received
+                                    (1+ (@ *cache-stuffer* index))))
+                           (setf (@ *cache-stuffer* caching-photo-p) nil)
+                           (incf (@ *cache-stuffer* index))))
+                   ;; We do our best to have the browser use its cache.
+                   ;; Note however that in certain cases use of the
+                   ;; cache may be hampered by pressing the browser's
+                   ;; reload button.
+                   (chain *cache-stuffer*
+                          xhr
+                          (set-request-header
+                           "Cache-control"
+                           (+ "max-age=" (lisp *browser-cache-max-age*))))
+                   (chain *cache-stuffer* xhr (send))
+                   (clear-timeout (@ *cache-stuffer* cache-photo-timeout))
+                   (setf (@ *cache-stuffer* cache-photo-timeout)
+                         (set-timeout
+                          cache-photo   ;come back quickly in case
+                          500))))       ; photo is already in cache
+             (hide-element-with-id "caching-indicator")))
 
        (defun draw-epipolar-line ()
          "Draw an epipolar line from response triggered by clicking
@@ -1781,6 +1912,7 @@
          (setf (inner-html-with-id "h2-controls") "Create Point")
          (hide-element-with-id "multiple-points-phoros-controls")
          (hide-element-with-id "no-footprints-p")
+         (hide-element-with-id "caching-indicator")
          (setf *point-attributes-select*
                (chain document (get-element-by-id "point-attribute-select")))
          (setf *aux-point-distance-select*

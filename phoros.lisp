@@ -66,6 +66,9 @@
 (defparameter *number-of-images* 4
   "Number of photos shown to the HTTP client.")
 
+(defparameter *browser-cache-max-age* (* 3600 24 7)
+  "Value x for Cache-Control:max-age=x, for images on client.")
+
 (defparameter *number-of-features-per-layer* 500
   "What we think a browser can swallow.")
 
@@ -370,6 +373,7 @@ wrapped in an array.  Wipe away any unfinished business first."
         (bt:interrupt-thread old-thread
                              #'(lambda () (signal 'superseded)))))
     (setf (hunchentoot:session-value 'recent-threads) nil)
+    (setf (hunchentoot:session-value 'number-of-threads) 1)
     (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
     (setf (hunchentoot:content-type*) "application/json")
     (with-connection *postgresql-credentials*
@@ -587,7 +591,87 @@ wrapped in an array.  Wipe away any unfinished business first."
                                 (cdr (assoc :n reprojected-vertex))))))
                      photo-parameter-set)
                     photo-parameter-set))))
+        (decf (hunchentoot:session-value 'number-of-threads))
         (json:encode-json-to-string result)))))
+
+(hunchentoot:define-easy-handler
+    (nearest-image-urls :uri "/phoros/lib/nearest-image-urls"
+                        :default-request-type :post)
+    ()
+  "Receive coordinates, respond with a json array of the necessary
+ingredients for the URLs of the 256 nearest images."
+  (when (hunchentoot:session-value 'authenticated-p)
+    (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
+    (if (<= (hunchentoot:session-value 'number-of-threads)
+            0)            ;only stuff cache if everything else is done
+        (progn
+          (incf (hunchentoot:session-value 'number-of-threads))
+          (setf (hunchentoot:content-type*) "application/json")
+          (with-connection *postgresql-credentials*
+            (let* ((presentation-project-id (hunchentoot:session-value
+                                             'presentation-project-id))
+                   (common-table-names (common-table-names
+                                        presentation-project-id))
+                   (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+                   (longitude (cdr (assoc :longitude data)))
+                   (latitude (cdr (assoc :latitude data)))
+                   (count 256)
+                   (radius (* 5d-4)) ; assuming geographic coordinates
+                   (point-form (format nil "POINT(~F ~F)" longitude latitude))
+                   (result
+
+                    (handler-case
+                        (ignore-errors
+                          (query
+                           (sql-compile
+                            `(:limit
+                              (:select
+                               'directory 'filename 'byte-position
+                               'bayer-pattern 'color-raiser 'mounting-angle
+                               :from
+                               (:as
+                                (:order-by
+                                 (:union
+                                  ,@(loop
+                                       for common-table-name
+                                       in common-table-names
+                                       for aggregate-view-name
+                                       = (aggregate-view-name common-table-name)
+                                       collect  
+                                       `(:select
+                                         'directory
+                                         'filename 'byte-position
+                                         'bayer-pattern 'color-raiser
+                                         'mounting-angle
+                                         (:as (:st_distance
+                                               'coordinates
+                                               (:st_geomfromtext
+                                                ,point-form
+                                                ,*standard-coordinates*))
+                                              'distance)
+                                         :from
+                                         ',aggregate-view-name
+                                         :where
+                                         (:and (:= 'presentation-project-id
+                                                   ,presentation-project-id)
+                                               (:st_dwithin
+                                                'coordinates
+                                                (:st_geomfromtext
+                                                 ,point-form
+                                                 ,*standard-coordinates*)
+                                                ,radius)))))
+                                 'distance)
+                                'raw-image-urls))
+                              ,count))
+                           :alists))
+                      (superseded ()
+                        (setf (hunchentoot:return-code*)
+                              hunchentoot:+http-gateway-time-out+)
+                        ;; (decf (hunchentoot:session-value 'number-of-threads))
+                        nil))))
+              (decf (hunchentoot:session-value 'number-of-threads))
+              (json:encode-json-to-string result))))
+        (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+))))
 
 (hunchentoot:define-easy-handler
     (store-point :uri "/phoros/lib/store-point" :default-request-type :post)
@@ -1102,43 +1186,51 @@ table."
   "Serve an image from a .pictures file."
   (when (hunchentoot:session-value 'authenticated-p)
     (handler-case
-        (progn
-          (push (bt:current-thread)
-                (hunchentoot:session-value 'recent-threads))
-          (let* ((s (cdr (cl-utilities:split-sequence
-                          #\/
-                          (hunchentoot:script-name*)
-                          :remove-empty-subseqs t)))
-                 (directory (last (butlast s 2)))
-                 (file-name-and-type (cl-utilities:split-sequence
-                                      #\. (first (last s 2))))
-                 (byte-position (parse-integer (car (last s)) :junk-allowed t))
-                 (path-to-file
-                  (car
-                   (directory
-                    (make-pathname
-                     :directory (append (pathname-directory *common-root*)
-                                        directory '(:wild-inferiors))
-                     :name (first file-name-and-type)
-                     :type (second file-name-and-type))))))
-            (setf (hunchentoot:header-out 'cache-control)
-                  (format nil "max-age=~D" (* 3600 24 7)))
-            (setf (hunchentoot:content-type*) "image/png")
-            (flex:with-output-to-sequence (stream)
-              (send-png
-               stream path-to-file byte-position
-               :bayer-pattern
-               (apply #'vector (mapcar
-                                #'parse-integer
-                                (cl-utilities:split-sequence
-                                 #\, bayer-pattern)))
-               :color-raiser
-               (apply #'vector (mapcar
-                                #'parse-number:parse-positive-real-number
-                                (cl-utilities:split-sequence  #\, color-raiser)))
-               :reversep (= 180 (parse-integer mounting-angle))))))
+        (prog2
+            (progn
+              (push (bt:current-thread)
+                    (hunchentoot:session-value 'recent-threads))
+              (incf (hunchentoot:session-value 'number-of-threads)))
+            (let* ((s (cdr (cl-utilities:split-sequence
+                            #\/
+                            (hunchentoot:script-name*)
+                            :remove-empty-subseqs t)))
+                   (directory (last (butlast s 2)))
+                   (file-name-and-type (cl-utilities:split-sequence
+                                        #\. (first (last s 2))))
+                   (byte-position (parse-integer (car (last s)) :junk-allowed t))
+                   (path-to-file
+                    (car
+                     (directory
+                      (make-pathname
+                       :directory (append (pathname-directory *common-root*)
+                                          directory '(:wild-inferiors))
+                       :name (first file-name-and-type)
+                       :type (second file-name-and-type)))))
+                   (result
+                    (flex:with-output-to-sequence (stream)
+                      (send-png
+                       stream path-to-file byte-position
+                       :bayer-pattern
+                       (apply #'vector (mapcar
+                                        #'parse-integer
+                                        (cl-utilities:split-sequence
+                                         #\, bayer-pattern)))
+                       :color-raiser
+                       (apply #'vector (mapcar
+                                        #'parse-number:parse-positive-real-number
+                                        (cl-utilities:split-sequence
+                                         #\,
+                                         color-raiser)))
+                       :reversep (= 180 (parse-integer mounting-angle))))))
+              (setf (hunchentoot:header-out 'cache-control)
+                    (format nil "max-age=~D" *browser-cache-max-age*))
+              (setf (hunchentoot:content-type*) "image/png")
+              result)
+          (decf (hunchentoot:session-value 'number-of-threads)))
       (superseded ()
         (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
+        ;; (decf (hunchentoot:session-value 'number-of-threads))
         nil)
       (condition (c)
         (cl-log:log-message
@@ -1213,8 +1305,10 @@ table."
                    (who:str (hunchentoot:session-value
                              'presentation-project-name)))
             (:span :id "presentation-project-emptiness")
-            (:span :id "phoros-version" :class "h1-right"
-                   (who:fmt "v~A" (phoros-version))))
+            (:span :class "h1-right"
+                   (:span :id "caching-indicator")
+                   (:span :id "phoros-version"
+                          (who:fmt "v~A" (phoros-version)))))
        (:div :class "controlled-streetmap"
              (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
              (:div :id "streetmap-controls" :class "streetmap-controls"
