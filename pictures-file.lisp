@@ -262,14 +262,15 @@ nil, at stream's file position."
                     (aref data-array (1+ row) (1+ column) color))
                  4))))
 
-(defun demosaic-png (png bayer-pattern color-raiser)
+(defun demosaic-png (png bayer-pattern color-raiser brightenp)
   "Demosaic color png in-place whose color channel 0 is supposed to be
 filled with a Bayer color pattern.  Return demosaiced png.
 bayer-pattern is an array of 24-bit RGB values (red occupying the
 least significant byte), describing the upper left corner of the
 image.  Currently, only pixels 0, 1 on row 0 are taken into account.
 And, it's currently not even an array but a vector due to limitations
-in postmodern.  For a grayscale image do nothing."
+in postmodern.  For a grayscale image do nothing.  Then, if brightenp
+is t and the image is too dark, make it brighter."
   (when (eq (zpng:color-type png) :truecolor)
     (let ((lowest-row (- (zpng:height png) 2))
           (rightmost-column (- (zpng:width png) 2))
@@ -390,15 +391,39 @@ in postmodern.  For a grayscale image do nothing."
            (loop
               for column from 1 to rightmost-column by 2 do
               (funcall complete-odd-row-odd-column row column))))))
+  (when brightenp (brighten-maybe png))
   png)
-                            
+
+(defun brighten-maybe (png)
+  "Make png brighter if it is too dark."
+  (multiple-value-bind (brightest-value darkest-value)
+      (brightness png)
+    (when (< brightest-value 200)
+      (let ((image (zpng:image-data png)))
+        (loop
+           for i from 0 below (length image)
+           do (setf (aref image i)
+                    (floor (* (- (aref image i) darkest-value)
+                              (/ 255 (- brightest-value darkest-value))))))))))
+
+(defun brightness (png)
+  "Return brightest value and darkest value of png."
+  (loop
+     for brightness across (zpng:image-data png)
+     maximize brightness into brightest-value
+     minimize brightness into darkest-value
+     finally (return (values brightest-value
+                             darkest-value))))
+
 (defun* send-png (output-stream path start
-                                &key (color-raiser #(1 1 1)) reversep
+                                &key (color-raiser #(1 1 1))
+                                reversep brightenp
                                 &mandatory-key bayer-pattern)
   "Read an image at position start in .pictures file at path and send
 it to the binary output-stream.  Return UNIX trigger-time of image.
-If reversep is t, turn it upside-down.  Bayer-pattern is applied after
-turning, which is a wart."              
+If brightenp is t, have it brightened up if necessary.  If reversep is
+t, turn it upside-down.  Bayer-pattern is applied after turning, which
+is a wart."
   ;; TODO: bayer-pattern should be applied to the unturned image
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
         (blob-size (find-keyword-value path "dataSize=" start))
@@ -427,7 +452,8 @@ turning, which is a wart."
                           image-height image-width color-type
                           :reversep reversep)))
         bayer-pattern
-        color-raiser)
+        color-raiser
+        brightenp)
        output-stream))
     trigger-time))
 

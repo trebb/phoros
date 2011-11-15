@@ -202,8 +202,14 @@
            but this may take some time."))
           :auto-zoom
           (who-ps-html
+           (:h3 "Auto Zoom")
            (:p "Check this to automatically zoom into images once they
            get an estimated position."))
+          :brighten-images
+          (who-ps-html
+           (:p "Check this to have underexposed images brightened up.")
+           (:p "Brightening starts with the next set of images and may
+           slow things down a bit."))
           :walk-mode
           (who-ps-html
            (:p "Check this to snap your current position onto a line
@@ -424,14 +430,18 @@
         draw-estimated-positions)
 
        (defun photo-path (photo-parameters)
-         "Create from stuff found in photo-parameters a path for use in
-         an image url."
+         "Create from stuff found in photo-parameters and in checkbox
+         brighten-images-p a path with parameters for use in an image
+         url."
          (+ "/phoros/lib/photo/" (@ photo-parameters directory) "/"
             (@ photo-parameters filename) "/"
             (@ photo-parameters byte-position) ".png"
             "?mounting-angle=" (@ photo-parameters mounting-angle)
             "&bayer-pattern=" (@ photo-parameters bayer-pattern)
-            "&color-raiser=" (@ photo-parameters color-raiser)))
+            "&color-raiser=" (@ photo-parameters color-raiser)
+            (if (checkbox-status-with-id "brighten-images-p")
+                "&brightenp"
+                "")))
 
        (defun has-layer-p (map layer-name)
          "False if map doesn't have a layer called layer-name."

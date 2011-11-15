@@ -312,13 +312,13 @@ button, select {
     margin-left: 6px;
     margin-right: 5px;
 }
-#auto-zoom, #walk-mode {
+#auto-zoom, #walk-mode, #brighten-images {
     height: 18px;
     font-size: smaller;
     color: white;
     float: left;
     margin-left: 5px;
-    margin-right: 10px;
+    margin-right: 5px;
 }
 #step-size {
     font-family: 'andale mono', 'lucida console', monospace;

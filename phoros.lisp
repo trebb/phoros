@@ -1182,7 +1182,8 @@ table."
 (hunchentoot:define-easy-handler photo-handler
     ((bayer-pattern :init-form "65280,16711680")
      (color-raiser :init-form "1,1,1")
-     (mounting-angle :init-form "0"))
+     (mounting-angle :init-form "0")
+     brightenp)
   "Serve an image from a .pictures file."
   (when (hunchentoot:session-value 'authenticated-p)
     (handler-case
@@ -1222,7 +1223,8 @@ table."
                                         (cl-utilities:split-sequence
                                          #\,
                                          color-raiser)))
-                       :reversep (= 180 (parse-integer mounting-angle))))))
+                       :reversep (= 180 (parse-integer mounting-angle))
+                       :brightenp brightenp))))
               (setf (hunchentoot:header-out 'cache-control)
                     (format nil "max-age=~D" *browser-cache-max-age*))
               (setf (hunchentoot:content-type*) "image/png")
@@ -1397,13 +1399,13 @@ table."
                    (:p "Unselect all but one to edit or view its properties."))
              (:div :class "walk-mode-controls"
                    (:div :id "walk-mode"
-                         (:label
-                          (:input :id "walk-p"
-                                  :class "tight-input"
-                                  :type "checkbox" :checked nil
-                                  :onchange (ps-inline
-                                             (flip-walk-mode)))
-                          "snap+walk"))
+                         (:input :id "walk-p"
+                                 :class "tight-input"
+                                 :type "checkbox" :checked nil
+                                 :onchange (ps-inline
+                                            (flip-walk-mode)))
+                         (:label :for "walk-p"
+                                 "snap+walk"))
                    (:div :id "decrease-step-size"
                          :onclick (ps-inline (decrease-step-size)))
                    (:div :id "step-size"
@@ -1419,18 +1421,24 @@ table."
                          "step"))
              (:div :class "image-main-controls"
                    (:div :id "auto-zoom"
-                         (:label
-                          (:input :id "zoom-to-point-p"
-                                  :class "tight-input"
-                                  :type "checkbox" :checked t)
-                          "auto zoom"))
+                         (:input :id "zoom-to-point-p"
+                                 :class "tight-input"
+                                 :type "checkbox" :checked t)
+                         (:label :for "zoom-to-point-p"
+                                 "auto"))
+                   (:div :id "brighten-images"
+                         (:input :id "brighten-images-p"
+                                 :class "tight-input"
+                                 :type "checkbox" :checked nil)
+                         (:label :for "brighten-images-p"
+                                 "bright"))
                    (:div :id "zoom-images-to-max-extent"
                          :onclick (ps-inline (zoom-images-to-max-extent)))
                    (:div :id "no-footprints-p"
                          (:b "?"))
                    (:div :id "remove-work-layers-button" :disabled t
                          :onclick (ps-inline (reset-layers-and-controls))
-                         "start over")))
+                         "restart")))
        (:div :class "help-div"
              (:button :id "download-user-points-button"
                       :type "button"
