@@ -1186,26 +1186,31 @@ table."
      brightenp)
   "Serve an image from a .pictures file."
   (when (hunchentoot:session-value 'authenticated-p)
+    (setf *t* (hunchentoot:script-name*))
     (handler-case
         (prog2
             (progn
               (push (bt:current-thread)
                     (hunchentoot:session-value 'recent-threads))
               (incf (hunchentoot:session-value 'number-of-threads)))
-            (let* ((s (cdr (cl-utilities:split-sequence
-                            #\/
-                            (hunchentoot:script-name*)
-                            :remove-empty-subseqs t)))
-                   (directory (last (butlast s 2)))
-                   (file-name-and-type (cl-utilities:split-sequence
-                                        #\. (first (last s 2))))
-                   (byte-position (parse-integer (car (last s)) :junk-allowed t))
+            (let* ((s
+                    (cl-utilities:split-sequence #\/
+                                                 (hunchentoot:script-name*)
+                                                 :remove-empty-subseqs t))
+                   (directory
+                    (cdddr          ;remove leading phoros, lib, photo
+                     (butlast s 2)))
+                   (file-name-and-type
+                    (cl-utilities:split-sequence #\. (first (last s 2))))
+                   (byte-position
+                    (parse-integer (car (last s)) :junk-allowed t))
                    (path-to-file
                     (car
                      (directory
                       (make-pathname
                        :directory (append (pathname-directory *common-root*)
-                                          directory '(:wild-inferiors))
+                                          directory
+                                          '(:wild-inferiors))
                        :name (first file-name-and-type)
                        :type (second file-name-and-type)))))
                    (result
