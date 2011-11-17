@@ -19,7 +19,7 @@
 (in-package :phoros)
 
 (defun collect-pictures-file-data (path)
-  "Return vector of image-data structures containing data from the
+  "Return vector of image-data objects containing data from the
 picture-headers of the .pictures file in path."
   (let ((estimated-header-length
          (ignore-errors
@@ -66,6 +66,8 @@ picture-headers of the .pictures file in path."
                   :camera-timestamp timestamp
                   :recorded-device-id recorded-device-id
                   :filename (file-namestring path)
+                  :footprint :null
+                  :footprint-device-stage-of-life-id :null
                   :gain gain
                   :shutter shutter
                   :byte-position picture-start)

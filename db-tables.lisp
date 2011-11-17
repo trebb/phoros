@@ -685,9 +685,11 @@ $$ LANGUAGE plpgsql;"
     :col-type text
     :documentation "As found in .pictures file, header tag `cam=´.")
    (footprint
-   :col-type (or db-null geometry)
-   :documentation "Polygon on the ground describing the approximate area covered by this image.")
+    :initarg :footprint
+    :col-type (or db-null geometry)
+    :documentation "Polygon on the ground describing the approximate area covered by this image.")
    (footprint-device-stage-of-life-id
+    :initarg :footprint-device-stage-of-life-id
     :col-type (or db-null integer)
     :documentation "device-stage-of-life denoting the set of calibration data the footprint of this record has been calculated with.")
    (gain
