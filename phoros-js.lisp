@@ -315,6 +315,12 @@
        (defvar +spherical-mercator+
          (new (chain *open-layers (*projection "EPSG:900913"))))
 
+       (defvar +proxy-root+
+         (lisp *proxy-root*)
+         "First element of URL path; defaults to phoros but may be
+         turned into something different by an HTTP proxy
+         definition.")
+
        (defvar +user-name+ (lisp (hunchentoot:session-value 'user-name))
          "User's (short) name.")
        (defvar +user-role+ (lisp (string-downcase (hunchentoot:session-value
@@ -433,7 +439,9 @@
          "Create from stuff found in photo-parameters and in checkbox
          brighten-images-p a path with parameters for use in an image
          url."
-         (+ "/phoros/lib/photo/" (@ photo-parameters directory) "/"
+         (+ "/" +proxy-root+
+            "/lib/photo/"
+            (@ photo-parameters directory) "/"
             (@ photo-parameters filename) "/"
             (@ photo-parameters byte-position) ".png"
             "?mounting-angle=" (@ photo-parameters mounting-angle)
@@ -647,7 +655,8 @@
                 *open-layers
                 *Request
                 (*POST*
-                 (create :url "/phoros/lib/user-point-attributes.json"
+                 (create :url (+ "/" +proxy-root+
+                                 "/lib/user-point-attributes.json")
                          :data nil
                          :headers (create "Content-type" "text/plain")
                          :success (lambda ()
@@ -739,7 +748,7 @@
                   *Request
                   (*POST*
                    (create
-                    :url "/phoros/lib/local-data"
+                    :url (+ "/" +proxy-root+ "/lib/local-data")
                     :data content
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
@@ -791,7 +800,7 @@
                   *request
                   (*post*
                    (create
-                    :url "/phoros/lib/nearest-image-urls"
+                    :url (+ "/" +proxy-root+ "/lib/nearest-image-urls")
                     :data content
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
@@ -904,7 +913,8 @@
                  (chain *open-layers
                         *Request
                         (*POST*
-                         (create :url "/phoros/lib/aux-local-data"
+                         (create :url (+ "/" +proxy-root+
+                                         "/lib/aux-local-data")
                                  :data content
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
@@ -925,7 +935,8 @@
                  (chain *open-layers
                         *Request
                         (*POST*
-                         (create :url "/phoros/lib/aux-local-linestring.json"
+                         (create :url (+ "/" +proxy-root+
+                                         "/lib/aux-local-linestring.json")
                                  :data content
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
@@ -1338,7 +1349,7 @@
               *open-layers
               *Request
               (*POST*
-               (create :url "/phoros/lib/store-point"
+               (create :url (+ "/" +proxy-root+ "/lib/store-point")
                        :data content
                        :headers (create "Content-type" "text/plain"
                                         "Content-length" (@ content length))
@@ -1373,7 +1384,7 @@
            (chain *open-layers
                   *Request
                   (*POST*
-                   (create :url "/phoros/lib/update-point"
+                   (create :url (+ "/" +proxy-root+ "/lib/update-point")
                            :data content
                            :headers (create "Content-type" "text/plain"
                                             "Content-length" (@ content
@@ -1393,7 +1404,7 @@
            (chain *open-layers
                   *Request
                   (*POST*
-                   (create :url "/phoros/lib/delete-point"
+                   (create :url (+ "/" +proxy-root+ "/lib/delete-point")
                            :data content
                            :headers (create "Content-type" "text/plain"
                                             "Content-length" (@ content
@@ -1473,7 +1484,8 @@
                         (chain *open-layers
                                *Request
                                (*POST*
-                                (create :url "/phoros/lib/epipolar-line"
+                                (create :url (+ "/" +proxy-root+
+                                                "/lib/epipolar-line")
                                         :data content
                                         :headers (create
                                                   "Content-type" "text/plain"
@@ -1505,7 +1517,8 @@
                           (chain *open-layers
                                  *Request
                                  (*POST*
-                                  (create :url "/phoros/lib/estimated-positions"
+                                  (create :url (+ "/" +proxy-root+
+                                                  "/lib/estimated-positions")
                                           :data content
                                           :headers (create
                                                     "Content-type" "text/plain"
@@ -1792,7 +1805,8 @@
                (chain *open-layers
                       *Request
                       (*POST*
-                       (create :url "/phoros/lib/user-point-positions"
+                       (create :url (+ "/" +proxy-root+
+                                       "/lib/user-point-positions")
                                :data content
                                :headers (create "Content-type" "text/plain"
                                                 "Content-length" (@ content
@@ -1874,7 +1888,7 @@
                              (get-extent)
                              (transform +spherical-mercator+ +geographic+)
                              (to-b-b-o-x)))
-                (href (+ "/phoros/lib/logout?bbox=" bbox)))
+                (href (+ "/" +proxy-root+ "/lib/logout?bbox=" bbox)))
            (when (@ *streetmap* cursor-layer features length)
              (let* ((lonlat-geographic (chain *streetmap*
                                               cursor-layer
@@ -1931,7 +1945,8 @@
          (let ((cursor-layer-style
                 (create
                  graphic-width 14
-                 external-graphic "/phoros/lib/public_html/phoros-cursor.png")))
+                 external-graphic (+ "/" +proxy-root+
+                                     "/lib/public_html/phoros-cursor.png"))))
            (setf (@ *streetmap* cursor-layer)
                  (new (chain
                        *open-layers *layer
@@ -1962,7 +1977,8 @@
                          strategies (array (new (*bbox-strategy*)))
                          protocol
                          (new (*http-protocol*
-                               (create :url "/phoros/lib/points.json")))
+                               (create :url (+ "/" +proxy-root+
+                                               "/lib/points.json"))))
                          style survey-layer-style))))))
          (setf (@ *streetmap* user-point-layer)
                (new (chain
@@ -1973,7 +1989,7 @@
                        strategies (array (new *bbox-strategy*))
                        protocol
                        (new (*http-protocol*
-                             (create :url "/phoros/lib/user-points.json")))
+                             (create :url (+ "/" +proxy-root+ "/lib/user-points.json"))))
                        style-map (user-point-style-map nil))))))
          (setf (@ *streetmap* user-points-hover-control)
                (new (chain *open-layers
@@ -2003,7 +2019,8 @@
                          strategies (array (new (*bbox-strategy*)))
                          protocol
                          (new (*http-protocol*
-                               (create :url "/phoros/lib/aux-points.json")))
+                               (create :url (+ "/" +proxy-root+
+                                               "/lib/aux-points.json"))))
                          style aux-layer-style
                          visibility nil))))))
          (let ((nearest-aux-point-layer-style-map

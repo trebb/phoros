@@ -261,6 +261,8 @@
 (defparameter cli:*start-server-options*
   '(("server" :action #'cli:server-action
      :documentation "(*) Start HTTP presentation server.  Entry URI is http://<host>:<port>/phoros/<presentation-project>.  Asynchronously update lacking image footprints (which should have been done already using --insert-footprints).")
+    ("proxy-root" :type string :initial-value "phoros"
+     :documentation "First directory element of the server URL.  Must correspond to the proxy configuration if Phoros is hidden behind a proxy.")
     ("address" :type string
      :documentation "Address (of local machine) server is to listen to.  Default is listening to all available addresses.")
     ("http-port" :type integer :initial-value 8080
@@ -1305,7 +1307,7 @@ projects."
                            (password "") (aux-password password)
                            use-ssl (aux-use-ssl use-ssl)
                            log-dir
-                           http-port address common-root)
+                           proxy-root http-port address common-root)
     (launch-logger log-dir)
     (setf *postgresql-credentials*
           (list database user password host :port port
@@ -1315,15 +1317,18 @@ projects."
                 :use-ssl (s-sql:from-sql-name aux-use-ssl)))
     (insert-all-footprints *postgresql-credentials*)
     (delete-all-imageless-points *postgresql-credentials*)
-    (start-server :http-port http-port :address address
+    (start-server :proxy-root proxy-root
+                  :http-port http-port :address address
                   :common-root common-root)
     (cl-log:log-message
      :info
      "HTTP server listens on port ~D ~
       of ~:[all available addresses~;address ~:*~A~].  ~
+      It expects to be called with a URL path root of /~A/.  ~
       Phoros database is ~A on ~A:~D.  Auxiliary database is ~A on ~A:~D.  ~
       Files are searched for in ~A."
      http-port address
+     proxy-root
      database host port
      aux-database aux-host aux-port
      common-root)

@@ -1,3 +1,29 @@
+;;; PHOROS -- Photogrammetric Road Survey
+;;; Copyright (C) 2011 Bert Burgemeister
+;;;
+;;; This program is free software; you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 2 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; This program is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License along
+;;; with this program; if not, write to the Free Software Foundation, Inc.,
+;;; 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+(in-package :phoros)
+
+(hunchentoot:define-easy-handler
+    (style.css
+     :uri (format nil "/phoros/lib/css-~A/style.css" (phoros-version)))
+    ()
+  ""
+  (setf (hunchentoot:content-type*) "text/css")
+  (format nil "
 /**
  * CSS Reset
  * From Blueprint reset.css
@@ -9,8 +35,8 @@ body {line-height:1.5;}
 table {border-collapse:separate;border-spacing:0;}
 caption, th, td {text-align:left;font-weight:normal;}
 table, td, th {vertical-align:middle;}
-blockquote:before, blockquote:after, q:before, q:after {content:"";}
-blockquote, q {quotes:"" "";}
+blockquote:before, blockquote:after, q:before, q:after {content:'';}
+blockquote, q {quotes:'' '';}
 a img {border:none;}
 
 /**
@@ -19,7 +45,7 @@ a img {border:none;}
  * http://openlayers.org
  */
 body {
-    font-family: "Lucida Grande", Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
+    font-family: 'Lucida Grande', Verdana, Geneva, Lucida, Arial, Helvetica, sans-serif;
     font-size: 80%;
     color: #222;
     background: #fff;
@@ -100,7 +126,7 @@ button, select {
     float: right;
 }
 #caching-indicator {
-    background: url(/phoros/lib/ol/theme/theme/default/img/save_features_off.png) no-repeat center center;
+    background: url(/~@*~A/lib/ol/theme/theme/default/img/save_features_off.png) no-repeat center center;
     float: left;
     margin-top: 3px;
     margin-right: 15px;
@@ -212,7 +238,7 @@ button, select {
 .help-div {
     float: left;
     cursor: default;
-    background-image: url(/phoros/lib/public_html/phoros-logo-background.png);
+    background-image: url(/~@*~A/lib/public_html/phoros-logo-background.png);
     background-position: 40px 90px;
     background-repeat: no-repeat;
     width: 256px;
@@ -331,7 +357,7 @@ button, select {
     cursor: pointer;
 }
 #zoom-images-to-max-extent {
-    background: url(/phoros/lib/ol/img/zoom-world-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
@@ -384,7 +410,7 @@ button, select {
     display: none; 
 }
 .image {
-    background-image: url(/phoros/lib/public_html/phoros-logo-background.png);
+    background-image: url(/~@*~A/lib/public_html/phoros-logo-background.png);
     background-position: center;
     background-repeat: no-repeat;
     /* width and height are read via CSS DOM where we expect them
@@ -398,49 +424,49 @@ button, select {
     margin: 1px;
 }
 .olControlPanWestItemInactive {
-    background: url(/phoros/lib/ol/img/west-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/west-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanEastItemInactive {
-    background: url(/phoros/lib/ol/img/east-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/east-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanNorthItemInactive {
-    background: url(/phoros/lib/ol/img/north-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/north-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlPanSouthItemInactive {
-    background: url(/phoros/lib/ol/img/south-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/south-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomInItemInactive, #increase-step-size {
-    background: url(/phoros/lib/ol/img/zoom-plus-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/zoom-plus-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomOutItemInactive, #decrease-step-size {
-    background: url(/phoros/lib/ol/img/zoom-minus-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/zoom-minus-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
     width: 18px;
 }
 .olControlZoomToMaxExtentItemInactive {
-    background: url(/phoros/lib/ol/img/zoom-world-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
@@ -450,7 +476,7 @@ button, select {
     display: none;
 }
 .streetmapZoomToMaxExtentItemInactive {
-    background: url(/phoros/lib/ol/img/zoom-world-mini.png) no-repeat;
+    background: url(/~@*~A/lib/ol/img/zoom-world-mini.png) no-repeat;
     cursor: pointer;
     float: left;
     height: 18px;
@@ -459,3 +485,10 @@ button, select {
 .olLayerGoogleCopyright {
     display: none;
 }
+" *proxy-root*))
+
+;; (pushnew (hunchentoot:create-folder-dispatcher-and-handler
+;;           (format nil "/phoros/lib/css-~A/" (phoros-version)) "css/") ;TODO: merge this style.css into public_html/style.css
+;;          hunchentoot:*dispatch-table*)
+
+

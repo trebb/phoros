@@ -28,7 +28,8 @@
        (:head
         (:title "Phoros")
         (:link :rel "stylesheet"
-               :href (format nil "/phoros/lib/css-~A/style.css"
+               :href (format nil "/~A/lib/css-~A/style.css"
+                             *proxy-root*
                              (phoros-version))
                :type "text/css"))
        (:body 
@@ -39,7 +40,9 @@
                  "close")
         (:p "This is "
             (:a :href "http://phoros.berlios.de"
-                (:img :src "/phoros/lib/public_html/phoros-logo-plain.png"
+                (:img :src (format nil
+                                   "/~A/lib/public_html/phoros-logo-plain.png"
+                                   *proxy-root*)
                       :height 30 :style "vertical-align:middle"
                       :alt "Phoros"))
             (who:fmt "Phoros version ~A," (phoros-version))

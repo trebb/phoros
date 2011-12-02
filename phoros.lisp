@@ -49,6 +49,10 @@
 (defparameter *common-root* nil
   "Root directory; contains directories of measuring data.")
 
+(defparameter *proxy-root* "phoros"
+  "First directory element of the server URL.  Must correspond to the
+proxy configuration if Phoros is hidden behind a proxy.")
+
 (defparameter *login-intro* nil
   "A few friendly words to be shown below the login form.")
 
@@ -127,7 +131,7 @@ user password host &key (port 5432) use-ssl)."
   (declare (ignore acceptor))
   "phoros-session")
 
-(defun start-server (&key (http-port 8080) address (common-root "/"))
+(defun start-server (&key (proxy-root "phoros") (http-port 8080) address (common-root "/"))
   "Start the presentation project server which listens on http-port
 at address.  Address defaults to all addresses of the local machine."
   (setf *phoros-server*
@@ -137,6 +141,7 @@ at address.  Address defaults to all addresses of the local machine."
                        :access-logger #'log-http-access
                        :message-logger #'log-hunchentoot-message))
   (setf hunchentoot:*session-max-time* (* 3600 24))
+  (setf *proxy-root* proxy-root)
   (setf *common-root* common-root)
   (check-db *postgresql-credentials*)
   (with-connection *postgresql-credentials*
@@ -158,9 +163,11 @@ at address.  Address defaults to all addresses of the local machine."
   "First HTTP contact: if necessary, check credentials, establish new
 session."
   (with-connection *postgresql-credentials*
-    (let* ((presentation-project-name
-            (second (cl-utilities:split-sequence
-                     #\/ (hunchentoot:script-name*) :remove-empty-subseqs t)))
+    (let* ((s (cl-utilities:split-sequence
+               #\/
+               (hunchentoot:script-name*)
+               :remove-empty-subseqs t))
+           (presentation-project-name (second s))
            (presentation-project-id
             (ignore-errors
               (query
@@ -176,7 +183,10 @@ session."
                      presentation-project-name)
               (hunchentoot:session-value 'authenticated-p))
          (hunchentoot:redirect
-          (format nil "/phoros/lib/view-~A" (phoros-version))
+          (format nil "/~A/lib/view-~A"
+                  ;; *proxy-root*
+                  "phoros"
+                  (phoros-version))
           :add-session-id t))
         (t
          (progn
@@ -201,7 +211,9 @@ session."
               :style "font-family:sans-serif;"
               (:form
                :method "post" :enctype "multipart/form-data"
-               :action "/phoros/lib/authenticate" :name "login-form"
+               :action (format nil "/~A/lib/authenticate"
+                               *proxy-root*)
+               :name "login-form"
                (:fieldset
                 (:legend (:b (:a :href "http://phoros.berlios.de"
                                  :style "text-decoration:none;"
@@ -303,15 +315,20 @@ current session."
                   (hunchentoot:session-value 'user-full-name) user-full-name
                   (hunchentoot:session-value 'user-id) user-id
                   (hunchentoot:session-value 'user-role) user-role)            
-            (hunchentoot:redirect (format nil "/phoros/lib/view-~A"
-                                          (phoros-version))
-                                  :add-session-id t))
+            (hunchentoot:redirect
+             (format nil "/~A/lib/view-~A"
+                     ;; *proxy-root*
+                     "phoros"
+                     (phoros-version))
+             :add-session-id t))
           (who:with-html-output-to-string (s nil :prologue t :indent t)
             (:body
              :style "font-family:sans-serif;"
              (:b "Rejected. ")
-             (:a :href (format nil "/phoros/~A/" (hunchentoot:session-value
-                                                  'presentation-project-name))
+             (:a :href (format nil "/~A/~A/"
+                               *proxy-root*
+                               (hunchentoot:session-value
+                                'presentation-project-name))
                  "Retry?")))))))
 
 (hunchentoot:define-easy-handler logout-handler (bbox longitude latitude)
@@ -343,13 +360,16 @@ current session."
                         'string
                         "Phoros: logged out" )))
               (:link :rel "stylesheet"
-                     :href (format nil "/phoros/lib/css-~A/style.css"
+                     :href (format nil "/~A/lib/css-~A/style.css"
+                                   *proxy-root*
                                    (phoros-version))
                      :type "text/css"))
              (:body
               (:h1 :id "title" "Phoros: logged out")
               (:p "Log back in to project "
-                  (:a :href (format nil "/phoros/~A" presentation-project-name)
+                  (:a :href (format nil "/~A/~A"
+                                    *proxy-root*
+                                    presentation-project-name)
                       (who:fmt "~A." presentation-project-name))))))))
       "Bye (again)."))
 
@@ -1186,7 +1206,6 @@ table."
      brightenp)
   "Serve an image from a .pictures file."
   (when (hunchentoot:session-value 'authenticated-p)
-    (setf *t* (hunchentoot:script-name*))
     (handler-case
         (prog2
             (progn
@@ -1257,10 +1276,6 @@ table."
          hunchentoot:*dispatch-table*)
 
 (pushnew (hunchentoot:create-folder-dispatcher-and-handler
-          (format nil "/phoros/lib/css-~A/" (phoros-version)) "css/") ;TODO: merge this style.css into public_html/style.css
-         hunchentoot:*dispatch-table*)
-
-(pushnew (hunchentoot:create-folder-dispatcher-and-handler
           "/phoros/lib/public_html/" "public_html/")
          hunchentoot:*dispatch-table*)
 
@@ -1285,16 +1300,25 @@ table."
                              'presentation-project-name))))
        (if *use-multi-file-openlayers*
            (who:htm
-            (:script :src "/phoros/lib/openlayers/lib/Firebug/firebug.js")
-            (:script :src "/phoros/lib/openlayers/lib/OpenLayers.js"))
-           (who:htm (:script :src "/phoros/lib/ol/OpenLayers.js")))
+            (:script
+             :src (format nil "/~A/lib/openlayers/lib/Firebug/firebug.js"
+                          *proxy-root*))
+            (:script
+             :src (format nil "/~A/lib/openlayers/lib/OpenLayers.js"
+                          *proxy-root*)))
+           (who:htm
+            (:script
+             :src (format nil "/~A/lib/ol/OpenLayers.js"
+                          *proxy-root*))))
        (:link :rel "stylesheet"
-              :href (format nil "/phoros/lib/css-~A/style.css"
+              :href (format nil "/~A/lib/css-~A/style.css"
+                            *proxy-root*
                             (phoros-version))
               :type "text/css")
        (:script :src (format         ;variability in script name is
                       nil            ; supposed to fight browser cache
-                      "/phoros/lib/phoros-~A-~A-~A.js"
+                      "/~A/lib/phoros-~A-~A-~A.js"
+                      *proxy-root*
                       (phoros-version)
                       (hunchentoot:session-value 'user-name)
                       (hunchentoot:session-value 'presentation-project-name)))
@@ -1447,17 +1471,21 @@ table."
        (:div :class "help-div"
              (:button :id "download-user-points-button"
                       :type "button"
-                      :onclick "self.location.href = \"/phoros/lib/user-points.json\""
+                      :onclick (format nil "self.location.href = \"/~A/lib/user-points.json\""
+                                       *proxy-root*)
                       "download points") ;TODO: offer other formats and maybe projections
              (:button :id "blurb-button"
                       :type "button"
                       :onclick (ps-inline
                                 (chain window
                                        (open
-                                        (+ "/phoros/lib/blurb?openlayers-version="
+                                        (+ "/"
+                                           +proxy-root+
+                                           "/lib/blurb?openlayers-version="
                                            (@ *open-layers *version_number*))
                                         "About Phoros")))
-                      (:img :src "/phoros/lib/public_html/phoros-logo-plain.png"
+                      (:img :src (format nil "/~A/lib/public_html/phoros-logo-plain.png"
+                                         *proxy-root*)
                             :alt "Phoros" :style "vertical-align:middle"
                             :height 20))
              (:button :id "logout-button"
@@ -1485,8 +1513,9 @@ table."
                        (:div :id (format nil "image-~S" i)
                              :class "image" :style "cursor:crosshair"))))))))
    (hunchentoot:redirect
-    (concatenate 'string "/phoros/" (hunchentoot:session-value
-                                     'presentation-project-name))
+    (format nil "/~A/~A"
+            *proxy-root*
+            (hunchentoot:session-value 'presentation-project-name))
     :add-session-id t)))
 
 (hunchentoot:define-easy-handler

@@ -21,7 +21,7 @@ interface.                              http://phoros.berlios.de"
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "12.2.1"
+  "12.3.0"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011 Bert Burgemeister
@@ -48,6 +48,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "log")
                (:file "photogrammetry")
                (:file "phoros")
+               (:file "css")
                (:file "cli")
                (:file "phoros-js")
                (:file "blurb")
