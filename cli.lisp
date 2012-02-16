@@ -763,6 +763,11 @@ according to the --verbose option given."
     (launch-logger log-dir)
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
+      (cl-log:log-message
+       :db-dat
+       "Updating image footprints of acquisition project ~A ~
+        in database ~A at ~A:~D."
+       common-table-name database host port)
       (let ((number-of-updated-footprints
              (insert-footprints common-table-name)))
         (cl-log:log-message

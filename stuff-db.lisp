@@ -708,13 +708,22 @@ have up-to-date footprints fresh footprints."
                           :where (:and
                                   (:or
                                    (:is-null 'footprint)
-                                       (:!= 'footprint-device-stage-of-life-id
-                                            'device-stage-of-life-id))
-                                       'usable)))))
+                                   (:!= 'footprint-device-stage-of-life-id
+                                        'device-stage-of-life-id))
+                                  'usable)))))
     (loop
        for (measurement-id filename byte-position) in image-records
        sum (update-footprint
-            common-table-name measurement-id filename byte-position))))
+            common-table-name measurement-id filename byte-position)
+       into number-of-updated-footprints
+       do (when (zerop (mod number-of-updated-footprints 200))
+            (cl-log:log-message
+             :db-dat
+             "Updating image footprints of acquisition project ~A: ~
+              ~D out of ~D done."
+             common-table-name
+             number-of-updated-footprints (length image-records)))
+       finally (return number-of-updated-footprints))))
 
 (defun insert-all-footprints (postgresql-credentials)
   "Asynchronously update image footprints of all acquisition projects

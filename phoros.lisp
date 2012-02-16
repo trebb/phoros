@@ -1220,7 +1220,7 @@ table."
                     (cdddr          ;remove leading phoros, lib, photo
                      (butlast s 2)))
                    (file-name-and-type
-                    (cl-utilities:split-sequence #\. (first (last s 2))))
+                    (cl-utilities:split-sequence #\. (first (last s 2))))                     
                    (byte-position
                     (parse-integer (car (last s)) :junk-allowed t))
                    (path-to-file
