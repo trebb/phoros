@@ -398,7 +398,8 @@ lists shaped like (symbol default)."
                           (probe-file
                            (make-pathname
                             :name ".phoros"
-                            :directory '(:absolute :home))))))
+                            :directory (directory-namestring
+                                        (user-homedir-pathname)))))))
     (with-open-file (s .phoros-path)
       (loop
          for line = (read-line s nil nil)
@@ -409,9 +410,10 @@ lists shaped like (symbol default)."
          collect option))))
 
 (defun cli:remaining-options ()
-  "Return current set of command line options as an alist, and a list
-of the non-option arguments.  In passing, set global variables
-according to the --verbose option given."
+  "Return current set of options (from both .phoros config file and
+command line) as an alist, and a list of the non-option arguments.  In
+passing, set global variables according to the --verbose option
+given."
   (setf cli:*command-line-arguments*
         (append (cli:.phoros-options) cli:*command-line-arguments*))
   (let ((options
