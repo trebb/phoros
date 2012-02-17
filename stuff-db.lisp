@@ -456,6 +456,9 @@ events match.  dir-path is a (probably absolute) path to a directory
 that contains one set of measuring data.  root-dir must be equal for
 all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
+  (assert
+   (every #'string= root-dir dir-path)
+   () "~A is not a leading part of ~A." root-dir dir-path)
   (assert-phoros-db-major-version)
   (assert     ;not strictly necessary, but may save the user some time
    (select-dao 'sys-acquisition-project
