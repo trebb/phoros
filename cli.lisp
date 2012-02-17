@@ -389,10 +389,31 @@ lists shaped like (symbol default)."
        (cli:remaining-options)
      ,@body)) 
 
+(defun cli:.phoros-options ()
+  "Return nil or a list of options from the most relevant .phoros file."
+  (let ((.phoros-path (or (probe-file
+                           (make-pathname
+                            :name ".phoros"
+                            :defaults *default-pathname-defaults*))
+                          (probe-file
+                           (make-pathname
+                            :name ".phoros"
+                            :directory '(:absolute :home))))))
+    (with-open-file (s .phoros-path)
+      (loop
+         for line = (read-line s nil nil)
+         for option = (string-trim " " line)
+         while line
+         when (and (>= (length option) 2)
+                   (string= (subseq option 0 2) "--"))
+         collect option))))
+
 (defun cli:remaining-options ()
   "Return current set of command line options as an alist, and a list
 of the non-option arguments.  In passing, set global variables
 according to the --verbose option given."
+  (setf cli:*command-line-arguments*
+        (append (cli:.phoros-options) cli:*command-line-arguments*))
   (let ((options
          (multiple-value-list
           (cli:process-command-line-options
@@ -441,8 +462,13 @@ according to the --verbose option given."
     (show-help-section
      nil nil
      "Options marked (*) are mutually exclusive and must come before
-     any other options.")
-    (show-help-section
+     any other options."
+     "Options are also read from file <phoros-invocation-dir>/.phoros
+     or, if that doesn't exist, from file ~/.phoros.  Config file
+     syntax: one option per line; leading or trailing spaces are
+     ignored; anything not beginning with -- is ignored."
+     "Command line options take precedence over config file options.")
+     (show-help-section
      cli:*general-options*
      "General Options")
     (show-help-section
@@ -582,13 +608,18 @@ according to the --verbose option given."
      (asdf:system-licence (asdf:find-system :phoros)))))
 
 (defun cli:check-db-action (&rest rest)
-  "Say `OK´ if database is accessible."
+  "Tell us if databases are accessible."
   (declare (ignore rest))
   (cli:with-options (host (aux-host host) port (aux-port port)
                           database (aux-database database)
                           (user "") (aux-user user)
                           (password "") (aux-password password)
                           use-ssl (aux-use-ssl use-ssl))
+    (format *error-output*
+            "Checking database ~A at ~A:~D and ~
+             auxiliary database ~A at ~A:~D.~%"
+            database host port
+            aux-database aux-host aux-port)
     (when (and
            (check-db (list database user password host
                            :port port
@@ -596,7 +627,8 @@ according to the --verbose option given."
            (check-db (list aux-database aux-user aux-password aux-host
                            :port aux-port
                            :use-ssl (s-sql:from-sql-name aux-use-ssl))))
-      (format *error-output* "~&OK~%"))))
+      (format *error-output*
+              "Both are accessible.~%"))))
 
 (defun cli:check-dependencies-action (&rest rest)
   "Say OK if the necessary external dependencies are available."

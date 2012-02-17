@@ -62,6 +62,7 @@
            :*user-points-options*
            :*user-options*
            :*options*
+           :.phoros-options
            :with-options
            :remaining-options
            :help-action
