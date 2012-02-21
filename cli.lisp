@@ -30,7 +30,7 @@
     ("version" :action #'cli:version-action
      :documentation "(*) Print version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
     ("verbose" :type integer :initial-value 0
-     :documentation "Dependent on zero-indexed bits set in this integer, emit various kinds of debugging output. Bit 10: display image footprints on http client; bit 11: show PostgreSQL warnings; bit 13: log http server error backtraces; bit 14: use multi-file version of OpenLayers; bit 15: send nicely formatted JavaScript; bit 16: send http server error messages to client.")
+     :documentation "Dependent on zero-indexed bits set in this integer, emit various kinds of debugging output.  Bit 9: log SQL activity; bit 10: display image footprints on http client; bit 11: show PostgreSQL warnings; bit 13: log http server error backtraces; bit 14: use multi-file version of OpenLayers; bit 15: send nicely formatted JavaScript; bit 16: send http server error messages to client.")
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'cli:check-db-action
@@ -422,6 +422,7 @@ given."
            cli:*options* cli:*command-line-arguments*))))
     (destructuring-bind (&key verbose &allow-other-keys)
         (car options)
+      (setf *log-sql-p* (logbitp 9 verbose))
       (setf *render-footprints-p* (logbitp 10 verbose))
       (setf *postgresql-warnings* (logbitp 11 verbose))
       ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist

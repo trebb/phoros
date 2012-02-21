@@ -42,3 +42,33 @@ keyargs is missing."
                     (when after-key-position
                       (subseq lambda-list after-key-position))))))
   `(defun ,name ,lambda-list ,@body))
+
+(defmacro logged-query (message-tag &rest args)
+  "Act like postmodern:query; additionally log some debug information
+tagged by the short string message-tag."
+  (cl-utilities:with-unique-names
+      (executed-query query-milliseconds query-result)
+    `(let* (,executed-query
+            ,query-milliseconds
+            ,query-result
+            (cl-postgres:*query-callback*
+             #'(lambda (query-string clock-ticks)
+                 (setf ,query-milliseconds clock-ticks)
+                 (setf ,executed-query query-string))))
+       (prog1
+           (setf ,query-result
+                 (etypecase (car ',args)
+                   (list
+                    (query (sql-compile ',(car args))
+                           ,@(cdr args)))
+                   (string
+                    (query ,@args))
+                   (symbol
+                    (query ,@args))))
+         (cl-log:log-message
+          :sql
+          "[~A] Query ~S~& took ~F seconds and yielded~& ~A."
+          ,message-tag
+          ,executed-query
+          (/ ,query-milliseconds 1000)
+          ,query-result)))))

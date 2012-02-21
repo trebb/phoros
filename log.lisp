@@ -27,63 +27,43 @@
 (cl-log:defcategory :warning)
 (cl-log:defcategory :error)
 (cl-log:defcategory :debug (or :debug :db :info :warning :error))
+(cl-log:defcategory :sql)
 
 (defun launch-logger (&optional (log-dir ""))
   "Start logging facility.  Create log-dir if necessary."
-  (let ((log-dir (pathname-directory (ensure-directories-exist
-                                      (pathname log-dir)))))
+  (flet ((start-log-messenger (name-keyword)
+           (cl-log:start-messenger
+            'cl-log:text-file-messenger
+            :name name-keyword
+            :filename (make-pathname
+                       :directory (pathname-directory
+                                   (ensure-directories-exist
+                                    (pathname log-dir)))
+                       :name (string-downcase name-keyword)
+                       :type "log")
+            :category name-keyword))
+         (stop-log-messenger (name-keyword)
+           (when (cl-log:find-messenger name-keyword)
+             (cl-log:stop-messenger name-keyword))))
 
     (setf (cl-log:log-manager)
           (make-instance 'cl-log:log-manager
                          :message-class 'cl-log:formatted-message))
+    (values
+     (start-log-messenger :access)
+     (start-log-messenger :db)
+     (start-log-messenger :orphan)
+     (start-log-messenger :info)
+     (start-log-messenger :warning)
+     (start-log-messenger :error)
+     (if *log-sql-p* (start-log-messenger :sql) (stop-log-messenger :sql))
+     (start-log-messenger :debug)
 
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :access
-     :filename (make-pathname :directory log-dir :name "access" :type "log")
-     :category :access)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger
-     :name :db
-     :filename (make-pathname :directory log-dir :name "db" :type "log")
-     :category :db)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :orphan
-     :filename (make-pathname :directory log-dir :name "orphan" :type "log")
-     :category :orphan)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :info
-     :filename (make-pathname :directory log-dir :name "info" :type "log")
-     :category :info)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :warning
-     :filename (make-pathname :directory log-dir :name "warning" :type "log")
-     :category :warning)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :error
-     :filename (make-pathname :directory log-dir :name "error" :type "log")
-     :category :error)
-
-    (cl-log:start-messenger
-     'cl-log:text-file-messenger 
-     :name :debug
-     :filename (make-pathname :directory log-dir :name "debug" :type "log")
-     :category :debug)
-
-    (cl-log:start-messenger
-     'cl-log:text-stream-messenger
-     :name :stream
-     :stream *error-output*
-     :category :debug)))
+     (cl-log:start-messenger
+      'cl-log:text-stream-messenger
+      :name :debug-stream
+      :stream *error-output*
+      :category :debug))))
 
 (defmethod cl-log:format-message ((self cl-log:formatted-message))
   (if (eq (cl-log:message-category self) :access)
@@ -101,23 +81,24 @@
                            referer
                            user-agent)
           (cl-log:message-arguments self)                  
-        (format nil
-                "~:[-~@[ (~A)~]~;~:*~A~@[ (~A)~]~] ~:[-~;~:*~A~] [~A] \"~A ~A~@[?~A~] ~
-                      ~A\" ~A ~:[~*-~;~D~] \"~:[-~;~:*~A~]\" \"~:[-~;~:*~A~]\"~%"
-                remote-addr*
-                header-in*
-                authorization
-                (timestring (cl-log:timestamp-universal-time
-                             (cl-log:message-timestamp self)))
-                request-method*
-                script-name*
-                query-string*
-                server-protocol*
-                return-code
-                content
-                content-length
-                referer
-                user-agent))
+        (format
+         nil
+         "~:[-~@[ (~A)~]~;~:*~A~@[ (~A)~]~] ~:[-~;~:*~A~] [~A] \"~A ~A~@[?~A~] ~
+         ~A\" ~A ~:[~*-~;~D~] \"~:[-~;~:*~A~]\" \"~:[-~;~:*~A~]\"~%"
+         remote-addr*
+         header-in*
+         authorization
+         (timestring (cl-log:timestamp-universal-time
+                      (cl-log:message-timestamp self)))
+         request-method*
+         script-name*
+         query-string*
+         server-protocol*
+         return-code
+         content
+         content-length
+         referer
+         user-agent))
       (format nil "~A ~A ~?~&"
               (timestring (cl-log:timestamp-universal-time
                            (cl-log:message-timestamp self)))
