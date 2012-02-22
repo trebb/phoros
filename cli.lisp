@@ -400,14 +400,15 @@ lists shaped like (symbol default)."
                             :name ".phoros"
                             :directory (directory-namestring
                                         (user-homedir-pathname)))))))
-    (with-open-file (s .phoros-path)
-      (loop
-         for line = (read-line s nil nil)
-         for option = (string-trim " " line)
-         while line
-         when (and (>= (length option) 2)
-                   (string= (subseq option 0 2) "--"))
-         collect option))))
+    (when .phoros-path
+      (with-open-file (s .phoros-path)
+        (loop
+           for line = (read-line s nil nil)
+           for option = (string-trim " " line)
+           while line
+           when (and (>= (length option) 2)
+                     (string= (subseq option 0 2) "--"))
+           collect option)))))
 
 (defun cli:remaining-options ()
   "Return current set of options (from both .phoros config file and
