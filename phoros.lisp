@@ -410,9 +410,9 @@ wrapped in an array.  Wipe away any unfinished business first."
              (count (cdr (assoc :count data)))
              (zoom (cdr (assoc :zoom data)))
              (snap-distance             ;bogus distance in degrees,
-              (* 100                    ; assuming geographic
+              (* 100e-5                 ; assuming geographic
                  (expt 2 (-             ; coordinates
-                          14
+                          14            ; (1m = 1e-5 degrees)
                           (max 13
                                (min 18 zoom))))))
              (point-form (format nil "POINT(~F ~F)" longitude latitude))
