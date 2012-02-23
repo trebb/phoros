@@ -748,7 +748,7 @@
                   *Request
                   (*POST*
                    (create
-                    :url (+ "/" +proxy-root+ "/lib/local-data")
+                    :url (+ "/" +proxy-root+ "/lib/nearest-image-data")
                     :data content
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
