@@ -334,6 +334,12 @@ current session."
                                 'presentation-project-name))
                  "Retry?")))))))
 
+(defun assert-authentication ()
+  "Abort request handler on unauthorized access."
+  (unless (hunchentoot:session-value 'authenticated-p)
+    (setf (hunchentoot:return-code*) hunchentoot:+http-precondition-failed+)
+    (hunchentoot:abort-request-handler)))
+
 (hunchentoot:define-easy-handler logout-handler (bbox longitude latitude)
   (if (hunchentoot:session-value 'authenticated-p)
       (with-connection *postgresql-credentials*
@@ -391,250 +397,250 @@ current session."
   "Receive coordinates, respond with the count nearest json objects
 containing picture url, calibration parameters, and car position,
 wrapped in an array.  Wipe away any unfinished business first."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (dolist (old-thread (hunchentoot:session-value 'recent-threads))
-      (ignore-errors
-        (bt:interrupt-thread old-thread
-                             #'(lambda () (signal 'superseded)))))
-    (setf (hunchentoot:session-value 'recent-threads) nil)
-    (setf (hunchentoot:session-value 'number-of-threads) 1)
-    (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
-    (setf (hunchentoot:content-type*) "application/json")
-    (with-connection *postgresql-credentials*
-      (let* ((presentation-project-id (hunchentoot:session-value
-                                       'presentation-project-id))
-             (common-table-names (common-table-names
-                                  presentation-project-id))
-             (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-             (longitude (cdr (assoc :longitude data)))
-             (latitude (cdr (assoc :latitude data)))
-             (count (cdr (assoc :count data)))
-             (zoom (cdr (assoc :zoom data)))
-             (snap-distance             ;bogus distance in degrees,
-              (* 100e-5                 ; assuming geographic
-                 (expt 2 (-             ; coordinates
-                          14            ; (1m = 1e-5 degrees)
-                          (max 13
-                               (min 18 zoom))))))
-             (point-form (format nil "POINT(~F ~F)" longitude latitude))
-             (nearest-footprint-centroid-query
-              ;; Inserting the following into
-              ;; image-data-with-footprints-query as a subquery would
-              ;; work correctly but is way too slow.
-              (sql-compile
-               `(:limit
-                 (:select
-                  'centroid :from
-                  (:as
-                   (:order-by
-                    (:union
-                     ,@(loop
-                          for common-table-name
-                          in common-table-names
-                          for aggregate-view-name
-                          = (aggregate-view-name
-                             common-table-name)
-                          collect  
-                          `(:select
-                            (:as
-                             (:st_distance
-                              (:st_centroid 'footprint)
-                              (:st_geomfromtext
-                               ,point-form
-                               ,*standard-coordinates*))
-                             'distance)
-                            (:as (:st_centroid 'footprint)
-                                 'centroid)
-                            :from
-                            ',aggregate-view-name
-                            :where
-                            (:and
-                             (:= 'presentation-project-id
-                                 ,presentation-project-id)
-                             (:st_dwithin
-                              'footprint
-                              (:st_geomfromtext
-                               ,point-form
-                               ,*standard-coordinates*)
-                              ,snap-distance)))))
-                    'distance)
-                   'centroids))
-                 1)))
-             (nearest-footprint-centroid
-              (ignore-errors (logged-query "centroid of nearest footprint"
-                                           nearest-footprint-centroid-query
-                                           :single)))
-             (image-data-with-footprints-query
-              (sql-compile
-               `(:limit
+  (assert-authentication)
+  (dolist (old-thread (hunchentoot:session-value 'recent-threads))
+    (ignore-errors
+      (bt:interrupt-thread old-thread
+                           #'(lambda () (signal 'superseded)))))
+  (setf (hunchentoot:session-value 'recent-threads) nil)
+  (setf (hunchentoot:session-value 'number-of-threads) 1)
+  (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
+  (setf (hunchentoot:content-type*) "application/json")
+  (with-connection *postgresql-credentials*
+    (let* ((presentation-project-id (hunchentoot:session-value
+                                     'presentation-project-id))
+           (common-table-names (common-table-names
+                                presentation-project-id))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+           (longitude (cdr (assoc :longitude data)))
+           (latitude (cdr (assoc :latitude data)))
+           (count (cdr (assoc :count data)))
+           (zoom (cdr (assoc :zoom data)))
+           (snap-distance               ;bogus distance in degrees,
+            (* 100e-5                   ; assuming geographic
+               (expt 2 (-               ; coordinates
+                        14              ; (1m = 1e-5 degrees)
+                        (max 13
+                             (min 18 zoom))))))
+           (point-form (format nil "POINT(~F ~F)" longitude latitude))
+           (nearest-footprint-centroid-query
+            ;; Inserting the following into
+            ;; image-data-with-footprints-query as a subquery would
+            ;; work correctly but is way too slow.
+            (sql-compile
+             `(:limit
+               (:select
+                'centroid :from
+                (:as
                  (:order-by
                   (:union
                    ,@(loop
-                        for common-table-name in common-table-names
+                        for common-table-name
+                        in common-table-names
                         for aggregate-view-name
-                        = (aggregate-view-name common-table-name)
+                        = (aggregate-view-name
+                           common-table-name)
                         collect  
                         `(:select
-                          (:as (:st_distance 'coordinates
-                                             ;; (:st_geomfromtext
-                                             ;;  ,point-form
-                                             ;;  ,*standard-coordinates*)
-                                             ,nearest-footprint-centroid
-                                             )
-                               'distance)
-                          'usable
-                          'recorded-device-id        ;debug
-                          'device-stage-of-life-id   ;debug
-                          'generic-device-id         ;debug
-                          'directory
-                          'filename 'byte-position 'point-id
-                          (:as (:not (:is-null 'footprint))
-                               'footprintp)
-                          ,(when *render-footprints-p*
-                                 '(:as (:st_asewkt 'footprint)
-                                   'footprint-wkt))
-                          'trigger-time
-                          ;;'coordinates   ;the search target
-                          'longitude 'latitude 'ellipsoid-height
-                          'cartesian-system
-                          'east-sd 'north-sd 'height-sd
-                          'roll 'pitch 'heading
-                          'roll-sd 'pitch-sd 'heading-sd
-                          'sensor-width-pix 'sensor-height-pix
-                          'pix-size
-                          'bayer-pattern 'color-raiser
-                          'mounting-angle
-                          'dx 'dy 'dz 'omega 'phi 'kappa
-                          'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                          'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                          'b-ddx 'b-ddy 'b-ddz
-                          'b-drotx 'b-droty 'b-drotz
+                          (:as
+                           (:st_distance
+                            (:st_centroid 'footprint)
+                            (:st_geomfromtext
+                             ,point-form
+                             ,*standard-coordinates*))
+                           'distance)
+                          (:as (:st_centroid 'footprint)
+                               'centroid)
                           :from
                           ',aggregate-view-name
                           :where
                           (:and
                            (:= 'presentation-project-id
                                ,presentation-project-id)
-                           (:st_contains 'footprint
-                                         ,nearest-footprint-centroid)))))
+                           (:st_dwithin
+                            'footprint
+                            (:st_geomfromtext
+                             ,point-form
+                             ,*standard-coordinates*)
+                            ,snap-distance)))))
                   'distance)
-                 ,count)))
-             (image-data-without-footprints-query
-              (sql-compile
-               `(:limit
-                 (:order-by
-                  (:union
-                   ,@(loop
-                        for common-table-name in common-table-names
-                        for aggregate-view-name
-                        = (aggregate-view-name common-table-name)
-                        collect  
-                        `(:select
-                          (:as (:st_distance 'coordinates
-                                             (:st_geomfromtext
-                                              ,point-form
-                                              ,*standard-coordinates*))
-                               'distance)
-                          'usable
-                          'recorded-device-id        ;debug
-                          'device-stage-of-life-id   ;debug
-                          'generic-device-id         ;debug
-                          'directory
-                          'filename 'byte-position 'point-id
-                          (:as (:not (:is-null 'footprint))
-                               'footprintp)
-                          'trigger-time
-                          ;;'coordinates   ;the search target
-                          'longitude 'latitude 'ellipsoid-height
-                          'cartesian-system
-                          'east-sd 'north-sd 'height-sd
-                          'roll 'pitch 'heading
-                          'roll-sd 'pitch-sd 'heading-sd
-                          'sensor-width-pix 'sensor-height-pix
-                          'pix-size
-                          'bayer-pattern 'color-raiser
-                          'mounting-angle
-                          'dx 'dy 'dz 'omega 'phi 'kappa
-                          'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                          'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                          'b-ddx 'b-ddy 'b-ddz
-                          'b-drotx 'b-droty 'b-drotz
-                          :from
-                          ',aggregate-view-name
-                          :where
-                          (:and (:= 'presentation-project-id
-                                    ,presentation-project-id)
-                                (:st_dwithin 'coordinates
-                                             (:st_geomfromtext
-                                              ,point-form
-                                              ,*standard-coordinates*)
-                                             ,snap-distance)))))
-                  'distance)
-                 ,count)))
-             (result
-              (handler-case
-                  (ignore-errors
-                    (if nearest-footprint-centroid
-                        (logged-query
-                         "footprints are ready"
-                         image-data-with-footprints-query :alists)
-                        (logged-query
-                         "no footprints yet"
-                         image-data-without-footprints-query :alists)))
-                (superseded () nil))))
-        (when *render-footprints-p*
-          (setf
-           result
-           (loop
-              for photo-parameter-set in result
-              for footprint-vertices =  ;something like this:
-              ;; "SRID=4326;POLYGON((14.334342229 51.723293508 118.492667334,14.334386877 51.723294417 118.404764286,14.334347429 51.72327914 118.506316418,14.334383211 51.723279895 118.435823396,14.334342229 51.723293508 118.492667334))"
-              (ignore-errors            ;probably no :footprint-wkt
-                (mapcar (lambda (p)
-                          (mapcar (lambda (x)
-                                    (parse-number:parse-real-number x))
-                                  (cl-utilities:split-sequence #\Space p)))
-                        (subseq
-                         (cl-utilities:split-sequence-if
-                          (lambda (x)
-                            (or (eq x #\,)
-                                (eq x #\()
-                                (eq x #\))))
-                          (cdr (assoc :footprint-wkt photo-parameter-set)))
-                         2 7)))
-              collect
-              (if footprint-vertices
-                  (acons
-                   :rendered-footprint
-                   (pairlis
-                    '(:type :coordinates)
-                    (list
-                     :line-string
-                     (loop
-                        for footprint-vertex in footprint-vertices
-                        for reprojected-vertex =
-                        (photogrammetry
-                         :reprojection
-                         ;; KLUDGE: translate keys, e.g. a1 -> a_1
-                         (json:decode-json-from-string
-                          (json:encode-json-to-string photo-parameter-set))
-                         (pairlis '(:x-global :y-global :z-global)
-                                  (proj:cs2cs
-                                   (list (proj:degrees-to-radians
-                                          (first footprint-vertex))
-                                         (proj:degrees-to-radians
-                                          (second footprint-vertex))
-                                         (third footprint-vertex))
-                                   :destination-cs
-                                   (cdr (assoc :cartesian-system
-                                               photo-parameter-set)))))
-                        collect
-                        (list (cdr (assoc :m reprojected-vertex))
-                              (cdr (assoc :n reprojected-vertex))))))
-                   photo-parameter-set)
-                  photo-parameter-set))))
-             (decf (hunchentoot:session-value 'number-of-threads))
-             (json:encode-json-to-string result)))))
+                 'centroids))
+               1)))
+           (nearest-footprint-centroid
+            (ignore-errors (logged-query "centroid of nearest footprint"
+                                         nearest-footprint-centroid-query
+                                         :single)))
+           (image-data-with-footprints-query
+            (sql-compile
+             `(:limit
+               (:order-by
+                (:union
+                 ,@(loop
+                      for common-table-name in common-table-names
+                      for aggregate-view-name
+                      = (aggregate-view-name common-table-name)
+                      collect  
+                      `(:select
+                        (:as (:st_distance 'coordinates
+                                           ;; (:st_geomfromtext
+                                           ;;  ,point-form
+                                           ;;  ,*standard-coordinates*)
+                                           ,nearest-footprint-centroid
+                                           )
+                             'distance)
+                        'usable
+                        'recorded-device-id        ;debug
+                        'device-stage-of-life-id   ;debug
+                        'generic-device-id         ;debug
+                        'directory
+                        'filename 'byte-position 'point-id
+                        (:as (:not (:is-null 'footprint))
+                             'footprintp)
+                        ,(when *render-footprints-p*
+                               '(:as (:st_asewkt 'footprint)
+                                 'footprint-wkt))
+                        'trigger-time
+                        ;;'coordinates   ;the search target
+                        'longitude 'latitude 'ellipsoid-height
+                        'cartesian-system
+                        'east-sd 'north-sd 'height-sd
+                        'roll 'pitch 'heading
+                        'roll-sd 'pitch-sd 'heading-sd
+                        'sensor-width-pix 'sensor-height-pix
+                        'pix-size
+                        'bayer-pattern 'color-raiser
+                        'mounting-angle
+                        'dx 'dy 'dz 'omega 'phi 'kappa
+                        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                        'b-ddx 'b-ddy 'b-ddz
+                        'b-drotx 'b-droty 'b-drotz
+                        :from
+                        ',aggregate-view-name
+                        :where
+                        (:and
+                         (:= 'presentation-project-id
+                             ,presentation-project-id)
+                         (:st_contains 'footprint
+                                       ,nearest-footprint-centroid)))))
+                'distance)
+               ,count)))
+           (image-data-without-footprints-query
+            (sql-compile
+             `(:limit
+               (:order-by
+                (:union
+                 ,@(loop
+                      for common-table-name in common-table-names
+                      for aggregate-view-name
+                      = (aggregate-view-name common-table-name)
+                      collect  
+                      `(:select
+                        (:as (:st_distance 'coordinates
+                                           (:st_geomfromtext
+                                            ,point-form
+                                            ,*standard-coordinates*))
+                             'distance)
+                        'usable
+                        'recorded-device-id        ;debug
+                        'device-stage-of-life-id   ;debug
+                        'generic-device-id         ;debug
+                        'directory
+                        'filename 'byte-position 'point-id
+                        (:as (:not (:is-null 'footprint))
+                             'footprintp)
+                        'trigger-time
+                        ;;'coordinates   ;the search target
+                        'longitude 'latitude 'ellipsoid-height
+                        'cartesian-system
+                        'east-sd 'north-sd 'height-sd
+                        'roll 'pitch 'heading
+                        'roll-sd 'pitch-sd 'heading-sd
+                        'sensor-width-pix 'sensor-height-pix
+                        'pix-size
+                        'bayer-pattern 'color-raiser
+                        'mounting-angle
+                        'dx 'dy 'dz 'omega 'phi 'kappa
+                        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+                        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+                        'b-ddx 'b-ddy 'b-ddz
+                        'b-drotx 'b-droty 'b-drotz
+                        :from
+                        ',aggregate-view-name
+                        :where
+                        (:and (:= 'presentation-project-id
+                                  ,presentation-project-id)
+                              (:st_dwithin 'coordinates
+                                           (:st_geomfromtext
+                                            ,point-form
+                                            ,*standard-coordinates*)
+                                           ,snap-distance)))))
+                'distance)
+               ,count)))
+           (result
+            (handler-case
+                (ignore-errors
+                  (if nearest-footprint-centroid
+                      (logged-query
+                       "footprints are ready"
+                       image-data-with-footprints-query :alists)
+                      (logged-query
+                       "no footprints yet"
+                       image-data-without-footprints-query :alists)))
+              (superseded () nil))))
+      (when *render-footprints-p*
+        (setf
+         result
+         (loop
+            for photo-parameter-set in result
+            for footprint-vertices =    ;something like this:
+            ;; "SRID=4326;POLYGON((14.334342229 51.723293508 118.492667334,14.334386877 51.723294417 118.404764286,14.334347429 51.72327914 118.506316418,14.334383211 51.723279895 118.435823396,14.334342229 51.723293508 118.492667334))"
+            (ignore-errors              ;probably no :footprint-wkt
+              (mapcar (lambda (p)
+                        (mapcar (lambda (x)
+                                  (parse-number:parse-real-number x))
+                                (cl-utilities:split-sequence #\Space p)))
+                      (subseq
+                       (cl-utilities:split-sequence-if
+                        (lambda (x)
+                          (or (eq x #\,)
+                              (eq x #\()
+                              (eq x #\))))
+                        (cdr (assoc :footprint-wkt photo-parameter-set)))
+                       2 7)))
+            collect
+            (if footprint-vertices
+                (acons
+                 :rendered-footprint
+                 (pairlis
+                  '(:type :coordinates)
+                  (list
+                   :line-string
+                   (loop
+                      for footprint-vertex in footprint-vertices
+                      for reprojected-vertex =
+                      (photogrammetry
+                       :reprojection
+                       ;; KLUDGE: translate keys, e.g. a1 -> a_1
+                       (json:decode-json-from-string
+                        (json:encode-json-to-string photo-parameter-set))
+                       (pairlis '(:x-global :y-global :z-global)
+                                (proj:cs2cs
+                                 (list (proj:degrees-to-radians
+                                        (first footprint-vertex))
+                                       (proj:degrees-to-radians
+                                        (second footprint-vertex))
+                                       (third footprint-vertex))
+                                 :destination-cs
+                                 (cdr (assoc :cartesian-system
+                                             photo-parameter-set)))))
+                      collect
+                      (list (cdr (assoc :m reprojected-vertex))
+                            (cdr (assoc :n reprojected-vertex))))))
+                 photo-parameter-set)
+                photo-parameter-set))))
+      (decf (hunchentoot:session-value 'number-of-threads))
+      (json:encode-json-to-string result))))
 
 (hunchentoot:define-easy-handler
     (nearest-image-urls :uri "/phoros/lib/nearest-image-urls"
@@ -642,190 +648,190 @@ wrapped in an array.  Wipe away any unfinished business first."
     ()
   "Receive coordinates, respond with a json array of the necessary
 ingredients for the URLs of the 256 nearest images."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
-    (if (<= (hunchentoot:session-value 'number-of-threads)
-            0)            ;only stuff cache if everything else is done
-        (progn
-          (incf (hunchentoot:session-value 'number-of-threads))
-          (setf (hunchentoot:content-type*) "application/json")
-          (with-connection *postgresql-credentials*
-            (let* ((presentation-project-id (hunchentoot:session-value
-                                             'presentation-project-id))
-                   (common-table-names (common-table-names
-                                        presentation-project-id))
-                   (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-                   (longitude (cdr (assoc :longitude data)))
-                   (latitude (cdr (assoc :latitude data)))
-                   (count 256)
-                   (radius (* 5d-4)) ; assuming geographic coordinates
-                   (point-form (format nil "POINT(~F ~F)" longitude latitude))
-                   (result
+  (assert-authentication)
+  (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
+  (if (<= (hunchentoot:session-value 'number-of-threads)
+          0)              ;only stuff cache if everything else is done
+      (progn
+        (incf (hunchentoot:session-value 'number-of-threads))
+        (setf (hunchentoot:content-type*) "application/json")
+        (with-connection *postgresql-credentials*
+          (let* ((presentation-project-id (hunchentoot:session-value
+                                           'presentation-project-id))
+                 (common-table-names (common-table-names
+                                      presentation-project-id))
+                 (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+                 (longitude (cdr (assoc :longitude data)))
+                 (latitude (cdr (assoc :latitude data)))
+                 (count 256)
+                 (radius (* 5d-4))   ; assuming geographic coordinates
+                 (point-form (format nil "POINT(~F ~F)" longitude latitude))
+                 (result
 
-                    (handler-case
-                        (ignore-errors
-                          (query
-                           (sql-compile
-                            `(:limit
-                              (:select
-                               'directory 'filename 'byte-position
-                               'bayer-pattern 'color-raiser 'mounting-angle
-                               :from
-                               (:as
-                                (:order-by
-                                 (:union
-                                  ,@(loop
-                                       for common-table-name
-                                       in common-table-names
-                                       for aggregate-view-name
-                                       = (aggregate-view-name common-table-name)
-                                       collect  
-                                       `(:select
-                                         'directory
-                                         'filename 'byte-position
-                                         'bayer-pattern 'color-raiser
-                                         'mounting-angle
-                                         (:as (:st_distance
-                                               'coordinates
-                                               (:st_geomfromtext
-                                                ,point-form
-                                                ,*standard-coordinates*))
-                                              'distance)
-                                         :from
-                                         ',aggregate-view-name
-                                         :where
-                                         (:and (:= 'presentation-project-id
-                                                   ,presentation-project-id)
-                                               (:st_dwithin
-                                                'coordinates
-                                                (:st_geomfromtext
-                                                 ,point-form
-                                                 ,*standard-coordinates*)
-                                                ,radius)))))
-                                 'distance)
-                                'raw-image-urls))
-                              ,count))
-                           :alists))
-                      (superseded ()
-                        (setf (hunchentoot:return-code*)
-                              hunchentoot:+http-gateway-time-out+)
-                        ;; (decf (hunchentoot:session-value 'number-of-threads))
-                        nil))))
-              (decf (hunchentoot:session-value 'number-of-threads))
-              (json:encode-json-to-string result))))
-        (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+))))
+                  (handler-case
+                      (ignore-errors
+                        (query
+                         (sql-compile
+                          `(:limit
+                            (:select
+                             'directory 'filename 'byte-position
+                             'bayer-pattern 'color-raiser 'mounting-angle
+                             :from
+                             (:as
+                              (:order-by
+                               (:union
+                                ,@(loop
+                                     for common-table-name
+                                     in common-table-names
+                                     for aggregate-view-name
+                                     = (aggregate-view-name common-table-name)
+                                     collect  
+                                     `(:select
+                                       'directory
+                                       'filename 'byte-position
+                                       'bayer-pattern 'color-raiser
+                                       'mounting-angle
+                                       (:as (:st_distance
+                                             'coordinates
+                                             (:st_geomfromtext
+                                              ,point-form
+                                              ,*standard-coordinates*))
+                                            'distance)
+                                       :from
+                                       ',aggregate-view-name
+                                       :where
+                                       (:and (:= 'presentation-project-id
+                                                 ,presentation-project-id)
+                                             (:st_dwithin
+                                              'coordinates
+                                              (:st_geomfromtext
+                                               ,point-form
+                                               ,*standard-coordinates*)
+                                              ,radius)))))
+                               'distance)
+                              'raw-image-urls))
+                            ,count))
+                         :alists))
+                    (superseded ()
+                      (setf (hunchentoot:return-code*)
+                            hunchentoot:+http-gateway-time-out+)
+                      ;; (decf (hunchentoot:session-value 'number-of-threads))
+                      nil))))
+            (decf (hunchentoot:session-value 'number-of-threads))
+            (json:encode-json-to-string result))))
+      (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)))
 
 (hunchentoot:define-easy-handler
     (store-point :uri "/phoros/lib/store-point" :default-request-type :post)
     ()
   "Receive point sent by user; store it into database."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (let* ((presentation-project-name (hunchentoot:session-value
-                                       'presentation-project-name))
-           (user-id (hunchentoot:session-value 'user-id))
-           (user-role (hunchentoot:session-value 'user-role))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-           (longitude (cdr (assoc :longitude data)))
-           (latitude (cdr (assoc :latitude data)))
-           (ellipsoid-height (cdr (assoc :ellipsoid-height data)))
-           (stdx-global (cdr (assoc :stdx-global data)))
-           (stdy-global (cdr (assoc :stdy-global data)))
-           (stdz-global (cdr (assoc :stdz-global data)))
-           (input-size (cdr (assoc :input-size data)))
-           (attribute (cdr (assoc :attribute data)))
-           (description (cdr (assoc :description data)))
-           (numeric-description (cdr (assoc :numeric-description data)))
-           (point-form
-            (format nil "SRID=4326; POINT(~S ~S ~S)"
-                    longitude latitude ellipsoid-height))
-           (aux-numeric-raw (cdr (assoc :aux-numeric data)))
-           (aux-text-raw (cdr (assoc :aux-text data)))
-           (aux-numeric (if aux-numeric-raw
-                            (apply #'vector aux-numeric-raw)
-                            :null))
-           (aux-text (if aux-text-raw
-                         (apply #'vector aux-text-raw)
-                         :null))
-           (user-point-table-name
-            (user-point-table-name presentation-project-name)))
+  (assert-authentication)
+  (let* ((presentation-project-name (hunchentoot:session-value
+                                     'presentation-project-name))
+         (user-id (hunchentoot:session-value 'user-id))
+         (user-role (hunchentoot:session-value 'user-role))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (longitude (cdr (assoc :longitude data)))
+         (latitude (cdr (assoc :latitude data)))
+         (ellipsoid-height (cdr (assoc :ellipsoid-height data)))
+         (stdx-global (cdr (assoc :stdx-global data)))
+         (stdy-global (cdr (assoc :stdy-global data)))
+         (stdz-global (cdr (assoc :stdz-global data)))
+         (input-size (cdr (assoc :input-size data)))
+         (attribute (cdr (assoc :attribute data)))
+         (description (cdr (assoc :description data)))
+         (numeric-description (cdr (assoc :numeric-description data)))
+         (point-form
+          (format nil "SRID=4326; POINT(~S ~S ~S)"
+                  longitude latitude ellipsoid-height))
+         (aux-numeric-raw (cdr (assoc :aux-numeric data)))
+         (aux-text-raw (cdr (assoc :aux-text data)))
+         (aux-numeric (if aux-numeric-raw
+                          (apply #'vector aux-numeric-raw)
+                          :null))
+         (aux-text (if aux-text-raw
+                       (apply #'vector aux-text-raw)
+                       :null))
+         (user-point-table-name
+          (user-point-table-name presentation-project-name)))
+    (assert
+     (not (string-equal user-role "read")) ;that is, "write" or "admin"
+     () "No write permission.")
+    (with-connection *postgresql-credentials*
       (assert
-       (not (string-equal user-role "read")) ;that is, "write" or "admin"
-       () "No write permission.")
-      (with-connection *postgresql-credentials*
-        (assert
-         (= 1 (execute (:insert-into user-point-table-name :set
-                                     'user-id user-id
-                                     'attribute attribute
-                                     'description description
-                                     'numeric-description numeric-description
-                                     'creation-date 'current-timestamp
-                                     'coordinates (:st_geomfromewkt point-form)
-                                     'stdx-global stdx-global
-                                     'stdy-global stdy-global
-                                     'stdz-global stdz-global
-                                     'input-size input-size
-                                     'aux-numeric aux-numeric
-                                     'aux-text aux-text)))
-         () "No point stored.  This should not happen.")))))
+       (= 1 (execute (:insert-into user-point-table-name :set
+                                   'user-id user-id
+                                   'attribute attribute
+                                   'description description
+                                   'numeric-description numeric-description
+                                   'creation-date 'current-timestamp
+                                   'coordinates (:st_geomfromewkt point-form)
+                                   'stdx-global stdx-global
+                                   'stdy-global stdy-global
+                                   'stdz-global stdz-global
+                                   'input-size input-size
+                                   'aux-numeric aux-numeric
+                                   'aux-text aux-text)))
+       () "No point stored.  This should not happen."))))
 
 (hunchentoot:define-easy-handler
     (update-point :uri "/phoros/lib/update-point" :default-request-type :post)
     ()
   "Update point sent by user in database."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (let* ((presentation-project-name (hunchentoot:session-value
-                                       'presentation-project-name))
-           (user-id (hunchentoot:session-value 'user-id))
-           (user-role (hunchentoot:session-value 'user-role))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-           (user-point-id (cdr (assoc :user-point-id data)))
-           (attribute (cdr (assoc :attribute data)))
-           (description (cdr (assoc :description data)))
-           (numeric-description (cdr (assoc :numeric-description data)))
-           (user-point-table-name
-            (user-point-table-name presentation-project-name)))
+  (assert-authentication)
+  (let* ((presentation-project-name (hunchentoot:session-value
+                                     'presentation-project-name))
+         (user-id (hunchentoot:session-value 'user-id))
+         (user-role (hunchentoot:session-value 'user-role))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (user-point-id (cdr (assoc :user-point-id data)))
+         (attribute (cdr (assoc :attribute data)))
+         (description (cdr (assoc :description data)))
+         (numeric-description (cdr (assoc :numeric-description data)))
+         (user-point-table-name
+          (user-point-table-name presentation-project-name)))
+    (assert
+     (not (string-equal user-role "read")) ;that is, "write" or "admin"
+     () "No write permission.")
+    (with-connection *postgresql-credentials*
       (assert
-       (not (string-equal user-role "read")) ;that is, "write" or "admin"
-       () "No write permission.")
-      (with-connection *postgresql-credentials*
-        (assert
-         (= 1 (execute
-               (:update user-point-table-name :set
-                        'user-id user-id
-                        'attribute attribute
-                        'description description
-                        'numeric-description numeric-description
-                        'creation-date 'current-timestamp
-                        :where (:and (:= 'user-point-id user-point-id)
-                                     (:or (:= (if (string-equal user-role
-                                                                "admin")
-                                                  user-id
-                                                  'user-id)
-                                              user-id)
-                                          (:is-null 'user-id)
-                                          (:exists
-                                           (:select 'user-name
-                                                    :from 'sys-user
-                                                    :where (:= 'user-id
-                                                               user-id))))))))
-         () "No point stored.  Did you try to update someone else's point ~
-             without having admin permission?")))))
+       (= 1 (execute
+             (:update user-point-table-name :set
+                      'user-id user-id
+                      'attribute attribute
+                      'description description
+                      'numeric-description numeric-description
+                      'creation-date 'current-timestamp
+                      :where (:and (:= 'user-point-id user-point-id)
+                                   (:or (:= (if (string-equal user-role
+                                                              "admin")
+                                                user-id
+                                                'user-id)
+                                            user-id)
+                                        (:is-null 'user-id)
+                                        (:exists
+                                         (:select 'user-name
+                                                  :from 'sys-user
+                                                  :where (:= 'user-id
+                                                             user-id))))))))
+       () "No point stored.  Did you try to update someone else's point ~
+             without having admin permission?"))))
 
 (hunchentoot:define-easy-handler
     (delete-point :uri "/phoros/lib/delete-point" :default-request-type :post)
     ()
   "Delete user point if user is allowed to do so."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (let* ((presentation-project-name (hunchentoot:session-value
-                                       'presentation-project-name))
-           (user-id (hunchentoot:session-value 'user-id))
-           (user-role (hunchentoot:session-value 'user-role))
-           (user-point-table-name
-            (user-point-table-name presentation-project-name))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data))))
-      (with-connection *postgresql-credentials*
-        (assert
-         (eql 1 (cond ((string-equal user-role "admin")
+  (assert-authentication)
+  (let* ((presentation-project-name (hunchentoot:session-value
+                                     'presentation-project-name))
+         (user-id (hunchentoot:session-value 'user-id))
+         (user-role (hunchentoot:session-value 'user-role))
+         (user-point-table-name
+          (user-point-table-name presentation-project-name))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data))))
+    (with-connection *postgresql-credentials*
+      (assert
+       (eql 1 (cond ((string-equal user-role "admin")
                      (execute (:delete-from user-point-table-name
                                             :where (:= 'user-point-id data))))
                     ((string-equal user-role "write")
@@ -841,7 +847,7 @@ ingredients for the URLs of the 256 nearest images."
                                               :from 'sys-user
                                               :where (:= 'user-id
                                                          user-id))))))))))
-            () "No point deleted.  This should not happen.")))))
+       () "No point deleted.  This should not happen."))))
 
 (defun common-table-names (presentation-project-id)
   "Return a list of common-table-names of table sets that contain data
@@ -909,86 +915,86 @@ junk-keys."
 
 (hunchentoot:define-easy-handler (points :uri "/phoros/lib/points.json") (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (handler-case 
-        (with-connection *postgresql-credentials*
-          (let* ((presentation-project-id
-                  (hunchentoot:session-value 'presentation-project-id))
-                 (common-table-names
-                  (common-table-names presentation-project-id)))
-            (encode-geojson-to-string
-             (query
-              (sql-compile
-               `(:limit
-                 (:order-by
-                  (:union
-                   ,@(loop
-                        for common-table-name in common-table-names
-                        for aggregate-view-name
-                        = (point-data-table-name common-table-name)
-                        ;; would have been nice, was too slow:
-                        ;; = (aggregate-view-name common-table-name)
-                        collect
-                        `(:select
-                          (:as (:st_x 'coordinates) x)
-                          (:as (:st_y 'coordinates) y)
-                          (:as (:st_z 'coordinates) z)
-                          (:as 'point-id 'id) ;becomes fid on client
-                          'random
-                          :distinct-on 'random
-                          :from ',aggregate-view-name
-                          :natural :left-join 'sys-presentation
-                          :where
-                          (:and
-                           (:= 'presentation-project-id
-                               ,presentation-project-id)
-                           (:&&
-                            'coordinates
-                            (:st_setsrid  (:type ,(box3d bbox) box3d)
-                                          ,*standard-coordinates*))))))
-                  random)
-                 ,*number-of-features-per-layer*))
-              :plists)
-             :junk-keys '(:random))))
-      (condition (c)
-        (cl-log:log-message
-         :error "While fetching points from inside bbox ~S: ~A"
-         bbox c)))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (handler-case 
+      (with-connection *postgresql-credentials*
+        (let* ((presentation-project-id
+                (hunchentoot:session-value 'presentation-project-id))
+               (common-table-names
+                (common-table-names presentation-project-id)))
+          (encode-geojson-to-string
+           (query
+            (sql-compile
+             `(:limit
+               (:order-by
+                (:union
+                 ,@(loop
+                      for common-table-name in common-table-names
+                      for aggregate-view-name
+                      = (point-data-table-name common-table-name)
+                      ;; would have been nice, was too slow:
+                      ;; = (aggregate-view-name common-table-name)
+                      collect
+                      `(:select
+                        (:as (:st_x 'coordinates) x)
+                        (:as (:st_y 'coordinates) y)
+                        (:as (:st_z 'coordinates) z)
+                        (:as 'point-id 'id) ;becomes fid on client
+                        'random
+                        :distinct-on 'random
+                        :from ',aggregate-view-name
+                        :natural :left-join 'sys-presentation
+                        :where
+                        (:and
+                         (:= 'presentation-project-id
+                             ,presentation-project-id)
+                         (:&&
+                          'coordinates
+                          (:st_setsrid  (:type ,(box3d bbox) box3d)
+                                        ,*standard-coordinates*))))))
+                random)
+               ,*number-of-features-per-layer*))
+            :plists)
+           :junk-keys '(:random))))
+    (condition (c)
+      (cl-log:log-message
+       :error "While fetching points from inside bbox ~S: ~A"
+       bbox c))))
 
 (hunchentoot:define-easy-handler
     (aux-points :uri "/phoros/lib/aux-points.json")
     (bbox)
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (handler-case 
-        (let ((limit *number-of-features-per-layer*)
-              (aux-view-name
-               (aux-point-view-name (hunchentoot:session-value
-                                     'presentation-project-name))))
-          (encode-geojson-to-string
-           (with-connection *postgresql-aux-credentials*
-             (query
-              (s-sql:sql-compile
-               `(:limit
-                 (:order-by
-                  (:select
-                   (:as (:st_x 'coordinates) 'x)
-                   (:as (:st_y 'coordinates) 'y)
-                   (:as (:st_z 'coordinates) 'z)
-                   :from ,aux-view-name
-                   :where (:&&
-                           'coordinates
-                           (:st_setsrid  (:type ,(box3d bbox) box3d)
-                                         ,*standard-coordinates*)))
-                  (:random))
-                 ,limit))
-              :plists))))
-      (condition (c)
-        (cl-log:log-message
-         :error "While fetching aux-points from inside bbox ~S: ~A"
-         bbox c)))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (handler-case 
+      (let ((limit *number-of-features-per-layer*)
+            (aux-view-name
+             (aux-point-view-name (hunchentoot:session-value
+                                   'presentation-project-name))))
+        (encode-geojson-to-string
+         (with-connection *postgresql-aux-credentials*
+           (query
+            (s-sql:sql-compile
+             `(:limit
+               (:order-by
+                (:select
+                 (:as (:st_x 'coordinates) 'x)
+                 (:as (:st_y 'coordinates) 'y)
+                 (:as (:st_z 'coordinates) 'z)
+                 :from ,aux-view-name
+                 :where (:&&
+                         'coordinates
+                         (:st_setsrid  (:type ,(box3d bbox) box3d)
+                                       ,*standard-coordinates*)))
+                (:random))
+               ,limit))
+            :plists))))
+    (condition (c)
+      (cl-log:log-message
+       :error "While fetching aux-points from inside bbox ~S: ~A"
+       bbox c))))
 
 (hunchentoot:define-easy-handler
     (aux-local-data :uri "/phoros/lib/aux-local-data"
@@ -997,56 +1003,56 @@ junk-keys."
   "Receive coordinates, respond with the count nearest json objects
 containing arrays aux-numeric, aux-text, and distance to the
 coordinates received, wrapped in an array."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (let* ((aux-view-name
-            (aux-point-view-name (hunchentoot:session-value
-                                  'presentation-project-name)))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-           (longitude (cdr (assoc :longitude data)))
-           (latitude (cdr (assoc :latitude data)))
-           (count (cdr (assoc :count data)))
-           (point-form
-            (format nil "POINT(~F ~F)" longitude latitude))
-           (snap-distance 1e-3) ;about 100 m, TODO: make this a defparameter
-           (bounding-box
-            (format nil "~A,~A,~A,~A"
-                    (- longitude snap-distance)
-                    (- latitude snap-distance)
-                    (+ longitude snap-distance)
-                    (+ latitude snap-distance))))
-      (encode-geojson-to-string
-       (ignore-errors
-         (with-connection *postgresql-aux-credentials*
-           (nsubst
-            nil :null
-            (query
-             (s-sql:sql-compile
-              `(:limit
-                (:order-by
-                 (:select
-                  (:as (:st_x 'coordinates) 'x)
-                  (:as (:st_y 'coordinates) 'y)
-                  (:as (:st_z 'coordinates) 'z)
-                  aux-numeric
-                  aux-text
-                  (:as
-                   (:st_distance
-                    (:st_transform
-                     'coordinates
-                     ,*spherical-mercator*)
-                    (:st_transform
-                     (:st_geomfromtext ,point-form ,*standard-coordinates*)
-                     ,*spherical-mercator*))
-                   distance)                       
-                  :from ',aux-view-name
-                  :where (:&& 'coordinates
-                              (:st_setsrid (:type
-                                            ,(box3d bounding-box) box3d)
-                                           ,*standard-coordinates*)))
-                 'distance)
-                ,count))
-             :plists))))))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((aux-view-name
+          (aux-point-view-name (hunchentoot:session-value
+                                'presentation-project-name)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (longitude (cdr (assoc :longitude data)))
+         (latitude (cdr (assoc :latitude data)))
+         (count (cdr (assoc :count data)))
+         (point-form
+          (format nil "POINT(~F ~F)" longitude latitude))
+         (snap-distance 1e-3) ;about 100 m, TODO: make this a defparameter
+         (bounding-box
+          (format nil "~A,~A,~A,~A"
+                  (- longitude snap-distance)
+                  (- latitude snap-distance)
+                  (+ longitude snap-distance)
+                  (+ latitude snap-distance))))
+    (encode-geojson-to-string
+     (ignore-errors
+       (with-connection *postgresql-aux-credentials*
+         (nsubst
+          nil :null
+          (query
+           (s-sql:sql-compile
+            `(:limit
+              (:order-by
+               (:select
+                (:as (:st_x 'coordinates) 'x)
+                (:as (:st_y 'coordinates) 'y)
+                (:as (:st_z 'coordinates) 'z)
+                aux-numeric
+                aux-text
+                (:as
+                 (:st_distance
+                  (:st_transform
+                   'coordinates
+                   ,*spherical-mercator*)
+                  (:st_transform
+                   (:st_geomfromtext ,point-form ,*standard-coordinates*)
+                   ,*spherical-mercator*))
+                 distance)                       
+                :from ',aux-view-name
+                :where (:&& 'coordinates
+                            (:st_setsrid (:type
+                                          ,(box3d bounding-box) box3d)
+                                         ,*standard-coordinates*)))
+               'distance)
+              ,count))
+           :plists)))))))
 
 (hunchentoot:define-easy-handler
     (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
@@ -1059,50 +1065,50 @@ within radius around coordinates), current-point (the point on
 linestring closest to coordinates), and previous-point and next-point
 \(points on linestring step-size before and after current-point
 respectively)."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (let* ((thread-aux-points-function-name
-            (thread-aux-points-function-name (hunchentoot:session-value
-                                              'presentation-project-name)))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-           (longitude (cdr (assoc :longitude data)))
-           (latitude (cdr (assoc :latitude data)))
-           (radius (cdr (assoc :radius data)))
-           (step-size (cdr (assoc :step-size data)))
-           (azimuth (if (numberp (cdr (assoc :azimuth data)))
-                        (cdr (assoc :azimuth data))
-                        0))
-           (point-form 
-            (format nil "POINT(~F ~F)" longitude latitude))
-           (sql-response
-            (ignore-errors
-              (with-connection *postgresql-aux-credentials*
-                (nsubst
-                 nil :null
-                 (query
-                  (sql-compile
-                   `(:select '* :from
-                             (,thread-aux-points-function-name
-                              (:st_geomfromtext
-                               ,point-form ,*standard-coordinates*)
-                              ,radius
-                              ,*number-of-points-per-aux-linestring*
-                              ,step-size
-                              ,azimuth
-                              ,(proj:degrees-to-radians 91))))
-                  :plist))))))
-      (with-output-to-string (s)
-        (json:with-object (s)
-          (json:encode-object-member
-           :linestring (getf sql-response :threaded-points) s)
-          (json:encode-object-member
-           :current-point (getf sql-response :current-point) s)
-          (json:encode-object-member
-           :previous-point (getf sql-response :back-point) s)
-          (json:encode-object-member
-           :next-point (getf sql-response :forward-point) s)
-          (json:encode-object-member
-           :azimuth (getf sql-response :new-azimuth) s))))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((thread-aux-points-function-name
+          (thread-aux-points-function-name (hunchentoot:session-value
+                                            'presentation-project-name)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (longitude (cdr (assoc :longitude data)))
+         (latitude (cdr (assoc :latitude data)))
+         (radius (cdr (assoc :radius data)))
+         (step-size (cdr (assoc :step-size data)))
+         (azimuth (if (numberp (cdr (assoc :azimuth data)))
+                      (cdr (assoc :azimuth data))
+                      0))
+         (point-form 
+          (format nil "POINT(~F ~F)" longitude latitude))
+         (sql-response
+          (ignore-errors
+            (with-connection *postgresql-aux-credentials*
+              (nsubst
+               nil :null
+               (query
+                (sql-compile
+                 `(:select '* :from
+                           (,thread-aux-points-function-name
+                            (:st_geomfromtext
+                             ,point-form ,*standard-coordinates*)
+                            ,radius
+                            ,*number-of-points-per-aux-linestring*
+                            ,step-size
+                            ,azimuth
+                            ,(proj:degrees-to-radians 91))))
+                :plist))))))
+    (with-output-to-string (s)
+      (json:with-object (s)
+        (json:encode-object-member
+         :linestring (getf sql-response :threaded-points) s)
+        (json:encode-object-member
+         :current-point (getf sql-response :current-point) s)
+        (json:encode-object-member
+         :previous-point (getf sql-response :back-point) s)
+        (json:encode-object-member
+         :next-point (getf sql-response :forward-point) s)
+        (json:encode-object-member
+         :azimuth (getf sql-response :new-azimuth) s)))))
 
 (defun get-user-points (user-point-table-name &key
                         (bounding-box "-180,-90,180,90")
@@ -1145,24 +1151,24 @@ and the number of points returned."
   "Send *number-of-features-per-layer* randomly chosen GeoJSON-encoded
 points from inside bbox to client.  If there is no bbox parameter,
 send all points."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (handler-case 
-        (let ((bounding-box (or bbox "-180,-90,180,90"))
-              (limit (if bbox *number-of-features-per-layer* :null))
-              (order-criterion (if bbox '(:random) 'id))
-              (user-point-table-name
-               (user-point-table-name (hunchentoot:session-value
-                                       'presentation-project-name))))
-          (with-connection *postgresql-credentials*
-            (nth-value 0 (get-user-points user-point-table-name
-                                          :bounding-box bounding-box
-                                          :limit limit
-                                          :order-criterion order-criterion))))
-      (condition (c)
-        (cl-log:log-message
-         :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
-         bbox c)))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (handler-case 
+      (let ((bounding-box (or bbox "-180,-90,180,90"))
+            (limit (if bbox *number-of-features-per-layer* :null))
+            (order-criterion (if bbox '(:random) 'id))
+            (user-point-table-name
+             (user-point-table-name (hunchentoot:session-value
+                                     'presentation-project-name))))
+        (with-connection *postgresql-credentials*
+          (nth-value 0 (get-user-points user-point-table-name
+                                        :bounding-box bounding-box
+                                        :limit limit
+                                        :order-criterion order-criterion))))
+    (condition (c)
+      (cl-log:log-message
+       :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"
+       bbox c))))
 
 (hunchentoot:define-easy-handler
     (user-point-attributes :uri "/phoros/lib/user-point-attributes.json")
@@ -1171,34 +1177,34 @@ send all points."
 each containing unique values called attribute and description
 respectively, and count being the frequency of value in the user point
 table."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (handler-case 
-        (let ((user-point-table-name
-               (user-point-table-name (hunchentoot:session-value
-                                       'presentation-project-name))))
-          (with-connection *postgresql-credentials*
-            (with-output-to-string (s)
-              (json:with-object (s)
-                (json:as-object-member (:descriptions s)
-                  (json:with-array (s)
-                    (mapcar #'(lambda (x) (json:as-array-member (s)
-                                            (json:encode-json-plist x s)))
-                            (query
-                             (:limit
-                              (:order-by
-                               (:select 'description
-                                        (:count 'description)
-                                        :from user-point-table-name
-                                        :group-by 'description)
-                               'description)
-                              100)
-                             :plists))))
-                (json:as-object-member (:attributes s)
-                  (json:with-array (s)
-                    (mapcar #'(lambda (x) (json:as-array-member (s)
-                                            (json:encode-json-plist x s)))
-                            (query (format nil "~
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (handler-case 
+      (let ((user-point-table-name
+             (user-point-table-name (hunchentoot:session-value
+                                     'presentation-project-name))))
+        (with-connection *postgresql-credentials*
+          (with-output-to-string (s)
+            (json:with-object (s)
+              (json:as-object-member (:descriptions s)
+                (json:with-array (s)
+                  (mapcar #'(lambda (x) (json:as-array-member (s)
+                                          (json:encode-json-plist x s)))
+                          (query
+                           (:limit
+                            (:order-by
+                             (:select 'description
+                                      (:count 'description)
+                                      :from user-point-table-name
+                                      :group-by 'description)
+                             'description)
+                            100)
+                           :plists))))
+              (json:as-object-member (:attributes s)
+                (json:with-array (s)
+                  (mapcar #'(lambda (x) (json:as-array-member (s)
+                                          (json:encode-json-plist x s)))
+                          (query (format nil "~
                               (SELECT attribute, count(attribute) ~
                                  FROM ((SELECT attribute FROM ~A) ~
                                        UNION ALL ~
@@ -1210,16 +1216,16 @@ table."
                                         AS attributes_union(attribute) ~
                                  GROUP BY attribute) ~
                               ORDER BY attribute LIMIT 100"
-                                           ;; Counts of solitary,
-                                           ;; polyline, polygon may be
-                                           ;; to big by one if we
-                                           ;; collect them like this.
-                           (s-sql:to-sql-name user-point-table-name))
-                                   :plists))))))))
-      (condition (c)
-        (cl-log:log-message
-         :error "While fetching user-point-attributes: ~A"
-         c)))))
+                                         ;; Counts of solitary,
+                                         ;; polyline, polygon may be
+                                         ;; to big by one if we
+                                         ;; collect them like this.
+                                         (s-sql:to-sql-name user-point-table-name))
+                                 :plists))))))))
+    (condition (c)
+      (cl-log:log-message
+       :error "While fetching user-point-attributes: ~A"
+       c))))
 
 (hunchentoot:define-easy-handler photo-handler
     ((bayer-pattern :init-form "65280,16711680")
@@ -1227,62 +1233,62 @@ table."
      (mounting-angle :init-form "0")
      brightenp)
   "Serve an image from a .pictures file."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (handler-case
-        (prog2
-            (progn
-              (push (bt:current-thread)
-                    (hunchentoot:session-value 'recent-threads))
-              (incf (hunchentoot:session-value 'number-of-threads)))
-            (let* ((s
-                    (cl-utilities:split-sequence #\/
-                                                 (hunchentoot:script-name*)
-                                                 :remove-empty-subseqs t))
+  (assert-authentication)
+  (handler-case
+      (prog2
+          (progn
+            (push (bt:current-thread)
+                  (hunchentoot:session-value 'recent-threads))
+            (incf (hunchentoot:session-value 'number-of-threads)))
+          (let* ((s
+                  (cl-utilities:split-sequence #\/
+                                               (hunchentoot:script-name*)
+                                               :remove-empty-subseqs t))
+                 (directory
+                  (cdddr            ;remove leading phoros, lib, photo
+                   (butlast s 2)))
+                 (file-name-and-type
+                  (cl-utilities:split-sequence #\. (first (last s 2))))                     
+                 (byte-position
+                  (parse-integer (car (last s)) :junk-allowed t))
+                 (path-to-file
+                  (car
                    (directory
-                    (cdddr          ;remove leading phoros, lib, photo
-                     (butlast s 2)))
-                   (file-name-and-type
-                    (cl-utilities:split-sequence #\. (first (last s 2))))                     
-                   (byte-position
-                    (parse-integer (car (last s)) :junk-allowed t))
-                   (path-to-file
-                    (car
-                     (directory
-                      (make-pathname
-                       :directory (append (pathname-directory *common-root*)
-                                          directory
-                                          '(:wild-inferiors))
-                       :name (first file-name-and-type)
-                       :type (second file-name-and-type)))))
-                   (result
-                    (flex:with-output-to-sequence (stream)
-                      (send-png
-                       stream path-to-file byte-position
-                       :bayer-pattern
-                       (apply #'vector (mapcar
-                                        #'parse-integer
-                                        (cl-utilities:split-sequence
-                                         #\, bayer-pattern)))
-                       :color-raiser
-                       (apply #'vector (mapcar
-                                        #'parse-number:parse-positive-real-number
-                                        (cl-utilities:split-sequence
-                                         #\,
-                                         color-raiser)))
-                       :reversep (= 180 (parse-integer mounting-angle))
-                       :brightenp brightenp))))
-              (setf (hunchentoot:header-out 'cache-control)
-                    (format nil "max-age=~D" *browser-cache-max-age*))
-              (setf (hunchentoot:content-type*) "image/png")
-              result)
-          (decf (hunchentoot:session-value 'number-of-threads)))
-      (superseded ()
-        (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
-        ;; (decf (hunchentoot:session-value 'number-of-threads))
-        nil)
-      (condition (c)
-        (cl-log:log-message
-         :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c)))))
+                    (make-pathname
+                     :directory (append (pathname-directory *common-root*)
+                                        directory
+                                        '(:wild-inferiors))
+                     :name (first file-name-and-type)
+                     :type (second file-name-and-type)))))
+                 (result
+                  (flex:with-output-to-sequence (stream)
+                    (send-png
+                     stream path-to-file byte-position
+                     :bayer-pattern
+                     (apply #'vector (mapcar
+                                      #'parse-integer
+                                      (cl-utilities:split-sequence
+                                       #\, bayer-pattern)))
+                     :color-raiser
+                     (apply #'vector (mapcar
+                                      #'parse-number:parse-positive-real-number
+                                      (cl-utilities:split-sequence
+                                       #\,
+                                       color-raiser)))
+                     :reversep (= 180 (parse-integer mounting-angle))
+                     :brightenp brightenp))))
+            (setf (hunchentoot:header-out 'cache-control)
+                  (format nil "max-age=~D" *browser-cache-max-age*))
+            (setf (hunchentoot:content-type*) "image/png")
+            result)
+        (decf (hunchentoot:session-value 'number-of-threads)))
+    (superseded ()
+      (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
+      ;; (decf (hunchentoot:session-value 'number-of-threads))
+      nil)
+    (condition (c)
+      (cl-log:log-message
+       :error "While serving image ~S: ~A" (hunchentoot:request-uri*) c))))
 
 (pushnew (hunchentoot:create-prefix-dispatcher "/phoros/lib/photo"
                                                'photo-handler)
@@ -1546,11 +1552,11 @@ table."
   "Receive vector of two sets of picture parameters, the first of
 which containing coordinates (m, n) of a clicked point. Respond with a
 JSON encoded epipolar-line."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
-      (json:encode-json-to-string
-       (photogrammetry :epipolar-line (first data) (second data))))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
+    (json:encode-json-to-string
+     (photogrammetry :epipolar-line (first data) (second data)))))
 
 (hunchentoot:define-easy-handler
     (estimated-positions :uri "/phoros/lib/estimated-positions")
@@ -1564,49 +1570,49 @@ image coordinates (m, n) for the global point that correspond to the
 images from the received second vector.  TODO: report error on bad
 data (ex: points too far apart)."
   ;; TODO: global-point-for-display should probably contain a proj string in order to make sense of the (cartesian) standard deviations.
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (let* ((data
-            (json:decode-json-from-string (hunchentoot:raw-post-data)))
-           (active-point-photo-parameters
-            (first data))
-           (number-of-active-points
-            (length active-point-photo-parameters))
-           (destination-photo-parameters
-            (second data))
-           (cartesian-system
-            (cdr (assoc :cartesian-system
-                        (first active-point-photo-parameters))))
-           (global-point-cartesian
-            (photogrammetry
-             :multi-position-intersection active-point-photo-parameters))
-           (global-point-geographic-radians
-            (proj:cs2cs (list (cdr (assoc :x-global global-point-cartesian))
-                              (cdr (assoc :y-global global-point-cartesian))
-                              (cdr (assoc :z-global global-point-cartesian)))
-                        :source-cs cartesian-system))
-           (global-point-for-display    ;points geographic cs, degrees; std deviations in cartesian cs
-            (pairlis '(:longitude :latitude :ellipsoid-height
-                       :stdx-global :stdy-global :stdz-global
-                       :input-size)
-                     (list
-                      (proj:radians-to-degrees
-                       (first global-point-geographic-radians))
-                      (proj:radians-to-degrees
-                       (second global-point-geographic-radians))
-                      (third global-point-geographic-radians)
-                      (cdr (assoc :stdx-global global-point-cartesian))
-                      (cdr (assoc :stdy-global global-point-cartesian))
-                      (cdr (assoc :stdz-global global-point-cartesian))
-                      number-of-active-points)))
-           (image-coordinates
-            (loop
-               for i in destination-photo-parameters
-               collect
-                 (ignore-errors
-                   (photogrammetry :reprojection i global-point-cartesian)))))
-      (json:encode-json-to-string
-        (list global-point-for-display image-coordinates)))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((data
+          (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (active-point-photo-parameters
+          (first data))
+         (number-of-active-points
+          (length active-point-photo-parameters))
+         (destination-photo-parameters
+          (second data))
+         (cartesian-system
+          (cdr (assoc :cartesian-system
+                      (first active-point-photo-parameters))))
+         (global-point-cartesian
+          (photogrammetry
+           :multi-position-intersection active-point-photo-parameters))
+         (global-point-geographic-radians
+          (proj:cs2cs (list (cdr (assoc :x-global global-point-cartesian))
+                            (cdr (assoc :y-global global-point-cartesian))
+                            (cdr (assoc :z-global global-point-cartesian)))
+                      :source-cs cartesian-system))
+         (global-point-for-display ;points geographic cs, degrees; std deviations in cartesian cs
+          (pairlis '(:longitude :latitude :ellipsoid-height
+                     :stdx-global :stdy-global :stdz-global
+                     :input-size)
+                   (list
+                    (proj:radians-to-degrees
+                     (first global-point-geographic-radians))
+                    (proj:radians-to-degrees
+                     (second global-point-geographic-radians))
+                    (third global-point-geographic-radians)
+                    (cdr (assoc :stdx-global global-point-cartesian))
+                    (cdr (assoc :stdy-global global-point-cartesian))
+                    (cdr (assoc :stdz-global global-point-cartesian))
+                    number-of-active-points)))
+         (image-coordinates
+          (loop
+             for i in destination-photo-parameters
+             collect
+             (ignore-errors
+               (photogrammetry :reprojection i global-point-cartesian)))))
+    (json:encode-json-to-string
+     (list global-point-for-display image-coordinates))))
 
 (hunchentoot:define-easy-handler
     (user-point-positions :uri "/phoros/lib/user-point-positions")
@@ -1622,87 +1628,87 @@ respond with a JSON object comprising the elements
      coordinates) for each user-point-id received;
 - user-point-count, the number of user-points we tried to fetch
   image-points for."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (let* ((user-point-table-name
-            (user-point-table-name (hunchentoot:session-value
-                                    'presentation-project-name)))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-           (user-point-ids (first data))
-           (user-point-count (length user-point-ids))
-           (destination-photo-parameters (second data))
-           (cartesian-system
-            (cdr (assoc :cartesian-system
-                        (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
-           (user-points
-            (with-connection *postgresql-credentials*
-              (query
-               (:select
-                (:as (:st_x 'coordinates) 'longitude)
-                (:as (:st_y 'coordinates) 'latitude)
-                (:as (:st_z 'coordinates) 'ellipsoid-height)
-                (:as 'user-point-id 'id) ;becomes fid on client
-                'attribute
-                'description
-                'numeric-description
-                'user-name
-                (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
-                     'creation-date)
-                'aux-numeric
-                'aux-text
-                :from user-point-table-name :natural :left-join 'sys-user
-                :where (:in 'user-point-id (:set user-point-ids)))
-               :plists)))
-           (global-points-cartesian
-            (loop
-               for global-point-geographic in user-points
-               collect
-               (ignore-errors ;in case no destination-photo-parameters have been sent
-                 (pairlis '(:x-global :y-global :z-global)
-                          (proj:cs2cs
-                           (list
-                            (proj:degrees-to-radians
-                             (getf global-point-geographic :longitude))
-                            (proj:degrees-to-radians
-                             (getf global-point-geographic :latitude))
-                            (getf global-point-geographic :ellipsoid-height))
-                           :destination-cs cartesian-system)))))
-           (image-coordinates
-            (loop
-               for photo-parameter-set in destination-photo-parameters
-               collect
-               (encode-geojson-to-string
-                (loop
-                   for global-point-cartesian in global-points-cartesian
-                   for user-point in user-points
-                   collect
-                   (ignore-errors
-                     (let ((photo-coordinates
-                            (photogrammetry :reprojection
-                                            photo-parameter-set
-                                            global-point-cartesian))
-                           (photo-point
-                            user-point))
-                       (setf (getf photo-point :x)
-                             (cdr (assoc :m photo-coordinates)))
-                       (setf (getf photo-point :y)
-                             (cdr (assoc :n photo-coordinates)))
-                       photo-point)))
-                :junk-keys '(:longitude :latitude :ellipsoid-height)))))
-      (with-output-to-string (s)
-        (json:with-object (s)
-          (json:encode-object-member :user-point-count user-point-count s)
-          (json:as-object-member (:image-points s)
-            (json:with-array (s)
-              (loop for i in image-coordinates do
-                   (json:as-array-member (s) (princ i s))))))))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((user-point-table-name
+          (user-point-table-name (hunchentoot:session-value
+                                  'presentation-project-name)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (user-point-ids (first data))
+         (user-point-count (length user-point-ids))
+         (destination-photo-parameters (second data))
+         (cartesian-system
+          (cdr (assoc :cartesian-system
+                      (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
+         (user-points
+          (with-connection *postgresql-credentials*
+            (query
+             (:select
+              (:as (:st_x 'coordinates) 'longitude)
+              (:as (:st_y 'coordinates) 'latitude)
+              (:as (:st_z 'coordinates) 'ellipsoid-height)
+              (:as 'user-point-id 'id)  ;becomes fid on client
+              'attribute
+              'description
+              'numeric-description
+              'user-name
+              (:as (:to-char 'creation-date "IYYY-MM-DD HH24:MI:SS TZ")
+                   'creation-date)
+              'aux-numeric
+              'aux-text
+              :from user-point-table-name :natural :left-join 'sys-user
+              :where (:in 'user-point-id (:set user-point-ids)))
+             :plists)))
+         (global-points-cartesian
+          (loop
+             for global-point-geographic in user-points
+             collect
+             (ignore-errors ;in case no destination-photo-parameters have been sent
+               (pairlis '(:x-global :y-global :z-global)
+                        (proj:cs2cs
+                         (list
+                          (proj:degrees-to-radians
+                           (getf global-point-geographic :longitude))
+                          (proj:degrees-to-radians
+                           (getf global-point-geographic :latitude))
+                          (getf global-point-geographic :ellipsoid-height))
+                         :destination-cs cartesian-system)))))
+         (image-coordinates
+          (loop
+             for photo-parameter-set in destination-photo-parameters
+             collect
+             (encode-geojson-to-string
+              (loop
+                 for global-point-cartesian in global-points-cartesian
+                 for user-point in user-points
+                 collect
+                 (ignore-errors
+                   (let ((photo-coordinates
+                          (photogrammetry :reprojection
+                                          photo-parameter-set
+                                          global-point-cartesian))
+                         (photo-point
+                          user-point))
+                     (setf (getf photo-point :x)
+                           (cdr (assoc :m photo-coordinates)))
+                     (setf (getf photo-point :y)
+                           (cdr (assoc :n photo-coordinates)))
+                     photo-point)))
+              :junk-keys '(:longitude :latitude :ellipsoid-height)))))
+    (with-output-to-string (s)
+      (json:with-object (s)
+        (json:encode-object-member :user-point-count user-point-count s)
+        (json:as-object-member (:image-points s)
+          (json:with-array (s)
+            (loop for i in image-coordinates do
+                 (json:as-array-member (s) (princ i s)))))))))
 
 (hunchentoot:define-easy-handler
     (multi-position-intersection :uri "/phoros/lib/intersection")
     ()
   "Receive vector of sets of picture parameters, respond with stuff."
-  (when (hunchentoot:session-value 'authenticated-p)
-    (setf (hunchentoot:content-type*) "application/json")
-    (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
-      (json:encode-json-to-string
-       (photogrammetry :multi-position-intersection data)))))
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
+    (json:encode-json-to-string
+     (photogrammetry :multi-position-intersection data))))
