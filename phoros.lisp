@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -353,7 +353,7 @@ current session."
             (when bbox
               (setf (bounding-box sys-user-role) bbox))
             (when (and longitude latitude)
-              (let* ;; gkludge: should be done by some library, not by DB query
+              (let* ;; kludge: should be done by some library, not by DB query
                   ((point-form (format nil "POINT(~F ~F)" longitude latitude))
                    (point-wkb (query (:select
                                       (:st_geomfromtext point-form))
@@ -1364,6 +1364,7 @@ table."
                    (who:str (hunchentoot:session-value
                              'presentation-project-name)))
             (:span :id "presentation-project-emptiness")
+            (:span :id "recommend-fresh-login")
             (:span :class "h1-right"
                    (:span :id "caching-indicator")
                    (:span :id "phoros-version"
@@ -1379,7 +1380,7 @@ table."
                    (:div :id "streetmap-mouse-position"
                          :class "streetmap-mouse-position")
                    (:div :id "streetmap-zoom" :class "streetmap-zoom")))
-       (:div :class "phoros-controls"
+       (:div :class "phoros-controls" :id "phoros-controls"
              (:div :id "real-phoros-controls"
                    (:h2 (:span :id "h2-controls") (:span :id "creator"))
                    (:div :id "point-attribute"

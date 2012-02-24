@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -51,6 +51,12 @@
           (who-ps-html
            (:p "This presentation project is empty.  You can't do much
            with it."))
+          :recommend-fresh-login
+          (who-ps-html
+           (:p "Sorry, but you are no longer authenticated.  Your
+           session may have expired due to prolonged inactivity, or an
+           administrator has kicked you out by restarting the server.")
+           (:p "Please repeat the login process."))
           :caching-indicator
           (who-ps-html
            (:p "Caching images.")
@@ -564,6 +570,15 @@
               (setf (@ i photo-parameters) p)
               (chain i (show-photo)))))
 
+       (defun recommend-fresh-login ()
+         "Notify user about invalid authentication."
+         (setf (inner-html-with-id "recommend-fresh-login")
+               "(not authenticated)")
+         (disable-element-with-id "download-user-points-button")
+         (disable-element-with-id "blurb-button")
+         (hide-element-with-id "phoros-controls")
+         (hide-element-with-id "images"))
+
        (defun consolidate-combobox (combobox-id)
          "Help faking a combobox: copy selected option into input."
          (let ((combobox-select (+ combobox-id "-select"))
@@ -660,7 +675,8 @@
                          :data nil
                          :headers (create "Content-type" "text/plain")
                          :success (lambda ()
-                                    (stuff-user-point-comboboxes selectp)))))))
+                                    (stuff-user-point-comboboxes selectp))
+                         :failure recommend-fresh-login)))))
 
        (defun request-photos-after-click (event)
          "Handle the response to a click into *streetmap*; fetch photo
@@ -752,7 +768,8 @@
                     :data content
                     :headers (create "Content-type" "text/plain"
                                      "Content-length" (@ content length))
-                    :success present-photos))))))
+                    :success present-photos
+                    :failure recommend-fresh-login))))))
 
        (defvar *cache-stuffer*
          (create xhr undefined          ;instance of XMLHttpRequest
@@ -806,13 +823,16 @@
                                      "Content-length" (@ content length))
                     :success handle-request-cache-fodder-group
                     :failure (lambda ()
-                               (clear-timeout
-                                (@ *cache-stuffer*
-                                   request-cache-fodder-group-timeout))
-                               (setf (@ *cache-stuffer*
-                                        request-cache-fodder-group-timeout)
-                                     (set-timeout request-cache-fodder-group
-                                                  5000)))))))))
+                               (if (= (@ *cache-stuffer* cache-fodder-request-response status) 504)
+                                   (progn
+                                     (clear-timeout
+                                      (@ *cache-stuffer*
+                                         request-cache-fodder-group-timeout))
+                                     (setf (@ *cache-stuffer*
+                                              request-cache-fodder-group-timeout)
+                                           (set-timeout request-cache-fodder-group
+                                                        5000)))
+                                   (recommend-fresh-login)))))))))
 
        (defun handle-request-cache-fodder-group ()
          "Handle the response triggered by request-cache-fodder-group."
@@ -919,7 +939,8 @@
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
                                                   (@ content length))
-                                 :success draw-nearest-aux-points))))))
+                                 :success draw-nearest-aux-points
+                                 :failure recommend-fresh-login))))))
 
        (defun request-aux-data-linestring (longitude latitude radius step-size)
          "Draw into streetmap a piece of linestring threaded along the
@@ -941,7 +962,8 @@
                                  :headers (create "Content-type" "text/plain"
                                                   "Content-length"
                                                   (@ content length))
-                                 :success draw-aux-data-linestring))))))
+                                 :success draw-aux-data-linestring
+                                 :failure recommend-fresh-login))))))
 
        (defun draw-estimated-positions ()
          "Draw into streetmap and into all images points at Estimated
@@ -1357,7 +1379,8 @@
                                   (refresh-layer
                                    (@ *streetmap* user-point-layer))
                                   (reset-layers-and-controls)
-                                  (request-user-point-choice))))))))
+                                  (request-user-point-choice))
+                       :failure recommend-fresh-login))))))
            
        (defun increment-numeric-text (text)
          "Increment text if it looks like a number, and return it."
@@ -1393,7 +1416,8 @@
                                       (refresh-layer
                                        (@ *streetmap* user-point-layer))
                                       (reset-layers-and-controls)
-                                      (request-user-point-choice)))))))
+                                      (request-user-point-choice))
+                           :failure recommend-fresh-login)))))
 
        (defun delete-point ()
          "Purge currently selected user point from database."
@@ -1413,7 +1437,8 @@
                                       (refresh-layer
                                        (@ *streetmap* user-point-layer))
                                       (reset-layers-and-controls)
-                                      (request-user-point-choice true)))))))
+                                      (request-user-point-choice true))
+                           :failure recommend-fresh-login)))))
 
        (defun draw-active-point ()
          "Draw an Active Point, i.e. a point used in subsequent
@@ -1492,6 +1517,7 @@
                                                   "Content-length"
                                                   (@ content length))
                                         :success (@ i draw-epipolar-line)
+                                        :failure recommend-fresh-login
                                         :scope i))))
                        (chain i
                               map
@@ -1526,6 +1552,7 @@
                                                     (@ content length))
                                           :success (@ clicked-image
                                                       draw-estimated-positions)
+                                          :failure recommend-fresh-login
                                           :scope clicked-image)))))))))))
 
        (defun iso-time-string (lisp-time)
@@ -1811,7 +1838,8 @@
                                :headers (create "Content-type" "text/plain"
                                                 "Content-length" (@ content
                                                                     length))
-                               :success draw-user-points)))))
+                               :success draw-user-points
+                               :failure recommend-fresh-login)))))
 
        (defun aux-point-distance-selected ()
          "Things to do on change of aux-point-distance select element."
