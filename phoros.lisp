@@ -1388,9 +1388,9 @@ table."
                          (:select :id "point-attribute-select"
                                   :name "point-attribute-select"
                                   :class "combobox-select"
-                                  :onchange
-                                  (ps-inline
-                                   (consolidate-combobox "point-attribute"))
+                                  :onchange (ps-inline
+                                             (consolidate-combobox
+                                              "point-attribute"))
                                   :disabled t)
                          (:input :id "point-attribute-input"
                                  :name "point-attribute-input"
@@ -1400,8 +1400,6 @@ table."
                                              "point-attribute"))
                                  :disabled t
                                  :type "text"))
-                   ;; (:select :id "point-attribute" :disabled t
-                   ;;          :size 1 :name "point-attribute")
                    (:input :id "point-numeric-description"
                            :class "vanilla-input"
                            :disabled t

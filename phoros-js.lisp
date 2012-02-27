@@ -353,8 +353,8 @@
        (defvar *streetmap* undefined
          "The streetmap shown to the user.")
 
-       (defvar *point-attributes-select* undefined
-         "The HTML element for selecting user point attributes.")
+       ;; (defvar *point-attributes-select* undefined
+       ;;   "The HTML element for selecting user point attributes.")
 
        (defvar *aux-point-distance-select* undefined
          "The HTML element for selecting one of a few nearest
@@ -581,16 +581,19 @@
 
        (defun consolidate-combobox (combobox-id)
          "Help faking a combobox: copy selected option into input."
-         (let ((combobox-select (+ combobox-id "-select"))
-               (combobox-input (+ combobox-id "-input")))
-           (setf (value-with-id combobox-input)
-                 (getprop (chain document
-                                 (get-element-by-id combobox-select)
-                                 options)
-                          (chain document
-                                 (get-element-by-id combobox-select)
-                                 selected-index)
-                          'value))
+         (let* ((combobox-select (+ combobox-id "-select"))
+                (combobox-input (+ combobox-id "-input"))
+                (combobox-selected-index
+                 (chain document
+                        (get-element-by-id combobox-select)
+                        selected-index)))
+           (when (< -1 combobox-selected-index)
+             (setf (value-with-id combobox-input)
+                   (getprop (chain document
+                                   (get-element-by-id combobox-select)
+                                   options)
+                            combobox-selected-index
+                            'value)))
            (chain document
                   (get-element-by-id combobox-input)
                   (focus))))
@@ -614,6 +617,7 @@
                         options
                         length)
                  0)
+
            (loop for i in values do
                 (setf combobox-item
                       (chain document (create-element "option")))
@@ -1965,8 +1969,8 @@
          (hide-element-with-id "multiple-points-phoros-controls")
          (hide-element-with-id "no-footprints-p")
          (hide-element-with-id "caching-indicator")
-         (setf *point-attributes-select*
-               (chain document (get-element-by-id "point-attribute-select")))
+         ;; (setf *point-attributes-select*
+         ;;       (chain document (get-element-by-id "point-attribute-select")))
          (setf *aux-point-distance-select*
                (chain document (get-element-by-id "aux-point-distance")))
          (hide-aux-data-choice)
