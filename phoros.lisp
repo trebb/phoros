@@ -817,6 +817,91 @@ ingredients for the URLs of the 256 nearest images."
        () "No point stored.  Did you try to update someone else's point ~
              without having admin permission?"))))
 
+(defun increment-numeric-string (text)
+  "Increment rightmost numeric part of text if any; otherwise append a
+three-digit numeric part."
+  (let* ((end-of-number
+          (1+ (or (position-if #'digit-char-p text :from-end t)
+                  (1- (length text)))))
+         (start-of-number
+          (1+ (or (position-if-not #'digit-char-p text :from-end t
+                                   :end end-of-number)
+                  -1)))
+         (width-of-number (- end-of-number start-of-number))
+         (prefix-text (subseq text 0 start-of-number))
+         (suffix-text (subseq text end-of-number)))
+    (when (zerop width-of-number)
+      (setf width-of-number 3))
+    (format nil "~A~V,'0D~A"
+            prefix-text
+            width-of-number
+            (1+ (or (ignore-errors
+                      (parse-integer
+                       text
+                       :start start-of-number :end end-of-number))
+                    0))
+            suffix-text)))
+
+(hunchentoot:define-easy-handler
+    (uniquify-point-attributes :uri "/phoros/lib/uniquify-point-attributes"
+                               :default-request-type :post)
+    ()
+  "Check if received set of point-attributes are unique.  If so,
+return null; otherwise return (as a suggestion) a uniquified version
+of point-attributes by modifying element numeric-description."
+  (assert-authentication)
+  (sleep 10)
+  (setf (hunchentoot:content-type*) "application/json")
+  (let* ((presentation-project-name (hunchentoot:session-value
+                                     'presentation-project-name))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (user-point-id (cdr (assoc :user-point-id data)))
+         (attribute (cdr (assoc :attribute data)))
+         (description (cdr (assoc :description data)))
+         (numeric-description (cdr (assoc :numeric-description data)))
+         (user-point-table-name
+          (user-point-table-name presentation-project-name)))
+    (flet ((uniquep (user-point-id attribute description numeric-description)
+             "Check if given set of user-point attributes will be
+              unique in database"
+             (not
+              (if user-point-id
+                  (query
+                   (:select
+                    (:exists
+                     (:select
+                      '*
+                      :from user-point-table-name
+                      :where (:and (:!= 'user-point-id user-point-id)
+                                   (:= 'attribute attribute)
+                                   (:= 'description description)
+                                   (:= 'numeric-description
+                                       numeric-description)))))
+                   :single!)
+                  (query
+                   (:select
+                    (:exists
+                     (:select
+                      '*
+                      :from user-point-table-name
+                      :where (:and (:= 'attribute attribute)
+                                   (:= 'description description)
+                                   (:= 'numeric-description
+                                       numeric-description)))))
+                   :single!)))))
+      (with-connection *postgresql-credentials*
+        (json:encode-json-to-string
+         (unless (uniquep
+                  user-point-id attribute description numeric-description)
+           (loop
+              for s = numeric-description
+              then (increment-numeric-string s)
+              until (uniquep user-point-id attribute description s)
+              finally
+                (setf (cdr (assoc :numeric-description data))
+                      s)
+                (return data))))))))
+
 (hunchentoot:define-easy-handler
     (delete-point :uri "/phoros/lib/delete-point" :default-request-type :post)
     ()
@@ -1425,10 +1510,19 @@ table."
                    (:button :id "delete-point-button" :disabled t
                             :type "button"
                             :onclick (ps-inline (delete-point))
-                            "delete")
+                            "del")
                    (:button :disabled t :id "finish-point-button"
                             :type "button"
                             (:b "finish"))
+                   (:div :id "uniquify-buttons"
+                         (:button :id "suggest-unique-button"
+                                  :type "button"
+                                  :onclick (ps-inline
+                                            (insert-unique-suggestion))
+                                  (:b "suggest"))
+                         (:button :id "force-duplicate-button"
+                                  :type "button"
+                                  "push"))
                    (:div :id "aux-point-distance-or-point-creation-date"
                          (:code :id "point-creation-date")
                          (:select :id "aux-point-distance" :disabled t

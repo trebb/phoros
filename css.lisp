@@ -190,12 +190,27 @@ button, select {
 }
 #finish-point-button {
     float:right;
-    width: 148px;
+    width: 175px;
+    height: 30px;
+}
+#uniquify-buttons {
+    float:right;
+    width: 175px;
+    height: 30px;
+}
+#suggest-unique-button {
+    float: left;
+    width: 130px;
+    height: 30px;
+}
+#force-duplicate-button {
+    float: left;
+    width: 45px;
     height: 30px;
 }
 #delete-point-button {
     float: left;
-    width: 60px;
+    width: 33px;
     height: 30px;
 }
 #aux-point-distance-or-point-creation-date {

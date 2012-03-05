@@ -82,14 +82,28 @@
           :multiple-points-phoros-controls
           (who-ps-html
            (:p "Try reading the text under mouse pointer."))
+          :delete-point-button
+          (who-ps-html
+           (:p "Delete current point."))
           :finish-point-button
           (who-ps-html
            (:p "Store user point with its attribute,
            numeric-description, description, and auxiliary data into
-           database."))
-          :delete-point-button
+           database; warn if the given set of attributes isn't unique."))
+          :suggest-unique-button
           (who-ps-html
-           (:p "Delete current point."))
+           (:h3 "Non-unique set of user point attributes")
+           (:p "Recommend a set of user point attributes that is
+           unique among the currently defined user points, preferably
+           by incrementing a portion of attribute numeric-description
+           that looks like a number."))
+          :force-duplicate-button
+          (who-ps-html
+           (:h3 "Non-unique set of user point attributes")
+           (:p "Store user point with its attribute,
+           numeric-description, description, and auxiliary data into
+           database; don't care whether the given set of attributes is
+           unique."))
           :download-user-points-button
           (who-ps-html
            (:p "Download all user points as GeoJSON-fomatted text
@@ -979,7 +993,7 @@
            (setf (chain document
                         (get-element-by-id "finish-point-button")
                         onclick)
-                 finish-point)
+                 (lambda () (finish-point #'store-point)))
            (enable-element-with-id "finish-point-button"))
          (let* ((estimated-positions-request-response
                  (chain *json-parser*
@@ -1350,8 +1364,106 @@
                   (chain i map (add-layer (@ i user-point-layer)))
                   (chain i user-point-layer (add-features features)))))))
 
-       (defun finish-point ()
-         "Send current *global-position* as a user point to the database."
+       (defun finish-point (database-writer)
+         "Try, with some user interaction, to uniquify user-point
+          attributes and call database-writer."
+         (let* ((point-data
+                 (create user-point-id (if (defined *current-user-point*)
+                                           (@ *current-user-point* fid)
+                                           nil)
+                         attribute
+                         (value-with-id "point-attribute-input")
+                         description
+                         (value-with-id "point-description-input")
+                         numeric-description
+                         (value-with-id "point-numeric-description")))
+                (content 
+                 (chain *json-parser*
+                        (write point-data))))
+           (setf *uniquify-point-attributes-response* nil)
+           (setf *uniquify-point-attributes-response*
+                 (chain
+                  *open-layers
+                  *Request
+                  (*POST*
+                   (create
+                    :url (+ "/" +proxy-root+ "/lib/uniquify-point-attributes")
+                    :data content
+                    :headers (create "Content-type" "text/plain"
+                                     "Content-length" (@ content
+                                                         length))
+                    :success
+                    (lambda ()
+                      (let ((response
+                             (chain
+                              *json-parser*
+                              (read
+                               (@ *uniquify-point-attributes-response*
+                                  response-text)))))
+                        (if (equal null response)
+                            (database-writer)
+                            (progn
+                              (setf
+                               (chain document
+                                      (get-element-by-id
+                                       "force-duplicate-button")
+                                      onclick)
+                               (lambda ()
+                                 (hide-element-with-id "uniquify-buttons")
+                                 (reveal-element-with-id "finish-point-button")
+                                 (database-writer)))
+                              (hide-element-with-id "finish-point-button")
+                              (reveal-element-with-id "uniquify-buttons")))))
+                    :failure recommend-fresh-login))))))
+
+       (defun insert-unique-suggestion ()
+         "Insert previously received set of unique user-point
+         attributes into their respective input elements; switch
+         buttons accordingly."
+         (let* ((point-data
+                 (create user-point-id (if (defined *current-user-point*)
+                                           (@ *current-user-point* fid)
+                                           nil)
+                         attribute
+                         (value-with-id "point-attribute-input")
+                         description
+                         (value-with-id "point-description-input")
+                         numeric-description
+                         (value-with-id "point-numeric-description")))
+                (content 
+                 (chain *json-parser*
+                        (write point-data))))
+           (setf *uniquify-point-attributes-response* nil)
+           (setf *uniquify-point-attributes-response*
+                 (chain
+                  *open-layers
+                  *Request
+                  (*POST*
+                   (create :url (+ "/"
+                                   +proxy-root+
+                                   "/lib/uniquify-point-attributes")
+                           :data content
+                           :headers (create "Content-type" "text/plain"
+                                            "Content-length" (@ content
+                                                                length))
+                           :success
+                           (lambda ()
+                             (let ((response
+                                    (chain
+                                     *json-parser*
+                                     (read
+                                      (@ *uniquify-point-attributes-response*
+                                         response-text)))))
+                               (hide-element-with-id "uniquify-buttons")
+                               (reveal-element-with-id "finish-point-button")
+                               (unless (equal null response)
+                                 (setf (value-with-id
+                                        "point-numeric-description")
+                                       (@ response numeric-description)))))
+                           :failure recommend-fresh-login))))))
+
+       (defun store-point ()
+         "Send freshly created user point to the database."
          (let ((global-position-etc *global-position*))
            (setf (@ global-position-etc attribute)
                  (value-with-id "point-attribute-input"))
@@ -1386,15 +1498,6 @@
                                   (request-user-point-choice))
                        :failure recommend-fresh-login))))))
            
-       (defun increment-numeric-text (text)
-         "Increment text if it looks like a number, and return it."
-         (let* ((parts (chain (regex "(\\D*)(\\d*)(.*)") (exec text)))
-                (old-number (elt parts 2))
-                (new-number (1+ (parse-int old-number 10)))))
-         (if (is-finite new-number)
-             (+ (elt parts 1) new-number (elt parts 3))
-             text))
-
        (defun update-point ()
          "Send changes to currently selected user point to database."
          (let* ((point-data
@@ -1490,9 +1593,9 @@
                 (progn
                   (chain *streetmap* user-points-select-control (unselect-all))
                   (reset-controls)
-                  (setf (value-with-id "point-numeric-description")
-                        (increment-numeric-text
-                         (value-with-id "point-numeric-description")))
+                  ;; (setf (value-with-id "point-numeric-description")
+                  ;;       (increment-numeric-text
+                  ;;        (value-with-id "point-numeric-description")))
                   (remove-any-layers "User Point") ;from images
                   (loop
                      for i across *images* do
@@ -1803,7 +1906,7 @@
                     (setf (chain document
                                  (get-element-by-id "finish-point-button")
                                  onclick)
-                          update-point)
+                          (lambda () (finish-point #'update-point)))
                     (enable-element-with-id "finish-point-button")
                     (enable-element-with-id "delete-point-button")
                     (setf (inner-html-with-id "h2-controls") "Edit Point"))
@@ -1969,6 +2072,7 @@
          (hide-element-with-id "multiple-points-phoros-controls")
          (hide-element-with-id "no-footprints-p")
          (hide-element-with-id "caching-indicator")
+         (hide-element-with-id "uniquify-buttons")
          ;; (setf *point-attributes-select*
          ;;       (chain document (get-element-by-id "point-attribute-select")))
          (setf *aux-point-distance-select*
