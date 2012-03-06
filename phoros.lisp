@@ -850,7 +850,6 @@ three-digit numeric part."
 return null; otherwise return (as a suggestion) a uniquified version
 of point-attributes by modifying element numeric-description."
   (assert-authentication)
-  (sleep 10)
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((presentation-project-name (hunchentoot:session-value
                                      'presentation-project-name))

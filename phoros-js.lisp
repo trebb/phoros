@@ -533,12 +533,18 @@
          (zoom-images-to-max-extent))
 
        (defun enable-element-with-id (id)
-         "Activate HTML element with id=\"id\"."
-         (setf (chain document (get-element-by-id id) disabled) nil))
+         "Activate HTML element with id=\"id\".  Return t if element
+         was greyed out before."
+         (prog1
+             (chain document (get-element-by-id id) disabled)
+           (setf (chain document (get-element-by-id id) disabled) nil)))
 
        (defun disable-element-with-id (id)
-         "Grey out HTML element with id=\"id\"."
-         (setf (chain document (get-element-by-id id) disabled) t))
+         "Grey out HTML element with id=\"id\".  Return t if element
+         was active before."
+         (prog1
+             (not (chain document (get-element-by-id id) disabled))
+           (setf (chain document (get-element-by-id id) disabled) t)))
 
        (defun hide-element-with-id (id)
          "Hide HTML element wit id=\"id\"."
@@ -1379,7 +1385,10 @@
                          (value-with-id "point-numeric-description")))
                 (content 
                  (chain *json-parser*
-                        (write point-data))))
+                        (write point-data)))
+                (delete-point-button-active-p
+                 (disable-element-with-id "delete-point-button")))
+           (disable-element-with-id "finish-point-button")
            (setf *uniquify-point-attributes-response* nil)
            (setf *uniquify-point-attributes-response*
                  (chain
@@ -1394,6 +1403,9 @@
                                                          length))
                     :success
                     (lambda ()
+                      (enable-element-with-id "finish-point-button")
+                      (when delete-point-button-active-p
+                        (enable-element-with-id "delete-point-button"))
                       (let ((response
                              (chain
                               *json-parser*
@@ -1432,7 +1444,12 @@
                          (value-with-id "point-numeric-description")))
                 (content 
                  (chain *json-parser*
-                        (write point-data))))
+                        (write point-data)))
+                (delete-point-button-active-p
+                 (disable-element-with-id "delete-point-button")))
+           (disable-element-with-id "finish-point-button")
+           (hide-element-with-id "uniquify-buttons")
+           (reveal-element-with-id "finish-point-button")
            (setf *uniquify-point-attributes-response* nil)
            (setf *uniquify-point-attributes-response*
                  (chain
@@ -1448,14 +1465,15 @@
                                                                 length))
                            :success
                            (lambda ()
+                             (enable-element-with-id "finish-point-button")
+                             (when delete-point-button-active-p
+                               (enable-element-with-id "delete-point-button"))
                              (let ((response
                                     (chain
                                      *json-parser*
                                      (read
                                       (@ *uniquify-point-attributes-response*
                                          response-text)))))
-                               (hide-element-with-id "uniquify-buttons")
-                               (reveal-element-with-id "finish-point-button")
                                (unless (equal null response)
                                  (setf (value-with-id
                                         "point-numeric-description")
@@ -1483,6 +1501,7 @@
            (let ((content 
                   (chain *json-parser*
                          (write global-position-etc))))
+             (disable-element-with-id "finish-point-button")
              (chain
               *open-layers
               *Request
@@ -1511,6 +1530,8 @@
                 (content 
                  (chain *json-parser*
                         (write point-data))))
+           (disable-element-with-id "finish-point-button")
+           (disable-element-with-id "delete-point-button")
            (chain *open-layers
                   *Request
                   (*POST*
@@ -1528,10 +1549,12 @@
 
        (defun delete-point ()
          "Purge currently selected user point from database."
-         (let ((user-point-id (@ *current-user-point* fid)))
-           (setf content 
+         (let* ((user-point-id (@ *current-user-point* fid))
+                (content 
                  (chain *json-parser*
-                        (write user-point-id)))
+                        (write user-point-id))))
+           (disable-element-with-id "finish-point-button")
+           (disable-element-with-id "delete-point-button")
            (chain *open-layers
                   *Request
                   (*POST*
