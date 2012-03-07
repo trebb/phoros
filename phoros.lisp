@@ -73,6 +73,12 @@ proxy configuration if Phoros is hidden behind a proxy.")
 (defparameter *number-of-images* 4
   "Number of photos shown to the HTTP client.")
 
+(defparameter *aux-numeric-labels* nil
+  "Labels for auxiliary numeric data rows shown to the HTTP client.")
+
+(defparameter *aux-text-labels* nil
+  "Labels for auxiliary text data rows shown to the HTTP client.")
+
 (defparameter *browser-cache-max-age* (* 3600 24 7)
   "Value x for Cache-Control:max-age=x, for images on client.")
 

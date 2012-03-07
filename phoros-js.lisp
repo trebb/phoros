@@ -362,6 +362,14 @@
        (defvar +aux-data-p+
          (lisp (hunchentoot:session-value 'aux-data-p)))
 
+       (defvar +aux-numeric-labels+
+         (lisp (when *aux-numeric-labels*
+                 (coerce *aux-numeric-labels* 'vector))))
+
+       (defvar +aux-text-labels+
+         (lisp (when *aux-text-labels*
+                 (coerce *aux-text-labels* 'vector))))
+
        (defvar *images* (array) "Collection of the photos currently shown.")
 
        (defvar *streetmap* undefined
@@ -1918,11 +1926,13 @@
               (setf (inner-html-with-id "point-creation-date")
                     (@ *current-user-point* attributes creation-date))
               (setf (inner-html-with-id "aux-numeric-list")
-                    (html-ordered-list
-                     (@ *current-user-point* attributes aux-numeric)))
+                    (html-table
+                     (@ *current-user-point* attributes aux-numeric)
+                     +aux-numeric-labels+))
               (setf (inner-html-with-id "aux-text-list")
-                    (html-ordered-list
-                     (@ *current-user-point* attributes aux-text)))
+                    (html-table
+                     (@ *current-user-point* attributes aux-text)
+                     +aux-text-labels+))
               (if (write-permission-p
                    (@ *current-user-point* attributes user-name))
                   (progn
@@ -2012,15 +2022,25 @@
                     nearest-aux-points-layer
                     (set-visibility nil))))
 
-       (defun html-ordered-list (aux-data)
-         "Return a html-formatted list from aux-data."
+       (defun html-table (aux-data labels)
+         "Return an html-formatted table with a label column from
+         labels and a data column from aux-data."
          (if aux-data
              (who-ps-html
-              (:ol :class "aux-data-list"
-                   (chain aux-data
-                          (reduce (lambda (x y)
-                                    (+ x (who-ps-html (:li y))))
-                                  ""))))
+              (:table :class "aux-data-table"
+                      (chain aux-data
+                             (reduce (lambda (x y i)
+                                       (+ x (who-ps-html
+                                             (:tr
+                                              (:td :class "aux-data-label"
+                                                   (+
+                                                    (if labels
+                                                        (elt labels i)
+                                                        i)
+                                                    ":"))
+                                              (:td :class "aux-data-value"
+                                                   y)))))
+                                     ""))))
              ""))
 
        (defun nearest-aux-point-selected (event)
@@ -2036,9 +2056,9 @@
            (setf (@ *aux-point-distance-select* options selected-index)
                  (@ event feature fid))
            (setf (inner-html-with-id "aux-numeric-list")
-                 (html-ordered-list aux-numeric))
+                 (html-table aux-numeric +aux-numeric-labels+))
            (setf (inner-html-with-id "aux-text-list")
-                 (html-ordered-list aux-text))))
+                 (html-table aux-text +aux-text-labels+))))
 
        (defun bye ()
          "Store user's current map extent and log out."

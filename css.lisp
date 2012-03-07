@@ -233,12 +233,18 @@ button, select {
 #aux-data {
     float: left;
     width: 210px;
+    height: 145px;
+    margin-top: 5px;
     overflow: auto;
-}
-.aux-data-list {
-    width: 170px;
-    list-style-type: lower-latin;
     line-height: 1;
+}
+.aux-data-table {
+}
+.aux-data-label {
+    padding-right: 5px;
+}
+.aux-data-value {
+    font-family: 'andale mono', 'lucida console', monospace;
 }
 .phoros-controls {
     float: left;

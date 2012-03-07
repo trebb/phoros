@@ -271,6 +271,12 @@
      :documentation "The root part of directory that is equal for all pojects.  TODO: come up with some sensible default.")
     ("images" :type integer :initial-value 4 :action *number-of-images*
      :documentation "Number of photos shown to the HTTP client.")
+    ("aux-numeric-label"
+     :type string :list t :optional t :action *aux-numeric-labels*
+     :documentation "Label for an element of auxiliary numeric data.  Repeat if necessary.")
+    ("aux-text-label"
+     :type string :list t :optional t :action *aux-text-labels*
+     :documentation "Label for an element of auxiliary text data.  Repeat if necessary.")
     ("login-intro" :type string :list t :optional t :action *login-intro*
      :documentation "Text to be shown below the login form.  Use repeatedly to divide text into paragraphs.  You can use HTML markup as long as it is legal inside <p>...</p>")))
 
