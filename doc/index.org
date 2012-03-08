@@ -19,10 +19,10 @@ A Tool for Photogrammetric Road Survey
   - Images and GPS data are acquired using a measuring vehicle. ([[http://www.tu-dresden.de/vkiva/strasse/messfahrzeug.html][Here]]
     is a working example.)
 
-    Sequences of a few hundred images together with their trigger times are stored
-    Huffman-encoded in files called =*.pictures=.  GPS data is
-    preprocessed into a table of ASCII text.  The format of both image
-    and GPS files is not (yet) explained here.
+    Sequences of a few hundred images together with their trigger
+    times are stored Huffman-encoded in files called =*.pictures=.
+    GPS data is preprocessed into a table of ASCII text.  The format
+    of both image and GPS files is not (yet) explained here.
 
   - Cameras and GPS system need to be calibrated, which is not
     explained here.
@@ -140,7 +140,7 @@ $ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
 
   PHOROS -- Photogrammetric Road Survey
 
-  Copyright (C) 2010, 2011 [[mailto:Bert Burgemeister <trebbu@googlemail.com>][Bert Burgemeister]]
+  Copyright (C) 2010, 2011, 2012 [[mailto:Bert Burgemeister <trebbu@googlemail.com>][Bert Burgemeister]]
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by

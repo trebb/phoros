@@ -20,12 +20,12 @@ LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
+EXAMPLES_DIR = examples
 OPENLAYERS_DIR = ol		#for compiled/shrunk OpenLayers
 OPENLAYERS_CONFIG = phoros.cfg
 OPENLAYERS_JS = ol/OpenLayers.js
 OPENLAYERS_THEME = ol/theme
 OPENLAYERS_IMG = ol/img
-# SERVER_CSS = css/style.css
 LOGO = public_html/phoros-logo-plain.png
 BACKGROUND_IMAGE = public_html/phoros-logo-background.png
 CURSOR_IMAGE = public_html/phoros-cursor.png
@@ -34,6 +34,7 @@ INDEX_HTML = public_html/index.html
 PHOROS_HELP_HTML = public_html/phoros--help.html
 DEPLOYMENT_HTML = public_html/deployment.html
 PUBLIC_CSS = public_html/style.css
+NOT_FOUND_HTML = public_html/404.html
 PHOROS_VERSION = $(shell ./phoros --version)
 LATEST_TAG = $(shell git tag | tail -n 1)
 MACHINE_TYPE = $(shell uname -m)
@@ -131,6 +132,10 @@ $(PHOROS_HELP_HTML) : doc/phoros--help.org $(PHOROS_HELP_OUTPUT) $(LOGO)
 $(PUBLIC_CSS) : doc/style.css public_html
 	cp $< $@
 
+$(NOT_FOUND_HTML) : doc/404.org $(LOGO)
+	emacs --batch --visit=$< --funcall org-export-as-html-batch \
+	&& mv doc/404.html $@
+
 phoros-proper.tar :
 	git archive --prefix=phoros_$(LATEST_TAG)/ --output=$@ $(LATEST_TAG)
 
@@ -140,34 +145,65 @@ phoml.tar :
 
 .INTERMEDIATE : phoros-proper.tar phoml.tar
 
-bin-tarball : phoros TimeSteps.history README trigger-example.sql \
-          $(SERVER_CSS) $(OPENLAYERS_DIR) \
-          $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
+bin-tarball : phoros TimeSteps.history README				\
+          $(EXAMPLES_DIR)						\
+          $(OPENLAYERS_DIR)						\
+          $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
 	  $(LIBPHOML_DIR)/$(LIBPHOML)
-	tar -cf - \
-		--transform='s,^,phoros_$(PHOROS_VERSION)/,' \
-		phoros TimeSteps.history README trigger-example.sql \
-		$(SERVER_CSS) $(OPENLAYERS_DIR) \
-		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
-		--directory=$(LIBPHOML_DIR) $(LIBPHOML) \
-		| gzip -f \
+	tar -cf -							\
+		--transform='s,^,phoros_$(PHOROS_VERSION)/,'		\
+		phoros TimeSteps.history README				\
+                $(EXAMPLES_DIR)						\
+		$(OPENLAYERS_DIR)					\
+		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
+		--directory=$(LIBPHOML_DIR) $(LIBPHOML)			\
+		| gzip -f						\
 		> phoros_$(PHOROS_VERSION)_$(MACHINE_TYPE).tar.gz
 
 src-tarball : phoros-proper.tar phoml.tar
 	tar --concatenate -f phoros_$(LATEST_TAG).tar $^ \
 	&& gzip -f phoros_$(LATEST_TAG).tar
 
-html : $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON)
+html : $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVICON) $(NOT_FOUND_HTML)
 
 git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
 clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz \
-		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)\
-		$(PHOROS_HELP_OUTPUT) $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PUBLIC_CSS)
+	rm -f *.fasl *.log phoros phoros*.tar.gz			\
+		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)	\
+		$(PHOROS_HELP_OUTPUT)					\
+                $(INDEX_HTML) $(DEPLOYMENT_HTML) 			\
+                $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
 	cd phoml; $(MAKE) clean
 
 
 .PHONY : bin-tarball src-tarball html git-tag clean
+
+
+# Github
+
+gh-publish:
+	rm -rf gh-pages
+	mkdir gh-pages
+	$(MAKE) gh-pages/index.html		\
+		gh-pages/deployment.html	\
+		gh-pages/phoros--help.html	\
+		gh-pages/phoros-12.8.1.png	\
+		gh-pages/404.html		\
+		gh-pages/CNAME			\
+		gh-pages/README			\
+		gh-pages/favicon.ico		\
+		gh-pages/robots.txt		\
+		gh-pages/style.css
+	cd gh-pages; git init; git add ./; git commit -a -m "gh-pages pseudo commit"; git push git@github.com:trebb/phoros.git +master:gh-pages
+
+gh-pages/%.html: public_html/%.html
+	cp $< $@
+
+gh-pages/favicon.ico: public_html/favicon.ico
+	cp $< $@
+
+gh-pages/%: doc/%
+	cp $< $@
