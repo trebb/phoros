@@ -224,7 +224,7 @@ session."
                                *proxy-root*)
                :name "login-form"
                (:fieldset
-                (:legend (:b (:a :href "http://phoros.berlios.de"
+                (:legend (:b (:a :href "http://phoros.boundp.org"
                                  :style "text-decoration:none;"
                                  "Phoros")
                              (who:fmt "&nbsp;[~A]" presentation-project-name)))

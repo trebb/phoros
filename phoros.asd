@@ -10,7 +10,7 @@
   :long-description                     ;goes with --help output
   "Phoros is a tool for photogrammetric road survey.  It stores data
 in a PostgreSQL database and then makes it available over a web
-interface.                              http://phoros.berlios.de"
+interface.                              http://phoros.boundp.org"
 
   :version                              ;goes with --version output
   ;; :version is MAJOR.MINOR.REVISION where
@@ -21,7 +21,7 @@ interface.                              http://phoros.berlios.de"
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "12.8.1"
+  "12.8.2"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister

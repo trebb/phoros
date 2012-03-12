@@ -38,7 +38,7 @@
                :onclick (ps-inline (chain self (close)))
                "close")
       (:p "This is "
-          (:a :href "http://phoros.berlios.de"
+          (:a :href "http://phoros.boundp.org"
               (:img :src (format nil
                                  "/~A/lib/public_html/phoros-logo-plain.png"
                                  *proxy-root*)

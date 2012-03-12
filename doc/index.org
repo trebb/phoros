@@ -16,7 +16,8 @@ A Tool for Photogrammetric Road Survey
 
 * Workflow
 
-  - Images and GPS data are acquired using a measuring vehicle. ([[http://www.tu-dresden.de/vkiva/strasse/messfahrzeug.html][Here]]
+  - Images and GPS data are acquired using a measuring vehicle.
+    ([[http://tu-dresden.de/die_tu_dresden/fakultaeten/vkw/ivs/gsa/professur/ausstattung/messfahrzeug_uno][Here]]
     is a working example.)
 
     Sequences of a few hundred images together with their trigger
@@ -69,13 +70,14 @@ A Tool for Photogrammetric Road Survey
   #+END_SRC
   emits a rather comprehensive [[file:phoros--help.org][help message]].
 
-* Web Interface (with screenshots)
+* Web Interface
 
   Once images, calibration data and definitions of users and projects
   have been stored using the [[Command Line Interface]], Phoros can be
   started as a web server:
 #+BEGIN_SRC: sh
-$ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
+$ ./phoros --server \
+>          --common-root=/some_path/where_i_put/my_raw_images/ \
 >          --host=my_server --port=5432 --database=my_projects \
 >          --user=database_admin --password=SeCrEt
 #+END_SRC:
@@ -85,53 +87,37 @@ $ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
   password).
 
 ** Choose a point from the map
-   In the map, points are shown where pictures have been taken.[fn:: Actually,
-   the map should display where the "photographer" has looked rather
-   than where he stood, but this is not yet implemented.]
-   Pointing into an area of interest lets Phoros display a few[fn::
-   The number of images can be specified during server
-   start. Example:  @<code>phoros --server --images=N ... @</code>]
-   relevant images.
+   In the map, small yellow circles represent points of view of the
+   available images.  Pointing into an area of interest has Phoros
+   select and display a few[fn:: The number of images can be specified
+   during server start. Example: @<code>phoros --server --images=N
+   ... @</code>] images containing the point clicked, which on the
+   streetmap is represented by the dark blue Phoros logo.
 
    #+ATTR_HTML: style="border:2px solid darkgrey"
-   [[file:map-click.png]]
+   [[file:phoros-12.8.1.png]]
 
 ** Point into first image
    After zooming into a first image and selecting a feature of
    interest, [[http://en.wikipedia.org/wiki/Epipolar_line#Epipolar_line][epipolar lines]] appear in the other images which may be
    helpful in recognising the selected feature there.
-   
-   #+ATTR_HTML: style="border:2px solid darkgrey"
-   [[file:image-click-1.png]]
+
+   Points selected in images are represented by large yellow circles.
    
 ** Point into second image
-   Zooming in and selecting the same feature in another image
+   Zooming in and selecting the same feature in a second image
    triggers calculation of the estimated global position.  The
-   estimated position is now shown in all images and in the map.
-   Neither estimated position accuracy nor pointing precision are bounded by pixel
-   size.
-   
-   #+ATTR_HTML: style="border:2px solid darkgrey"
-   [[file:image-click-2.png]]
+   estimated position is now shown as a cyan circle in all images and
+   in the map.  Neither estimated position accuracy nor pointing
+   precision are bounded by pixel size.
    
 ** Improve accuracy
-   Zooming in and pointing at the feature in a third image improves
-   accuracy.
-   
-   #+ATTR_HTML: style="border:2px solid darkgrey"
-   [[file:image-click-3.png]]
-   
-   Although it doesn't seem necessary in this example, more images
-   could be used to improve accuracy even further.
-   
-   #+ATTR_HTML: style="border:2px solid darkgrey"
-   [[file:image-view-4.png]]
+   Zooming in and pointing at the feature in some (or all) of the
+   remaining images improves accuracy.
 
 ** Store point
-   Finishing this point means storing it in a dedicated user point table.
-   
-   #+ATTR_HTML: style="border:2px solid darkgrey"
-   [[file:finish-point.png]]
+   Finishing this point means storing it in a dedicated user point
+   table.
    
 * Deployment
   [[file:deployment.org][Example scripts]]
@@ -144,8 +130,8 @@ $ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
-  the Free Software Foundation; either [[http://www.gnu.org/licenses/gpl-2.0.html][version 2 of the License]], or (at
-  your option) any later version.
+  the Free Software Foundation; either [[http://www.gnu.org/licenses/gpl-2.0.html][version 2 of the License]], or
+  (at your option) any later version.
 
   This program is distributed in the hope that it will be useful, but
   WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -159,27 +145,26 @@ $ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
 
 * Download
 
-  - Browse Phoros source code via gitweb at
-    [[http://git.berlios.de/cgi-bin/gitweb.cgi?p=phoros;a=summary][Berlios]]
-    or at
-    [[http://github.com/trebb/phoros][Github]].
+  - Browse Phoros source code via gitweb at [[http://github.com/trebb/phoros][Github]].
 
-  - Browse source code of [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library, which is needed by Phoros.
+  - Browse source code of [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library, which is
+    needed by Phoros.
 
   - Get everything:
     #+BEGIN_SRC sh
-    $ git clone git://git.berlios.de/phoros
+    $ git clone git://github.com/trebb/phoros.git
     $ cd phoros
     $ git submodule init
     $ git submodule update
     #+END_SRC
 
-    The build process isn't perfect yet.  You'll (probably) need an x86-64 Debian
-    system with [[http://beta.quicklisp.org][Quicklisp]] installed on top of [[http://www.sbcl.org][SBCL]].
+    The build process isn't perfect yet.  You'll (probably) need an
+    x86-64 Debian system with [[http://beta.quicklisp.org][Quicklisp]] installed on top of [[http://www.sbcl.org][SBCL]].
 
 * Acknowledgements
 
-  - Phoros is implemented using [[http://sbcl.org][Steel Bank Common Lisp]], a Common Lisp implementation.
+  - Phoros is implemented using [[http://sbcl.org][Steel Bank Common Lisp]], a Common Lisp
+    implementation.
 
   - Communication with [[http://postgresql.org][PostgreSQL]] is provided by [[http://marijnhaverbeke.nl/postmodern/][Postmodern]].
 
@@ -200,14 +185,4 @@ $ ./phoros --server  --common-root=/some_path/where_i_put/my_raw_images/ \
 
   - [[http://www.openstreetmap.org][OpenStreetMap]] provides the map.  (Other map services can be used
     as well, though.)
-
-  - It's a pleasure to have this project hosted at
-    #+BEGIN_HTML:
-    <a href="http://developer.berlios.de/projects/phoros"
-    title="BerliOS Developer"> <img
-    style="vertical-align:middle"
-    src="http://developer.berlios.de/bslogo.php?group_id=12315"
-    width="124px" height="32px" border="0" alt="BerliOS Developer
-    Logo"></a>.
-    #+END_HTML:
 
