@@ -129,9 +129,10 @@
            (:p "Optional description of the current user point.  It is
            occasionally used to label representations of this point in
            streetmap and in images.")
-           (:p "If parts of it look like numbers, the leftmost such
-           part is automatically incremented during first click into
-           an image."))
+           (:p "It should contain a numeric part, possibly with
+           leading zeros, which will be incremented automatically to
+           make the attribute sets of points with otherwise identical
+           attributes unique."))
           :point-creation-date
           (who-ps-html
            (:p "Creation date of current user point.  Will be updated
