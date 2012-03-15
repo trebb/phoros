@@ -91,19 +91,32 @@ proxy configuration if Phoros is hidden behind a proxy.")
 (defparameter *user-point-creation-date-format* "IYYY-MM-DD HH24:MI:SS TZ"
   "SQL date format used for display and GeoJSON export of user points.")
 
+(defparameter *phoros-version*
+  (asdf:component-version (asdf:find-system :phoros))
+  "Phoros version as defined in system definition.")
+
+(defparameter *phoros-description*
+  (asdf:system-description (asdf:find-system :phoros))
+  "Phoros description as defined in system definition.")
+
+(defparameter *phoros-long-description*
+  (asdf:system-long-description (asdf:find-system :phoros))
+  "Phoros long-description as defined in system definition.")
+
+(defparameter *phoros-licence*
+  (asdf:system-licence (asdf:find-system :phoros))
+  "Phoros licence as defined in system definition.")
+
 (defun phoros-version (&key major minor revision)
   "Return version of this program, either one integer part as denoted by
 the key argument, or the whole dotted string."
-  (let* ((version-string
-          (handler-bind ((warning #'ignore-warnings))
-            (asdf:component-version (asdf:find-system :phoros))))
-         (version-components
-          (mapcar #'parse-integer
-                  (cl-utilities:split-sequence #\. version-string))))
+  (let ((version-components
+         (mapcar #'parse-integer
+                 (cl-utilities:split-sequence #\. *phoros-version*))))
     (cond (major (first version-components))
           (minor (second version-components))
           (revision (third version-components))
-          (t version-string))))
+          (t *phoros-version*))))
 
 (defun check-dependencies ()
   "Say OK if the necessary external dependencies are available."

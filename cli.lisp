@@ -464,11 +464,9 @@ given."
                          :remove-empty-subseqs t))
                     introduction-paragraphs))
            (cli:show-option-help options-specification)))
-    (format
-     *standard-output*
-     "~&Usage: phoros option[=value] ...~&~A~2&"
-     (handler-bind ((warning #'ignore-warnings))
-       (asdf:system-long-description (asdf:find-system :phoros))))
+    (format *standard-output*
+            "~&Usage: phoros option[=value] ...~&~A~2&"
+            *phoros-long-description*)
     (show-help-section
      nil nil
      "Options marked (*) are mutually exclusive and must come before
@@ -594,16 +592,13 @@ given."
   (cli:with-options (verbose)
     (case verbose
       (0
-       (format
-        *standard-output*
-        "~&~A~&" (phoros-version)))
+       (format *standard-output* "~&~A~&" (phoros-version)))
       (otherwise
        (format
         *standard-output*
         "~&~A version ~A~&  ~A version ~A~&  ~
          Proj4 library: ~A~&  PhoML version ~A~&"
-        (handler-bind ((warning #'ignore-warnings))
-          (asdf:system-description (asdf:find-system :phoros)))
+        *phoros-description*
         (phoros-version)
         (lisp-implementation-type) (lisp-implementation-version)
         (proj:version)
@@ -612,10 +607,7 @@ given."
 (defun cli:licence-action (&rest rest)
   "Print --licence boilerplate."
   (declare (ignore rest))
-  (format
-   *standard-output* "~&~A~&"
-   (handler-bind ((warning #'ignore-warnings))
-     (asdf:system-licence (asdf:find-system :phoros)))))
+  (format *standard-output* "~&~A~&" *phoros-licence*))
 
 (defun cli:check-db-action (&rest rest)
   "Tell us if databases are accessible."

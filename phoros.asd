@@ -21,7 +21,7 @@ interface.                              http://phoros.boundp.org"
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "12.8.2"
+  "12.8.3"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister
