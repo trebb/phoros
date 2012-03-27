@@ -198,6 +198,14 @@ session."
                         :where (:= 'presentation-project-name
                                    presentation-project-name))
                :single))))
+      
+      ;; TODO: remove the following line (which seems to function as a
+      ;; wakeup call of sorts)...
+      (get-dao 'sys-user-role 0 0)
+      ;; ...and make sure the following error doesn't occur any longer
+      ;; while accessing the HTTP server:
+      ;; #<POSTMODERN:DAO-CLASS PHOROS::SYS-USER-ROLE> cannot be printed readably.
+
       (cond
         ((null presentation-project-id)
          (setf (hunchentoot:return-code*) hunchentoot:+http-not-found+))

@@ -167,7 +167,7 @@
    (cursor
     :col-type (or db-null geometry)
     :accessor cursor
-    :documentation "Point; users work coordinate in streetmap last time they left Phoros."))
+    :documentation "Point; user's work coordinate in streetmap last time they left Phoros."))
   (:metaclass dao-class)
   (:keys user-id presentation-project-id))
 
