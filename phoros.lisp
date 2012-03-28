@@ -153,15 +153,18 @@ user password host &key (port 5432) use-ssl)."
   (declare (ignore acceptor))
   "phoros-session")
 
-(defun start-server (&key (proxy-root "phoros") (http-port 8080) address (common-root "/"))
+(defun start-server (&key (proxy-root "phoros") (http-port 8080) address
+                     (common-root "/"))
   "Start the presentation project server which listens on http-port
 at address.  Address defaults to all addresses of the local machine."
   (setf *phoros-server*
-        (make-instance 'hunchentoot:acceptor
+        (make-instance 'hunchentoot:easy-acceptor
                        :port http-port
                        :address address
-                       :access-logger #'log-http-access
-                       :message-logger #'log-hunchentoot-message))
+                       :document-root (ensure-directories-exist
+                                       "unexpected_html/")
+                       :error-template-directory (ensure-directories-exist
+                                                  "unexpected_html/errors/")))
   (setf hunchentoot:*session-max-time* (* 3600 24))
   (setf *proxy-root* proxy-root)
   (setf *common-root* common-root)
@@ -175,11 +178,6 @@ at address.  Address defaults to all addresses of the local machine."
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (register-sql-operators :2+-ary :&& :overlaps))
-
-(setf hunchentoot:*default-handler*
-      #'(lambda ()
-          "Http default response."
-          (setf (hunchentoot:return-code*) hunchentoot:+http-not-found+)))
 
 (hunchentoot:define-easy-handler phoros-handler ()
   "First HTTP contact: if necessary, check credentials, establish new

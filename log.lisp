@@ -116,8 +116,9 @@
        nil "~4,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D~@[~0F~]Z"
        year month date hour minute second remainder))))
 
-(defun log-http-access (&key return-code content content-length)
-  "Log HTTP access.  Use as :access-logger in a hunchentoot:accessor."
+(defmethod hunchentoot:acceptor-log-access :around
+    ((acceptor t) &key return-code content content-length)
+  "Log HTTP server access."
   (cl-log:log-message :access nil
                       (hunchentoot:remote-addr*)
                       (hunchentoot:header-in* :x-forwarded-for)
@@ -133,8 +134,8 @@
                       (hunchentoot:referer)
                       (hunchentoot:user-agent)))
 
-(defun log-hunchentoot-message (severity format-string &rest args)
-  "Log hunchentoot messages.  Use as :message-logger in a
-hunchentoot:accessor.  For severity, hunchentoot uses :info, :warning,
-and :error."
+(defmethod hunchentoot:acceptor-log-message :around
+    ((acceptor t) severity format-string &rest args)
+  "Log HTTP server messages.  For severity, hunchentoot uses :info,
+:warning, and :error."
   (cl-log:log-message severity "~?" format-string args))
