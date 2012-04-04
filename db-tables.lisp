@@ -149,6 +149,24 @@
                 :add :constraint "presentation-project-id-unique"
                 :unique 'presentation-project-id))
 
+(defclass sys-selectable-restrictions ()
+  ((restriction-id
+    :col-type text
+    :documentation "Short descriptive string; to be used for selection of restriction on client.")
+   (presentation-project-id
+    :col-type integer
+    :documentation "Presentation Project that is allowed to use the sql-clause.")
+   (sql-clause
+    :col-type text
+    :documentation "SQL clause suitable as an AND clause in aggregate view."))
+  (:metaclass dao-class)
+  (:keys restriction-id presentation-project-id)
+  (:documentation "User-selectable SQL AND clauses usable in the WHERE clause of aggregate view."))
+
+(deftable sys-selectable-restrictions
+  (!dao-def)
+  (!foreign 'sys-presentation-project 'presentation-project-id :on-delete :cascade :on-update :cascade))
+
 (defclass sys-user-role ()
   ((user-id
     :initarg :user-id
@@ -559,6 +577,7 @@ are used by all projects.  The database should probably be empty."
   (create-table 'sys-user)
   (create-table 'sys-acquisition-project)
   (create-table 'sys-presentation-project)
+  (create-table 'sys-selectable-restrictions)
   (create-table 'sys-user-role)
   (create-table 'sys-measurement)
   (create-table 'sys-presentation)
@@ -841,9 +860,12 @@ $$ LANGUAGE plpgsql;"
   "Define or redefine a bunch of dao-classes which can hold measuring
 data and which are connected to database tables named
 common-table-name plus type-specific prefix and suffix."
-  (let ((image-data-table-name (image-data-table-name common-table-name))
-        (point-data-table-name (point-data-table-name common-table-name))
-        (point-id-sequence-name (point-id-seq-name common-table-name)))
+  (let ((image-data-table-name
+         (image-data-table-name common-table-name))
+        (point-data-table-name
+         (point-data-table-name common-table-name))
+        (point-id-sequence-name
+         (point-id-seq-name common-table-name)))
     (eval
      `(defclass point-data (point-template)
         ((point-id
@@ -895,8 +917,10 @@ common-table-name plus type-specific prefix and suffix."
   "Define or redefine a dao-class which can hold user points and which
 is connected to a database table named presentation-project-name plus
 type-specific prefix and suffix."
-  (let ((user-point-table-name (user-point-table-name presentation-project-name))
-        (user-point-id-sequence-name (user-point-id-seq-name presentation-project-name)))
+  (let ((user-point-table-name
+         (user-point-table-name presentation-project-name))
+        (user-point-id-sequence-name
+         (user-point-id-seq-name presentation-project-name)))
     (eval
      `(defclass user-point (user-point-template)
         ((user-point-id

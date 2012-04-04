@@ -710,6 +710,48 @@
                          :success (lambda ()
                                     (stuff-user-point-comboboxes selectp))
                          :failure recommend-fresh-login)))))
+           
+       (defun stuff-restriction-select ()
+         "Stuff available restriction IDs into restriction-select."
+         (let ((response
+                (chain *json-parser*
+                       (read (@ *streetmap*
+                                restriction-select-choice-response
+                                response-text))))
+               (restriction-select-options
+                (chain document
+                       (get-element-by-id "restriction-select")
+                       options)))
+           (loop
+              for restriction in response
+              for i from 0
+              do (setf (elt restriction-select-options i)
+                       (new (chain (*option restriction)))))))
+
+       (defun request-restriction-select-choice ()
+         "Stuff available restriction IDs into restriction-select."
+         (setf (@ *streetmap* restriction-select-choice-response)
+               (chain
+                *open-layers
+                *Request
+                (*POST*
+                 (create :url (+ "/" +proxy-root+
+                                 "/lib/selectable-restrictions.json")
+                         :data nil
+                         :headers (create "Content-type" "text/plain")
+                         :success stuff-restriction-select
+                         :failure recommend-fresh-login)))))
+
+       (defun selected-restrictions ()
+         "Return list of restriction IDs selected by user."
+         (let ((restriction-select-options
+                (chain document
+                       (get-element-by-id "restriction-select")
+                       options)))
+           (loop
+              for restriction in restriction-select-options
+              when (@ restriction selected)
+              collect (@ restriction text))))
 
        (defun request-photos-after-click (event)
          "Handle the response to a click into *streetmap*; fetch photo
@@ -717,10 +759,11 @@
          (request-photos (chain *streetmap*
                                 (get-lon-lat-from-pixel (@ event xy)))))
 
-       (defun request-photos (lonlat)
+       (defun request-photos (&optional lonlat)
          "Fetch photo data for a point near lonlat.  Set or update
          streetmap cursor."
-         (setf (@ *streetmap* clicked-lonlat) lonlat)
+         (when lonlat
+             (setf (@ *streetmap* clicked-lonlat) lonlat))
          (if (checkbox-status-with-id "walk-p")
              (request-aux-data-linestring-for-point
               (@ *streetmap* clicked-lonlat))
@@ -758,7 +801,9 @@
                          (create :longitude (@ lonlat-geographic lon)
                                  :latitude (@ lonlat-geographic lat)
                                  :zoom (chain *streetmap* (get-zoom))
-                                 :count (lisp *number-of-images*))))))
+                                 :count (lisp *number-of-images*)
+                                 :selected-restriction-ids
+                                 (selected-restrictions))))))
            (chain *streetmap*
                   cursor-layer
                   (remove-all-features))
@@ -922,8 +967,8 @@
                    (clear-timeout (@ *cache-stuffer* cache-photo-timeout))
                    (setf (@ *cache-stuffer* cache-photo-timeout)
                          (set-timeout
-                          cache-photo   ;come back quickly in case
-                          500))))       ; photo is already in cache
+                          cache-photo     ;come back quickly in case
+                          500))))         ; photo is already in cache
              (hide-element-with-id "caching-indicator")))
 
        (defun draw-epipolar-line ()
@@ -2439,22 +2484,23 @@
             for i from 0 below (lisp *number-of-images*)
             do (initialize-image i))
          (add-help-events)
+         (request-restriction-select-choice)
          (chain *streetmap*
                 (zoom-to-extent
                  (if (lisp (stored-bbox))
                      (new (chain *open-layers
-                             *bounds
-                             (from-string (lisp (stored-bbox)))
-                             (transform +geographic+ +spherical-mercator+)))
+                                 *bounds
+                                 (from-string (lisp (stored-bbox)))
+                                 (transform +geographic+ +spherical-mercator+)))
                      +presentation-project-bounds+)))
-           (let ((stored-cursor (lisp (stored-cursor))))
-             (when stored-cursor
-               (request-photos
-                (new (chain *open-layers
-                            *lon-lat
-                            (from-string stored-cursor)
-                            (transform +geographic+
-                                       +spherical-mercator+)))))))))))
+         (let ((stored-cursor (lisp (stored-cursor))))
+           (when stored-cursor
+             (request-photos
+              (new (chain *open-layers
+                          *lon-lat
+                          (from-string stored-cursor)
+                          (transform +geographic+
+                                     +spherical-mercator+)))))))))))
 
 (pushnew (hunchentoot:create-regex-dispatcher
           (format nil "/phoros/lib/phoros-~A-\\S*-\\S*\.js"

@@ -416,6 +416,50 @@ current session."
    available."))
 
 (hunchentoot:define-easy-handler
+    (selectable-restrictions :uri "/phoros/lib/selectable-restrictions.json"
+                             :default-request-type :post)
+    ()
+  "Respond with a list of restrictions the user may chose from."
+  (assert-authentication)
+  (setf (hunchentoot:content-type*) "application/json")
+  (with-connection *postgresql-credentials*
+    (json:encode-json-to-string
+     (query
+      (:select 'restriction-id
+               :from 'sys-selectable-restrictions
+               :where (:= 'presentation-project-id
+                          (hunchentoot:session-value
+                            'presentation-project-id)))
+      :column))))
+
+(defun selected-restrictions (presentation-project-id selected-restriction-ids)
+  "Get from current database connection a list of restriction clauses
+belonging to presentation-project-id and ids from list
+selected-restriction-ids."
+  (query
+   (sql-compile
+    `(:select 'sql-clause
+      :from 'sys-selectable-restrictions
+      :where (:and (:= 'presentation-project-id
+                       ,presentation-project-id)
+                   (:or
+                    ,@(loop for i in selected-restriction-ids
+                           collect (list := 'restriction-id i))))))
+   :column))
+
+(defun sql-where-conjunction (sql-boolean-clauses)
+  "Parenthesize sql-boolean-clauses and concatenate them into a
+  string, separated by \"AND\".  Return \" TRUE \" if
+  sql-boolean-clauses is nil."
+  (if sql-boolean-clauses
+      (apply #'concatenate 'string (butlast (loop for i in sql-boolean-clauses
+                                               collect " ("
+                                               collect i
+                                               collect ") "
+                                               collect "AND")))
+      " TRUE "))
+
+(hunchentoot:define-easy-handler
     (nearest-image-data :uri "/phoros/lib/nearest-image-data"
                         :default-request-type :post)
     ()
@@ -448,6 +492,11 @@ wrapped in an array.  Wipe away any unfinished business first."
                         (max 13
                              (min 18 zoom))))))
            (point-form (format nil "POINT(~F ~F)" longitude latitude))
+           (selected-restrictions-conjunction
+            (sql-where-conjunction
+             (selected-restrictions presentation-project-id
+                                    (cdr (assoc :selected-restriction-ids
+                                                data)))))
            (nearest-footprint-centroid-query
             ;; Inserting the following into
             ;; image-data-with-footprints-query as a subquery would
@@ -487,7 +536,8 @@ wrapped in an array.  Wipe away any unfinished business first."
                             (:st_geomfromtext
                              ,point-form
                              ,*standard-coordinates*)
-                            ,snap-distance)))))
+                            ,snap-distance)
+                           (:raw ,selected-restrictions-conjunction)))))
                   'distance)
                  'centroids))
                1)))
@@ -507,11 +557,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                       collect  
                       `(:select
                         (:as (:st_distance 'coordinates
-                                           ;; (:st_geomfromtext
-                                           ;;  ,point-form
-                                           ;;  ,*standard-coordinates*)
-                                           ,nearest-footprint-centroid
-                                           )
+                                           ,nearest-footprint-centroid)
                              'distance)
                         'usable
                         'recorded-device-id        ;debug
@@ -547,7 +593,8 @@ wrapped in an array.  Wipe away any unfinished business first."
                          (:= 'presentation-project-id
                              ,presentation-project-id)
                          (:st_contains 'footprint
-                                       ,nearest-footprint-centroid)))))
+                                       ,nearest-footprint-centroid)
+                         (:raw ,selected-restrictions-conjunction)))))
                 'distance)
                ,count)))
            (image-data-without-footprints-query
@@ -599,19 +646,20 @@ wrapped in an array.  Wipe away any unfinished business first."
                                            (:st_geomfromtext
                                             ,point-form
                                             ,*standard-coordinates*)
-                                           ,snap-distance)))))
+                                           ,snap-distance)
+                              (:raw ,selected-restrictions-conjunction)))))
                 'distance)
                ,count)))
            (result
             (handler-case
                 (ignore-errors
                   (if nearest-footprint-centroid
-                      (logged-query
-                       "footprints are ready"
-                       image-data-with-footprints-query :alists)
-                      (logged-query
-                       "no footprints yet"
-                       image-data-without-footprints-query :alists)))
+                      (logged-query "footprints are ready"
+                                    image-data-with-footprints-query
+                                    :alists)
+                      (logged-query "no footprints yet"
+                                    image-data-without-footprints-query
+                                    :alists)))
               (superseded () nil))))
       (when *render-footprints-p*
         (setf
@@ -1485,6 +1533,11 @@ table."
                          :class "streetmap-vertical-strut")
                    (:div :id "streetmap-layer-switcher"
                          :class "streetmap-layer-switcher")
+                   (:select :id "restriction-select"
+                            :name "restriction-select"
+                            :size 2
+                            :multiple t
+                            :onchange (ps-inline (request-photos)))
                    (:div :id "streetmap-overview" :class "streetmap-overview")
                    (:div :id "streetmap-mouse-position"
                          :class "streetmap-mouse-position")

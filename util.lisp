@@ -59,8 +59,12 @@ tagged by the short string message-tag."
            (setf ,query-result
                  (etypecase (car ',args)
                    (list
-                    (query (sql-compile ',(car args))
-                           ,@(cdr args)))
+                    (typecase (caar ',args)
+                      (keyword          ;s-sql form
+                       (query (sql-compile ',(car args))
+                              ,@(cdr args)))
+                      (t       ;function (supposedly) returning string
+                       (query ,@args))))
                    (string
                     (query ,@args))
                    (symbol
