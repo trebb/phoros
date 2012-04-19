@@ -58,6 +58,7 @@
            :*store-images-and-points-options*
            :*start-server-options*
            :*presentation-project-options*
+           :*image-attribute-options*
            :*aux-view-options*
            :*user-points-options*
            :*user-options*
@@ -92,6 +93,9 @@
            :create-presentation-project-action
            :delete-presentation-project-action
            :add-to-presentation-project-action
+           :create-image-attribute-action
+           :delete-image-attribute-action
+           :list-image-attribute-action
            :remove-from-presentation-project-action
            :redefine-trigger-function-action
            :create-aux-view-action
@@ -102,4 +106,5 @@
            :list-user-action
            :list-presentation-project-action
            :format-table
+           :split-last-row
            :server-action))

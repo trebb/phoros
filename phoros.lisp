@@ -426,7 +426,7 @@ current session."
     (json:encode-json-to-string
      (query
       (:select 'restriction-id
-               :from 'sys-selectable-restrictions
+               :from 'sys-selectable-restriction
                :where (:= 'presentation-project-id
                           (hunchentoot:session-value
                             'presentation-project-id)))
@@ -439,7 +439,7 @@ selected-restriction-ids."
   (query
    (sql-compile
     `(:select 'sql-clause
-      :from 'sys-selectable-restrictions
+      :from 'sys-selectable-restriction
       :where (:and (:= 'presentation-project-id
                        ,presentation-project-id)
                    (:or

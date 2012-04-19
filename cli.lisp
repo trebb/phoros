@@ -308,6 +308,23 @@
      :type string
      :documentation "Path to a file containing the body of a PL/pgSQL trigger function.  Any ocurrence of the strings ~0@*~A and ~1@*~A will be replaced by the name of the user point table/of the user line table respectively.  Omit this option to reset that function to just emit a notice.")))
 
+(defparameter cli:*image-attribute-options*
+  '(("create-image-attribute"
+     :type string :action #'cli:create-image-attribute-action
+     :documentation "(*) Store, for the specified presentation project, a PostgreSQL expression an HTTP client user can use to select some subset of the images available.")
+    ("delete-image-attribute"
+     :type string :action #'cli:delete-image-attribute-action
+     :documentation "(*) Delete from specified presentation project an image restriction identified by its tag.")
+    ("list-image-attribute"
+     :type string :optional t :action #'cli:list-image-attribute-action
+     :documentation "(*) List restricting PostgreSQL expressions for one presentation project if specified, or for all presentation projects if not.  If --tag is specified, list only matching expressions.")
+    ("tag"
+     :type string
+     :documentation "Identifying tag for the restriction.  Should be both short and descriptive as it is shown as a selectable item on HTTP client.")
+    ("sql-clause"
+     :type string
+     :documentation "Boolean PostgreSQL expression, to be used as an AND clause.  Should yield FALSE for images that are to be excluded.")))
+
 (defparameter cli:*aux-view-options*
   '(("create-aux-view"
      :type string :action #'cli:create-aux-view-action
@@ -366,6 +383,7 @@
           cli:*store-images-and-points-options*
           cli:*start-server-options*
           cli:*presentation-project-options*
+          cli:*image-attribute-options*
           cli:*aux-view-options*
           cli:*user-points-options*
           cli:*user-options*))
@@ -555,6 +573,27 @@ given."
      "Presentation projects have a table of user points and a table of
      user lines.  The former is associated with a trigger which may be
      defined to induce writing into the latter.")
+    (show-help-section
+     cli:*image-attribute-options*
+     "Define Selectable Attributes For Images."
+     "HTTP client users can select classes of images defined here.
+     Attributes are defined as PostgreSQL expressions and may use the
+     following column names:"
+     ;; ... which are obtainable like so:
+     ;;   SELECT column_name
+     ;;   FROM information_schema.columns
+     ;;   WHERE table_name = 'dat_<acquisition-project>_aggregate';
+     "recorded_device_id, device_stage_of_life_id, generic_device_id,
+     random, presentation_project_id, directory, measurement_id,
+     filename, byte_position, point_id, footprint,
+     footprint_device_stage_of_life_id, trigger_time, coordinates,
+     longitude, latitude, ellipsoid_height, cartesian_system, east_sd,
+     north_sd, height_sd, roll, pitch, heading, roll_sd, pitch_sd,
+     heading_sd, usable, sensor_width_pix, sensor_height_pix,
+     pix_size, bayer_pattern, color_raiser, mounting_angle, dx, dy,
+     dz, omega, phi, kappa, c, xh, yh, a1, a2, a3, b1, b2, c1, c2, r0,
+     b_dx, b_dy, b_dz, b_rotx, b_roty, b_rotz, b_ddx, b_ddy, b_ddz,
+     b_drotx, b_droty, b_drotz, nx, ny, nz, d.")
     (show-help-section
      cli:*aux-view-options*
      "Connect A Presentation Project To A Table Of Auxiliary Data"
@@ -755,9 +794,9 @@ given."
                     :from
                     'sys-acquisition-project :natural :left-join 'sys-measurement)
                    'common-table-name 'measurement-id)))))
-        (cli:format-table
-         *standard-output* " | " content
-         "Acquisition Project" "ID" "Meas. ID" "Directory" "Cartesian CS")))))
+        (cli:format-table *standard-output* content
+                          '("Acquisition Project" "ID" "Meas. ID"
+                            "Directory" "Cartesian CS"))))))
 
 (defun cli:store-images-and-points-action (common-table-name)
   "Put data into the data tables."
@@ -1025,6 +1064,88 @@ trigger-time to stdout."
      measurement-id acquisition-project
      presentation-project-name database host port)))
 
+(defun cli:create-image-attribute-action (presentation-project-name)
+  "Store a boolean SQL expression."
+  (cli:with-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          tag sql-clause)
+    (declare (ignore sql-clause))
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (muffle-postgresql-warnings)
+      (multiple-value-bind (old-image-attribute
+                            number-of-selected-images
+                            total-number-of-images)
+          (apply #'create-image-attribute
+                 presentation-project-name
+                 :allow-other-keys t
+                 (cli:remaining-options))
+        (cl-log:log-message
+         :db-dat
+         "~:[Stored a fresh~;Updated an~] ~
+          image attribute, tagged ~A, for presentation project ~A ~
+          in database ~A at ~A:~D~
+          ~0@*~@[, replacing the SQL clause previously stored there of ~S~].  ~
+          ~6@*The new SQL clause currently selects ~D out of ~D images."
+         old-image-attribute
+         tag
+         presentation-project-name
+         database host port
+         number-of-selected-images total-number-of-images)))))
+
+(defun cli:delete-image-attribute-action (presentation-project-name)
+  "Remove SQL expression specified by presentation-project-name and tag."
+  (cli:with-options (host port database (user "") (password "") use-ssl
+                          log-dir
+                          tag)
+    (launch-logger log-dir)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (muffle-postgresql-warnings)
+      (let ((replaced-sql-clause
+             (apply #'delete-image-attribute
+                    presentation-project-name
+                    :allow-other-keys t
+                    (cli:remaining-options))))
+        (cl-log:log-message
+         :db-dat
+         "~:[Tried to delete a nonexistent~;Deleted~] ~
+            image attribute tagged ~A from ~
+            presentation project ~A in database ~A at ~A:~D.  ~
+            ~0@*~@[Its SQL clause, now deleted, was ~S~]"
+         replaced-sql-clause tag presentation-project-name
+         database host port)))))
+
+(defun cli:list-image-attribute-action (&optional presentation-project-name)
+  "List boolean SQL expressions."
+  (cli:with-options (host port database (user "") (password "") use-ssl
+                          tag)
+    (with-connection (list database user password host :port port
+                           :use-ssl (s-sql:from-sql-name use-ssl))
+      (let* ((presentation-project-name
+              (if (stringp presentation-project-name)
+                  presentation-project-name
+                  'presentation-project-name))
+             (restriction-id (or tag 'restriction-id))
+             (content
+              (query
+               (:order-by
+                (:select 'presentation-project-name
+                         'sys-selectable-restriction.presentation-project-id
+                         'restriction-id
+                         'sql-clause
+                 :from 'sys-selectable-restriction
+                 :natural :left-join 'sys-presentation-project
+                 :where (:and (:= presentation-project-name
+                                  'presentation-project-name)
+                              (:= restriction-id
+                                  'restriction-id)))
+                'presentation-project-name 'restriction-id))))
+        (cli:format-table *standard-output* content
+                          '("Presentation Project" "ID" "Tag" "SQL-clause")
+                           :column-widths '(nil nil nil 60))))))
+
 (defun cli:redefine-trigger-function-action (presentation-project-name)
   "Recreate an SQL trigger function that is fired on changes to the
 user point table, and fire it once."
@@ -1257,9 +1378,9 @@ projects."
                                      'sys-presentation-project.presentation-project-id)
                                  (:= 'sys-user.user-id 'sys-user-role.user-id)))
                    'user-name)))))
-        (cli:format-table
-         *standard-output* " | " content
-         "User" "ID" "Password" "Full Name" "Presentation Project" "ID" "Role")))))
+        (cli:format-table *standard-output* content
+                          '("User" "ID" "Password" "Full Name"
+                            "Presentation Project" "ID" "Role"))))))
 
 (defun cli:list-presentation-project-action (&optional presentation-project)
   "List content of presentation projects."
@@ -1310,32 +1431,63 @@ projects."
                               'sys-acquisition-project.acquisition-project-id)))
                    'presentation-project-name
                    'sys-presentation.measurement-id)))))
-        (cli:format-table
-         *standard-output* " | " content
-         "Presentation Project" "ID" "Meas. ID" "Acquisition Project" "ID")))))
-         
-(defun cli:format-table (destination column-separator content
-                     &rest column-headers)
+        (cli:format-table *standard-output* content
+                          '("Presentation Project" "ID" "Meas. ID"
+                            "Acquisition Project" "ID"))))))
+
+(defun cli:format-table (destination content column-headers &key
+                         (column-separator " | ")
+                         (header-separator #\-)
+                         (column-widths (mapcar (constantly nil)
+                                                column-headers)))
   "Print content (a list of lists) to destination."
-  (let* ((rows
-          (append (list column-headers) (list ()) content))
+  (let* ((rows (append (list column-headers)
+                       (list (mapcar (constantly "") column-headers))
+                       content))
          (number-of-rows (length column-headers))
          (widths
           (loop
-             for column from 0 below number-of-rows collect
-               (loop
-                  for row in rows
-                  maximize (length (format nil "~A" (nth column row)))))))
+             for column from 0 below number-of-rows
+             collect (or (nth column column-widths)
+                         (loop
+                            for row in rows
+                            maximize (length (format nil "~A" (nth column row))))))))
     (setf (second rows)
           (loop
              for width in widths collect
-               (make-string width :initial-element #\-)))
+             (make-string width :initial-element header-separator)))
+    (setf rows
+          (loop
+             for row in rows
+             for i from 0
+             nconc (cli:split-last-row (list row) widths)))
     (loop 
        for row in rows do
-         (format destination "~&~{~VA~1,#^~A~}~%"
-                 (loop
-                    for width in widths and field in row
-                    collect width collect field collect column-separator)))))
+       (format destination "~&~{~VA~1,#^~A~}~%"
+               (loop
+                  for width in widths and field in row
+                  collect width collect field collect column-separator)))))
+
+(defun cli:split-last-row (rows column-widths)
+  "If necessary, split fields of the last element of rows whose width
+exceeds the respective column-width over multiple rows."
+  (let ((last-row (mapcar #'(lambda (x) (format nil "~A" x))
+                          (car (last rows)))))
+    (if (notany #'(lambda (field width) (> (length field) width))
+                last-row
+                column-widths)
+        rows
+        (loop
+           for field in last-row
+           for column-width in column-widths
+           collect (subseq field 0 (min column-width (length field)))
+           into penultimate-row
+           collect (subseq field (min column-width (length field)))
+           into lowest-row
+           finally (return (nconc (butlast rows)
+                                  (list penultimate-row)
+                                  (cli:split-last-row (list lowest-row)
+                                                  column-widths)))))))
 
 (defun cli:server-action (&rest rest)
   "Start the HTTP server."

@@ -149,21 +149,25 @@
                 :add :constraint "presentation-project-id-unique"
                 :unique 'presentation-project-id))
 
-(defclass sys-selectable-restrictions ()
+(defclass sys-selectable-restriction ()
   ((restriction-id
     :col-type text
+    :initarg :restriction-id
     :documentation "Short descriptive string; to be used for selection of restriction on client.")
    (presentation-project-id
     :col-type integer
+    :initarg :presentation-project-id
     :documentation "Presentation Project that is allowed to use the sql-clause.")
    (sql-clause
     :col-type text
+    :initarg :sql-clause
+    :reader sql-clause
     :documentation "SQL clause suitable as an AND clause in aggregate view."))
   (:metaclass dao-class)
-  (:keys restriction-id presentation-project-id)
+  (:keys presentation-project-id restriction-id)
   (:documentation "User-selectable SQL AND clauses usable in the WHERE clause of aggregate view."))
 
-(deftable sys-selectable-restrictions
+(deftable sys-selectable-restriction
   (!dao-def)
   (!foreign 'sys-presentation-project 'presentation-project-id :on-delete :cascade :on-update :cascade))
 
@@ -570,6 +574,15 @@ connected to match."
            Phoros, or use Phoros version ~2:*~D.x.x."
           (phoros-db-major-version) (phoros-version :major t)))
 
+(defun presentation-project-id-from-name (presentation-project-name)
+  "Get from current database the presentation-project-id associated
+with presentation-project-name.  Signal error if there isn't any."
+  (let ((presentation-project (get-dao 'sys-presentation-project presentation-project-name)))
+    (assert presentation-project ()
+            "There is no presentation project called ~A."
+            presentation-project-name)
+    (presentation-project-id presentation-project)))
+
 (defun create-sys-tables ()
   "Create in current database a set of sys-* tables, i.e. tables that
 are used by all projects.  The database should probably be empty."
@@ -577,7 +590,7 @@ are used by all projects.  The database should probably be empty."
   (create-table 'sys-user)
   (create-table 'sys-acquisition-project)
   (create-table 'sys-presentation-project)
-  (create-table 'sys-selectable-restrictions)
+  (create-table 'sys-selectable-restriction)
   (create-table 'sys-user-role)
   (create-table 'sys-measurement)
   (create-table 'sys-presentation)
@@ -1395,6 +1408,84 @@ wasn't any."
        (:drop-sequence :if-exists (user-point-id-seq-name project-name)))
       (execute
        (:drop-table :if-exists (user-line-table-name project-name))))))
+
+(defun* create-image-attribute (presentation-project-name
+                               &mandatory-key tag sql-clause)
+  "Store a boolean SQL expression into current database.  Return SQL
+expression previously stored for presentation-project-name and tag if
+any; return nil otherwise.  Second return value is the number of
+images covered by the SQL expression, and third return value is the
+total number of images in presentation project."
+  (assert-phoros-db-major-version)
+  (let* ((presentation-project-id
+          (presentation-project-id-from-name presentation-project-name))
+         (old-selectable-restriction
+          (get-dao 'sys-selectable-restriction presentation-project-id tag))
+         (common-table-names
+          (common-table-names presentation-project-id))
+         (selected-restrictions-conjunction
+          (sql-where-conjunction (list sql-clause)))
+         (counting-selected-query
+          (sql-compile
+           `(:select
+             (:sum count)
+             :from
+             (:as (:union
+                   ,@(loop
+                        for common-table-name in common-table-names
+                        for aggregate-view-name
+                        = (aggregate-view-name common-table-name)
+                        collect  
+                        `(:select
+                          (:as (:count '*) 'count)
+                          :from
+                          ',aggregate-view-name
+                          :where
+                          (:and (:= 'presentation-project-id
+                                    ,presentation-project-id)
+                                (:raw ,selected-restrictions-conjunction)))))
+                  'count))))
+         (counting-total-query
+          (sql-compile
+           `(:select
+             (:sum count)
+             :from
+             (:as (:union
+                   ,@(loop
+                        for common-table-name in common-table-names
+                        for aggregate-view-name
+                        = (aggregate-view-name common-table-name)
+                        collect  
+                        `(:select
+                          (:as (:count '*) 'count)
+                          :from
+                          ',aggregate-view-name
+                          :where
+                          (:= 'presentation-project-id
+                              ,presentation-project-id))))
+                  'count))))
+         (number-of-selected-images (query counting-selected-query :single!))
+         (total-number-of-images (query counting-total-query :single!)))
+    (save-dao (make-instance 'sys-selectable-restriction
+                             :presentation-project-id presentation-project-id
+                             :restriction-id tag :sql-clause sql-clause))
+    (values
+     (when old-selectable-restriction (sql-clause old-selectable-restriction))
+     number-of-selected-images
+     total-number-of-images)))
+
+(defun* delete-image-attribute (presentation-project-name &mandatory-key tag)
+  "Delete SQL expression stored with tag under
+presentation-project-name from current database.  Return the SQL
+expression deleted if there was any; return nil otherwise."
+  (assert-phoros-db-major-version)
+  (let ((selectable-restriction
+         (get-dao 'sys-selectable-restriction
+                  (presentation-project-id-from-name presentation-project-name)
+                  tag)))
+    (when selectable-restriction
+      (delete-dao selectable-restriction)
+      (sql-clause selectable-restriction))))
 
 (defun* create-user (name &key
                           presentation-projects
