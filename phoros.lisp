@@ -419,17 +419,19 @@ current session."
     (selectable-restrictions :uri "/phoros/lib/selectable-restrictions.json"
                              :default-request-type :post)
     ()
-  "Respond with a list of restrictions the user may chose from."
+  "Respond with a list of restrictions the user may choose from."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
   (with-connection *postgresql-credentials*
     (json:encode-json-to-string
      (query
-      (:select 'restriction-id
-               :from 'sys-selectable-restriction
-               :where (:= 'presentation-project-id
-                          (hunchentoot:session-value
+      (:order-by
+       (:select 'restriction-id
+                :from 'sys-selectable-restriction
+                :where (:= 'presentation-project-id
+                           (hunchentoot:session-value
                             'presentation-project-id)))
+       'restriction-id)
       :column))))
 
 (defun selected-restrictions (presentation-project-id selected-restriction-ids)
@@ -452,7 +454,8 @@ selected-restriction-ids."
   string, separated by \"AND\".  Return \" TRUE \" if
   sql-boolean-clauses is nil."
   (if sql-boolean-clauses
-      (apply #'concatenate 'string (butlast (loop for i in sql-boolean-clauses
+      (apply #'concatenate 'string (butlast (loop
+                                               for i in sql-boolean-clauses
                                                collect " ("
                                                collect i
                                                collect ") "
@@ -1533,9 +1536,13 @@ table."
                          :class "streetmap-vertical-strut")
                    (:div :id "streetmap-layer-switcher"
                          :class "streetmap-layer-switcher")
+                   (:button :id "unselect-all-restrictions-button"
+                            :type "button"
+                            :onclick (ps-inline (unselect-all-restrictions))
+                            "clear" :br "all")
                    (:select :id "restriction-select"
                             :name "restriction-select"
-                            :size 2
+                            :size 3
                             :multiple t
                             :onchange (ps-inline (request-photos)))
                    (:div :id "streetmap-overview" :class "streetmap-overview")

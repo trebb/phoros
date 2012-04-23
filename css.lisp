@@ -298,21 +298,42 @@ button, select {
     cursor: pointer;
     color: white; 
 }
+#unselect-all-restrictions-button {
+    font-size: smaller;
+    width: 33px;
+    height: 42px;
+    padding: 0px;
+    margin-left: 5px;
+    margin-top: 5px;
+    float: left;
+}
+#restriction-select {
+    font-family: 'andale mono', 'lucida console', monospace;
+    font-size: small;
+    width: 157px;
+    height: 42px;
+    margin-left: 0px;
+    margin-top: 5px;
+    padding: 0px;
+    border-width: 2px;
+    float: left;
+}
 .dataLayersDiv {
     cursor: pointer;            /*TODO: doesn't work*/
 }
 .streetmap-vertical-strut {
     float: right;
-    height: 174px;
+    height: 177px;
     width: px;
     background-color: black;
 }
 .streetmap-mouse-position {
     font-family: 'andale mono', 'lucida console', monospace;
+    font-size: small;
     color: white;
     clear: both;
     float: left;
-    height: 18px;
+    height: 15px;
     margin-left: 5px;
 }
 .streetmap-overview {

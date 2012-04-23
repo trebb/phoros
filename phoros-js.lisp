@@ -753,6 +753,15 @@
               when (@ restriction selected)
               collect (@ restriction text))))
 
+       (defun unselect-all-restrictions ()
+         "Clear any selected restrictions."
+         (loop
+            for option across (chain document
+                                     (get-element-by-id "restriction-select")
+                                     options)
+            do (setf (@ option selected) f))
+         (request-photos))
+
        (defun request-photos-after-click (event)
          "Handle the response to a click into *streetmap*; fetch photo
          data.  Set or update streetmap cursor."
