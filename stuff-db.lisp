@@ -604,9 +604,9 @@ don't exist in DB."
        for description = (cdr (assoc :description properties))
        for numeric-description = (cdr (assoc :numeric-description properties))
        for creation-date = (cdr (assoc :creation-date properties))
-       for stdx-global = (cdr (assoc :stdx-global properties))
-       for stdy-global = (cdr (assoc :stdy-global properties))
-       for stdz-global = (cdr (assoc :stdz-global properties))
+       ;; for stdx-global = (cdr (assoc :stdx-global properties))
+       ;; for stdy-global = (cdr (assoc :stdy-global properties))
+       ;; for stdz-global = (cdr (assoc :stdz-global properties))
        for input-size = (cdr (assoc :input-size properties))
        for aux-numeric = (cdr (assoc :aux-numeric properties))
        for aux-text = (cdr (assoc :aux-text properties))
@@ -637,9 +637,9 @@ don't exist in DB."
                          (:= (:to-char 'creation-date
                                        *user-point-creation-date-format*)
                              creation-date)
-                         (:= 'stdx-global stdx-global)
-                         (:= 'stdy-global stdy-global)
-                         (:= 'stdz-global stdz-global)
+                         ;; (:= 'stdx-global stdx-global)
+                         ;; (:= 'stdy-global stdy-global)
+                         ;; (:= 'stdz-global stdz-global)
                          (:= 'input-size input-size)
                          (:raw aux-numeric-comparison)
                          (:raw aux-text-comparison))))
@@ -668,9 +668,9 @@ don't exist in DB."
                     'description ,description
                     'numeric-description ,numeric-description
                     'creation-date ,creation-date
-                    'stdx-global ,stdx-global
-                    'stdy-global ,stdy-global
-                    'stdz-global ,stdz-global
+                    ;; 'stdx-global ,stdx-global
+                    ;; 'stdy-global ,stdy-global
+                    ;; 'stdz-global ,stdz-global
                     'input-size ,input-size
                     'aux-numeric ,(if aux-numeric
                                       (apply #'vector aux-numeric)

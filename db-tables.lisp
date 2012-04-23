@@ -773,18 +773,18 @@ $$ LANGUAGE plpgsql;"
    (coordinates
     :col-type (or db-null geometry)
     :documentation "Geographic coordinates.")
-   (stdx-global
-    :initarg :stdx-global
-    :col-type double-precision
-    :documentation "Component of standard deviation, in metres.")
-   (stdy-global
-    :initarg :stdy-global
-    :col-type double-precision
-    :documentation "Component of standard deviation, in metres.")
-   (stdz-global
-    :initarg :stdz-global
-    :col-type double-precision
-    :documentation "Component of standard deviation, in metres.")
+   ;; (stdx-global
+   ;;  :initarg :stdx-global
+   ;;  :col-type double-precision
+   ;;  :documentation "Component of standard deviation, in metres.")
+   ;; (stdy-global
+   ;;  :initarg :stdy-global
+   ;;  :col-type double-precision
+   ;;  :documentation "Component of standard deviation, in metres.")
+   ;; (stdz-global
+   ;;  :initarg :stdz-global
+   ;;  :col-type double-precision
+   ;;  :documentation "Component of standard deviation, in metres.")
    (input-size
     :initarg :input-size
     :col-type integer

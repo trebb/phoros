@@ -810,9 +810,9 @@ ingredients for the URLs of the 256 nearest images."
          (longitude (cdr (assoc :longitude data)))
          (latitude (cdr (assoc :latitude data)))
          (ellipsoid-height (cdr (assoc :ellipsoid-height data)))
-         (stdx-global (cdr (assoc :stdx-global data)))
-         (stdy-global (cdr (assoc :stdy-global data)))
-         (stdz-global (cdr (assoc :stdz-global data)))
+         ;; (stdx-global (cdr (assoc :stdx-global data)))
+         ;; (stdy-global (cdr (assoc :stdy-global data)))
+         ;; (stdz-global (cdr (assoc :stdz-global data)))
          (input-size (cdr (assoc :input-size data)))
          (attribute (cdr (assoc :attribute data)))
          (description (cdr (assoc :description data)))
@@ -842,9 +842,9 @@ ingredients for the URLs of the 256 nearest images."
                                    'numeric-description numeric-description
                                    'creation-date 'current-timestamp
                                    'coordinates (:st_geomfromewkt point-form)
-                                   'stdx-global stdx-global
-                                   'stdy-global stdy-global
-                                   'stdz-global stdz-global
+                                   ;; 'stdx-global stdx-global
+                                   ;; 'stdy-global stdy-global
+                                   ;; 'stdz-global stdz-global
                                    'input-size input-size
                                    'aux-numeric aux-numeric
                                    'aux-text aux-text)))
@@ -1286,7 +1286,7 @@ and the number of points returned."
                (:as (:st_y 'coordinates) 'y)
                (:as (:st_z 'coordinates) 'z)
                (:as 'user-point-id 'id) ;becomes fid in OpenLayers
-               'stdx-global 'stdy-global 'stdz-global
+               ;; 'stdx-global 'stdy-global 'stdz-global
                'input-size
                'attribute 'description 'numeric-description
                'user-name
@@ -1770,7 +1770,7 @@ data (ex: points too far apart)."
                       :source-cs cartesian-system))
          (global-point-for-display ;points geographic cs, degrees; std deviations in cartesian cs
           (pairlis '(:longitude :latitude :ellipsoid-height
-                     :stdx-global :stdy-global :stdz-global
+                     ;; :stdx-global :stdy-global :stdz-global
                      :input-size)
                    (list
                     (proj:radians-to-degrees
@@ -1778,9 +1778,9 @@ data (ex: points too far apart)."
                     (proj:radians-to-degrees
                      (second global-point-geographic-radians))
                     (third global-point-geographic-radians)
-                    (cdr (assoc :stdx-global global-point-cartesian))
-                    (cdr (assoc :stdy-global global-point-cartesian))
-                    (cdr (assoc :stdz-global global-point-cartesian))
+                    ;; (cdr (assoc :stdx-global global-point-cartesian))
+                    ;; (cdr (assoc :stdy-global global-point-cartesian))
+                    ;; (cdr (assoc :stdz-global global-point-cartesian))
                     number-of-active-points)))
          (image-coordinates
           (loop
