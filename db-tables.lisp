@@ -1464,8 +1464,14 @@ total number of images in presentation project."
                           (:= 'presentation-project-id
                               ,presentation-project-id))))
                   'count))))
-         (number-of-selected-images (query counting-selected-query :single!))
-         (total-number-of-images (query counting-total-query :single!)))
+         (number-of-selected-images
+          (if common-table-names ;otherwise: presentation-project is empty
+              (query counting-selected-query :single!)
+              0))
+         (total-number-of-images
+          (if common-table-names ;otherwise: presentation-project is empty
+              (query counting-total-query :single!)
+              0)))
     (save-dao (make-instance 'sys-selectable-restriction
                              :presentation-project-id presentation-project-id
                              :restriction-id tag :sql-clause sql-clause))
