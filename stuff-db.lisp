@@ -251,12 +251,12 @@ number."
   "Fallback in case *time-steps-history-url* is unavailable.")
 
 (let ((leap-second-months
-       (pairlis '("Jan." "Feb." "March" "Apr." "May" "Jun."
-                  "Jul." "Aug." "Sept." "Oct." "Nov." "Dec.")
+       (pairlis '("Jan" "Feb" "March" "Apr" "May" "Jun"
+                  "Jul" "Aug" "Sept" "Oct" "Nov" "Dec")
                 '(1 2 3 4 5 6 7 8 9 10 11 12))))
-  ;; Month names as used in
+  ;; Month names (sans any `.') as used in
   ;; http://hpiers.obspm.fr/eoppc/bul/bulc/TimeSteps.history."
-  (defun initialize-leap-seconds () ; TODO: Security hole: read-from-string
+  (defun initialize-leap-seconds ()
     (handler-case
         (multiple-value-bind
               (body status-code headers uri stream must-close reason-phrase)
@@ -273,34 +273,46 @@ number."
       (error (e)
         (cl-log:log-message
          :warning
-         "Couldn't get the latest leap seconds information from ~A. (~A)  Falling back to cached data in ~A."
+         "Couldn't get the latest leap seconds information from ~A. (~A)  ~
+          Falling back to cached data in ~A."
          *time-steps-history-url* e *time-steps-history-file*)))
     (with-open-file (stream *time-steps-history-file*
                             :direction :input :if-does-not-exist :error)
-      (loop for time-record = (string-trim " 	" (read-line stream))
-         until (equal 1980 (read-from-string time-record nil)))
-      (setf
-       *leap-seconds*
-       (loop for time-record = (string-trim " s	" (read-line stream))
-          with leap = nil and leap-date = nil
-          until (string-equal (subseq time-record 1 20)
-                              (make-string 19 :initial-element #\-))
-          do (with-input-from-string (line time-record)
-               (let ((year (read line))
-                     (month (cdr (assoc
-                                  (read line)
-                                  leap-second-months
-                                  :test #'string-equal)))
-                     (date (read line))
-                     (sign (read line))
-                     (seconds (read line)))
-                 (setf leap-date (encode-universal-time 0 0 0 date month year 0)
-                       leap (if (eq sign '-) (- seconds) seconds))))
-          sum leap into leap-sum
-          collect leap-date into leap-dates
-          collect leap-sum into leap-sums
-          finally (return (sort (pairlis leap-dates leap-sums) #'<
-                                :key #'car)))))))
+      (let ((leap-second-records
+             (sort                      ;just in case
+              (loop
+                 for raw-time-record = (read-line stream nil nil)
+                 while raw-time-record
+                 for (raw-year raw-month raw-date raw-sign raw-seconds)
+                   = (cl-utilities:split-sequence
+                      #\Space
+                      (nsubstitute #\Space #\Tab raw-time-record)
+                      :remove-empty-subseqs t)
+                 for year = (when raw-year
+                              (parse-integer raw-year :junk-allowed t))
+                 for month = (when raw-month
+                               (cdr (assoc (string-trim "." raw-month)
+                                           leap-second-months
+                                           :test #'string-equal)))
+                 for date = (when raw-date
+                              (parse-integer raw-date :junk-allowed t))
+                 for sign = (when raw-sign
+                              (if (string-equal raw-sign "-") -1 1))
+                 for seconds = (when raw-seconds
+                                 (parse-integer raw-seconds :junk-allowed t))
+                 when (and year (< 1980 year))
+                 collect (list (encode-universal-time 0 0 0 date month year 0)
+                               (* sign seconds)))
+              #'<
+              :key #'car)))
+        (setf *leap-seconds*
+              (loop
+                 for (leap-date leap) in leap-second-records
+                 sum leap into leap-sum
+                 collect leap-date into leap-dates
+                 collect leap-sum into leap-sums
+                 finally
+                   (return (reverse (pairlis leap-dates leap-sums)))))))))
 
 (defparameter *gps-epoch* (encode-universal-time 0 0 0 6 1 1980 0))
 (defparameter *unix-epoch* (encode-universal-time 0 0 0 1 1 1970 0))
