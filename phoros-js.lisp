@@ -269,6 +269,20 @@
           data-layers-div
           (who-ps-html
            (:p "Toggle visibility of data layers."))
+          :unselect-all-restrictions-button
+          (who-ps-html
+           (:h3 "Image Restrictions")
+           (:p "Remove all image restrictions."))
+          :restriction-select
+          (who-ps-html
+           (:h3 "Image Restrictions")
+           (:p "Select one ore more of the restrictions in order to
+           consider only a subset of the images available.  No
+           selection at all means no restriction.")
+           (:p "Shift-click selects a range of restrictions,
+           control-click selects or unselects a particular
+           restriction, click selects a restriction unselecting
+           anything else."))
           :streetmap-overview
           (who-ps-html
            (:p "Click to re-center streetmap, or drag the red
