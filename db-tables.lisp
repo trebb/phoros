@@ -755,8 +755,8 @@ $$ LANGUAGE plpgsql;"
     :col-type (or db-null ;when store-user-points is fed an unknown user-name
                   integer)
     :documentation "User who stored this point.")
-   (attribute
-    :initarg :attribute
+   (kind
+    :initarg :kind
     :col-type text
     :documentation "Class of this user point.")
    (description

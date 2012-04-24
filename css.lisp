@@ -178,14 +178,14 @@ button, select {
     height: 16px;
     float: right;
 }
-#point-attribute {
+#point-kind {
     float: left;
     width: 86px;
 }
-#point-attribute-select {
+#point-kind-select {
     width: 86px;
 }
-#point-attribute-input {
+#point-kind-input {
     width: 66px;
 }
 #finish-point-button {

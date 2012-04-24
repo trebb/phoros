@@ -87,9 +87,10 @@
            (:p "Delete current point."))
           :finish-point-button
           (who-ps-html
-           (:p "Store user point with its attribute,
-           numeric-description, description, and auxiliary data into
-           database; warn if the given set of attributes isn't unique."))
+           (:p "Store user point with its attributes kind,
+           numeric-description and description, and with its auxiliary
+           data into database; warn if the given set of attributes
+           isn't unique."))
           :suggest-unique-button
           (who-ps-html
            (:h3 "Non-unique set of user point attributes")
@@ -100,10 +101,10 @@
           :force-duplicate-button
           (who-ps-html
            (:h3 "Non-unique set of user point attributes")
-           (:p "Store user point with its attribute,
-           numeric-description, description, and auxiliary data into
-           database; don't care whether the given set of attributes is
-           unique."))
+           (:p "Store user point with its attributes kind,
+           numeric-description and description, and with its auxiliary
+           data into database; don't care whether the given set of
+           attributes is unique."))
           :download-user-points-button
           (who-ps-html
            (:p "Download all user points as GeoJSON-fomatted text
@@ -112,9 +113,9 @@
            (:p "Points saved this way can be fed back into your
            project using the command line interface (on server or on
            any other host where the database is reachable)."))
-          :point-attribute
+          :point-kind
           (who-ps-html
-           (:h3 "\"attribute\"")
+           (:h3 "\"kind\"")
            (:p "The standard ones, polygon, polyline, and solitary are
            rendered as asterisk, square, and triangle respectively.
            Anything else is rendered as an X."))
@@ -681,13 +682,13 @@
                  (chain *json-parser*
                         (read (@ *streetmap*
                                  user-point-choice-response response-text))))
-                (attributes
-                 (chain response attributes (map (lambda (x)
-                                                   (@ x attribute)))))
+                (kinds
+                 (chain response kinds (map (lambda (x)
+                                              (@ x kind)))))
                 (descriptions
                  (chain response descriptions (map (lambda (x)
                                                      (@ x description)))))
-                (best-used-attribute -1)
+                (best-used-kind -1)
                 (best-used-description -1))
            (when selectp
              (loop
@@ -699,13 +700,13 @@
                      (setf best-used-description k)))
              (loop
                 with maximum = 0
-                for i across (@ response attributes)
+                for i across (@ response kinds)
                 for k from 0
                 do (when (< maximum (@ i count))
                      (setf maximum (@ i count))
-                     (setf best-used-attribute k))))
+                     (setf best-used-kind k))))
            (stuff-combobox
-            "point-attribute" attributes best-used-attribute)
+            "point-kind" kinds best-used-kind)
            (stuff-combobox
             "point-description" descriptions best-used-description)))
 
@@ -1299,9 +1300,9 @@
 
        (defun user-point-style-map (label-property)
          "Create a style map where styles dispatch on feature property
-         \"attribute\" and features are labelled after feature
+         \"kind\" and features are labelled after feature
          property label-property."
-         (let* ((symbolizer-property "attribute")
+         (let* ((symbolizer-property "kind")
                 (solitary-filter
                  (new (chain *open-layers
                              *filter
@@ -1454,8 +1455,8 @@
                  (create user-point-id (if (defined *current-user-point*)
                                            (@ *current-user-point* fid)
                                            nil)
-                         attribute
-                         (value-with-id "point-attribute-input")
+                         kind
+                         (value-with-id "point-kind-input")
                          description
                          (value-with-id "point-description-input")
                          numeric-description
@@ -1513,8 +1514,8 @@
                  (create user-point-id (if (defined *current-user-point*)
                                            (@ *current-user-point* fid)
                                            nil)
-                         attribute
-                         (value-with-id "point-attribute-input")
+                         kind
+                         (value-with-id "point-kind-input")
                          description
                          (value-with-id "point-description-input")
                          numeric-description
@@ -1560,8 +1561,8 @@
        (defun store-point ()
          "Send freshly created user point to the database."
          (let ((global-position-etc *global-position*))
-           (setf (@ global-position-etc attribute)
-                 (value-with-id "point-attribute-input"))
+           (setf (@ global-position-etc kind)
+                 (value-with-id "point-kind-input"))
            (setf (@ global-position-etc description)
                  (value-with-id "point-description-input"))
            (setf (@ global-position-etc numeric-description)
@@ -1598,8 +1599,8 @@
          "Send changes to currently selected user point to database."
          (let* ((point-data
                  (create user-point-id (@ *current-user-point* fid)
-                         attribute
-                         (value-with-id "point-attribute-input")
+                         kind
+                         (value-with-id "point-kind-input")
                          description
                          (value-with-id "point-description-input")
                          numeric-description
@@ -1693,9 +1694,6 @@
                 (progn
                   (chain *streetmap* user-points-select-control (unselect-all))
                   (reset-controls)
-                  ;; (setf (value-with-id "point-numeric-description")
-                  ;;       (increment-numeric-text
-                  ;;        (value-with-id "point-numeric-description")))
                   (remove-any-layers "User Point") ;from images
                   (loop
                      for i across *images* do
@@ -1961,7 +1959,7 @@
          (remove-any-layers "Active Point")
          (remove-any-layers "Epipolar Line")
          (remove-any-layers "Estimated Position")
-         (unselect-combobox-selection "point-attribute")
+         (unselect-combobox-selection "point-kind")
          (unselect-combobox-selection "point-description")
          (user-point-selection-changed))
 
@@ -1986,8 +1984,8 @@
               (hide-element-with-id "real-phoros-controls")
               (reveal-element-with-id "multiple-points-phoros-controls"))
              ((= selected-features-count 1)
-              (setf (value-with-id "point-attribute-input")
-                    (@ *current-user-point* attributes attribute))
+              (setf (value-with-id "point-kind-input")
+                    (@ *current-user-point* attributes kind))
               (setf (value-with-id "point-description-input")
                     (@ *current-user-point* attributes description))
               (setf (value-with-id "point-numeric-description")
@@ -2174,8 +2172,8 @@
            (hide-element-with-id "increase-step-size")
            (hide-element-with-id "step-button"))
          (when (write-permission-p)
-           (enable-element-with-id "point-attribute-input")
-           (enable-element-with-id "point-attribute-select")
+           (enable-element-with-id "point-kind-input")
+           (enable-element-with-id "point-kind-select")
            (enable-element-with-id "point-description-input")
            (enable-element-with-id "point-description-select")
            (enable-element-with-id "point-numeric-description")
@@ -2185,8 +2183,6 @@
          (hide-element-with-id "no-footprints-p")
          (hide-element-with-id "caching-indicator")
          (hide-element-with-id "uniquify-buttons")
-         ;; (setf *point-attributes-select*
-         ;;       (chain document (get-element-by-id "point-attribute-select")))
          (setf *aux-point-distance-select*
                (chain document (get-element-by-id "aux-point-distance")))
          (hide-aux-data-choice)

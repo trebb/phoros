@@ -107,15 +107,21 @@ proxy configuration if Phoros is hidden behind a proxy.")
   (asdf:system-licence (asdf:find-system :phoros))
   "Phoros licence as defined in system definition.")
 
+(defun version-number-parts (dotted-string)
+  "Return the three version number components of something like
+  \"11.22.33\"."
+  (when dotted-string
+    (values-list (mapcar #'parse-integer
+                         (cl-utilities:split-sequence #\. dotted-string)))))
+
 (defun phoros-version (&key major minor revision)
   "Return version of this program, either one integer part as denoted by
 the key argument, or the whole dotted string."
-  (let ((version-components
-         (mapcar #'parse-integer
-                 (cl-utilities:split-sequence #\. *phoros-version*))))
-    (cond (major (first version-components))
-          (minor (second version-components))
-          (revision (third version-components))
+  (multiple-value-bind (major-number minor-number revision-number)
+      (version-number-parts *phoros-version*)
+    (cond (major major-number)
+          (minor minor-number)
+          (revision revision-number)
           (t *phoros-version*))))
 
 (defun check-dependencies ()
@@ -814,7 +820,7 @@ ingredients for the URLs of the 256 nearest images."
          ;; (stdy-global (cdr (assoc :stdy-global data)))
          ;; (stdz-global (cdr (assoc :stdz-global data)))
          (input-size (cdr (assoc :input-size data)))
-         (attribute (cdr (assoc :attribute data)))
+         (kind (cdr (assoc :kind data)))
          (description (cdr (assoc :description data)))
          (numeric-description (cdr (assoc :numeric-description data)))
          (point-form
@@ -837,7 +843,7 @@ ingredients for the URLs of the 256 nearest images."
       (assert
        (= 1 (execute (:insert-into user-point-table-name :set
                                    'user-id user-id
-                                   'attribute attribute
+                                   'kind kind
                                    'description description
                                    'numeric-description numeric-description
                                    'creation-date 'current-timestamp
@@ -861,7 +867,7 @@ ingredients for the URLs of the 256 nearest images."
          (user-role (hunchentoot:session-value 'user-role))
          (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
          (user-point-id (cdr (assoc :user-point-id data)))
-         (attribute (cdr (assoc :attribute data)))
+         (kind (cdr (assoc :kind data)))
          (description (cdr (assoc :description data)))
          (numeric-description (cdr (assoc :numeric-description data)))
          (user-point-table-name
@@ -874,7 +880,7 @@ ingredients for the URLs of the 256 nearest images."
        (= 1 (execute
              (:update user-point-table-name :set
                       'user-id user-id
-                      'attribute attribute
+                      'kind kind
                       'description description
                       'numeric-description numeric-description
                       'creation-date 'current-timestamp
@@ -931,12 +937,12 @@ of point-attributes by modifying element numeric-description."
                                      'presentation-project-name))
          (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
          (user-point-id (cdr (assoc :user-point-id data)))
-         (attribute (cdr (assoc :attribute data)))
+         (kind (cdr (assoc :kind data)))
          (description (cdr (assoc :description data)))
          (numeric-description (cdr (assoc :numeric-description data)))
          (user-point-table-name
           (user-point-table-name presentation-project-name)))
-    (flet ((uniquep (user-point-id attribute description numeric-description)
+    (flet ((uniquep (user-point-id kind description numeric-description)
              "Check if given set of user-point attributes will be
               unique in database"
              (not
@@ -948,7 +954,7 @@ of point-attributes by modifying element numeric-description."
                       '*
                       :from user-point-table-name
                       :where (:and (:!= 'user-point-id user-point-id)
-                                   (:= 'attribute attribute)
+                                   (:= 'kind kind)
                                    (:= 'description description)
                                    (:= 'numeric-description
                                        numeric-description)))))
@@ -959,7 +965,7 @@ of point-attributes by modifying element numeric-description."
                      (:select
                       '*
                       :from user-point-table-name
-                      :where (:and (:= 'attribute attribute)
+                      :where (:and (:= 'kind kind)
                                    (:= 'description description)
                                    (:= 'numeric-description
                                        numeric-description)))))
@@ -967,11 +973,11 @@ of point-attributes by modifying element numeric-description."
       (with-connection *postgresql-credentials*
         (json:encode-json-to-string
          (unless (uniquep
-                  user-point-id attribute description numeric-description)
+                  user-point-id kind description numeric-description)
            (loop
               for s = numeric-description
               then (increment-numeric-string s)
-              until (uniquep user-point-id attribute description s)
+              until (uniquep user-point-id kind description s)
               finally
                 (setf (cdr (assoc :numeric-description data))
                       s)
@@ -1288,7 +1294,7 @@ and the number of points returned."
                (:as 'user-point-id 'id) ;becomes fid in OpenLayers
                ;; 'stdx-global 'stdy-global 'stdz-global
                'input-size
-               'attribute 'description 'numeric-description
+               'kind 'description 'numeric-description
                'user-name
                (:as (:to-char 'creation-date
                               ,*user-point-creation-date-format*)
@@ -1333,8 +1339,8 @@ send all points."
 (hunchentoot:define-easy-handler
     (user-point-attributes :uri "/phoros/lib/user-point-attributes.json")
     ()
-  "Send JSON object comprising arrays attributes and descriptions,
-each containing unique values called attribute and description
+  "Send JSON object comprising arrays kinds and descriptions,
+each containing unique values called kind and description
 respectively, and count being the frequency of value in the user point
 table."
   (assert-authentication)
@@ -1360,25 +1366,25 @@ table."
                              'description)
                             100)
                            :plists))))
-              (json:as-object-member (:attributes s)
+              (json:as-object-member (:kinds s)
                 (json:with-array (s)
                   (mapcar #'(lambda (x) (json:as-array-member (s)
                                           (json:encode-json-plist x s)))
                           (query (format nil "~
-                              (SELECT attribute, count(attribute) ~
-                                 FROM ((SELECT attribute FROM ~A) ~
+                              (SELECT kind, count(kind) ~
+                                 FROM ((SELECT kind FROM ~A) ~
                                        UNION ALL ~
-                                       (SELECT attribute ~
+                                       (SELECT kind ~
                                           FROM (VALUES ('solitary'), ~
                                                        ('polyline'), ~
                                                        ('polygon')) ~
-                                          AS defaults(attribute))) ~
-                                        AS attributes_union(attribute) ~
-                                 GROUP BY attribute) ~
-                              ORDER BY attribute LIMIT 100"
+                                          AS defaults(kind))) ~
+                                        AS kinds_union(kind) ~
+                                 GROUP BY kind) ~
+                              ORDER BY kind LIMIT 100"
                                          ;; Counts of solitary,
                                          ;; polyline, polygon may be
-                                         ;; to big by one if we
+                                         ;; too big by one if we
                                          ;; collect them like this.
                                          (s-sql:to-sql-name user-point-table-name))
                                  :plists))))))))
@@ -1552,21 +1558,21 @@ table."
        (:div :class "phoros-controls" :id "phoros-controls"
              (:div :id "real-phoros-controls"
                    (:h2 (:span :id "h2-controls") (:span :id "creator"))
-                   (:div :id "point-attribute"
+                   (:div :id "point-kind"
                          :class "combobox"
-                         (:select :id "point-attribute-select"
-                                  :name "point-attribute-select"
+                         (:select :id "point-kind-select"
+                                  :name "point-kind-select"
                                   :class "combobox-select"
                                   :onchange (ps-inline
                                              (consolidate-combobox
-                                              "point-attribute"))
+                                              "point-kind"))
                                   :disabled t)
-                         (:input :id "point-attribute-input"
-                                 :name "point-attribute-input"
+                         (:input :id "point-kind-input"
+                                 :name "point-kind-input"
                                  :class "combobox-input"
                                  :onchange (ps-inline
                                             (unselect-combobox-selection
-                                             "point-attribute"))
+                                             "point-kind"))
                                  :disabled t
                                  :type "text"))
                    (:input :id "point-numeric-description"
@@ -1825,7 +1831,7 @@ respond with a JSON object comprising the elements
               (:as (:st_y 'coordinates) 'latitude)
               (:as (:st_z 'coordinates) 'ellipsoid-height)
               (:as 'user-point-id 'id)  ;becomes fid on client
-              'attribute
+              'kind
               'description
               'numeric-description
               'user-name

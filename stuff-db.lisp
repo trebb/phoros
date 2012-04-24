@@ -575,10 +575,24 @@ all pojects."
 (defun assert-user-points-version (user-points-version)
   "Check if user-points-version is compatible with the current
 user-point table definition."
-  (cond                ;insert more interesting clauses when necessary
-    ((null user-points-version)
-     (warn "Storing user-points which don't have a version number."))
-    (t)))
+  (multiple-value-bind (major minor revision) (version-number-parts user-points-version)
+    (declare (ignore minor revision))
+    (cond              ;insert more interesting clauses when necessary
+      ((null user-points-version)
+       (warn "Storing user-points which don't have a version number."))
+      ((> major (phoros-version :major t))
+       (warn  "User-point file was created by Phoros ~A ~
+              which is newer than the current version ~A."
+              user-points-version (phoros-version)))
+      ((< major 13)
+       (error "User-point file was created by Phoros ~A ~
+              which is incompatible with the current version ~A.  ~
+              Please edit the file like so: ~
+              (1) Change any occurence of the name \"attribute\" to \"kind\". ~
+              (2) Change the value of name \"phorosVersion\" ~
+              from ~0@*~S to \"13.0.0\".  Then retry."
+              user-points-version (phoros-version)))
+       (t))))
 
 (defun* store-user-points (presentation-project-name &mandatory-key json-file)
   "Store in DB user points given in file at json-file, which
@@ -600,7 +614,7 @@ don't exist in DB."
        for point-form = (format nil "SRID=4326; POINT(~{~S ~})" coordinates)
        for properties = (cdr (assoc :properties i))
        for user-name = (cdr (assoc :user-name properties))
-       for attribute = (cdr (assoc :attribute properties))
+       for kind = (cdr (assoc :kind properties))
        for description = (cdr (assoc :description properties))
        for numeric-description = (cdr (assoc :numeric-description properties))
        for creation-date = (cdr (assoc :creation-date properties))
@@ -631,7 +645,7 @@ don't exist in DB."
             :from user-point-table-name
             :where (:and (:st_equals 'coordinates
                                      (:st_geomfromewkt point-form))
-                         (:= 'attribute attribute)
+                         (:= 'kind kind)
                          (:= 'description description)
                          (:= 'numeric-description numeric-description)
                          (:= (:to-char 'creation-date
@@ -664,7 +678,7 @@ don't exist in DB."
                                             :where (:= 'user-name
                                                        ,user-name))
                                   :null)
-                    'attribute ,attribute
+                    'kind ,kind
                     'description ,description
                     'numeric-description ,numeric-description
                     'creation-date ,creation-date

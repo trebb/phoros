@@ -77,7 +77,7 @@ BEGIN
     INSERT INTO point_bag_table (coordinates, description)
       SELECT coordinates, description
         FROM ~0@*~A
-        WHERE attribute = 'polyline'
+        WHERE kind = 'polyline'
               AND
               description = point_group.description;
   
