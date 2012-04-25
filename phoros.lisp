@@ -1279,7 +1279,8 @@ respectively)."
 (defun get-user-points (user-point-table-name &key
                         (bounding-box "-180,-90,180,90")
                         (limit :null)
-                        (order-criterion 'id))
+                        (order-criterion 'id)
+                        indent)
   "Return limit points from user-point-table-name in GeoJSON format,
 and the number of points returned."
   (let ((user-point-plist
@@ -1308,19 +1309,22 @@ and the number of points returned."
              ,limit))
           :plists)))
     (values
-     (encode-geojson-to-string (nsubst nil :null user-point-plist))
+     (if indent
+         (indent-json
+          (encode-geojson-to-string (nsubst nil :null user-point-plist)))
+         (encode-geojson-to-string (nsubst nil :null user-point-plist)))
      (length user-point-plist))))
-
 (hunchentoot:define-easy-handler
     (user-points :uri "/phoros/lib/user-points.json")
     (bbox)
   "Send *number-of-features-per-layer* randomly chosen GeoJSON-encoded
 points from inside bbox to client.  If there is no bbox parameter,
-send all points."
+send all points and indent GeoJSON to make it more readable."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
   (handler-case 
       (let ((bounding-box (or bbox "-180,-90,180,90"))
+            (indent (not bbox))
             (limit (if bbox *number-of-features-per-layer* :null))
             (order-criterion (if bbox '(:random) 'id))
             (user-point-table-name
@@ -1330,7 +1334,8 @@ send all points."
           (nth-value 0 (get-user-points user-point-table-name
                                         :bounding-box bounding-box
                                         :limit limit
-                                        :order-criterion order-criterion))))
+                                        :order-criterion order-criterion
+                                        :indent indent))))
     (condition (c)
       (cl-log:log-message
        :error "While fetching user-points~@[ from inside bbox ~S~]: ~A"

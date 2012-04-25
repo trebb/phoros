@@ -1289,7 +1289,8 @@ a view."
     (with-connection (list database user password host :port port
                            :use-ssl (s-sql:from-sql-name use-ssl))
       (multiple-value-bind (user-points user-point-count)
-          (get-user-points (user-point-table-name presentation-project))
+          (get-user-points (user-point-table-name presentation-project)
+                           :indent t)
         (assert json-file ()
                 "Don't know where to store.  Try option --json-file")
         (unless (zerop user-point-count)
