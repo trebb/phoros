@@ -123,9 +123,7 @@
 (deftable sys-acquisition-project
   (:create-sequence 'sys-acquisition-project-id-seq)
   (!dao-def)
-  (sql-compile
-   `(:alter-table ,*table-name* :add :constraint "common-table-name-unique"
-                  :unique 'common-table-name)))
+  (!unique 'common-table-name))
 
 (defclass sys-presentation-project ()
   ((presentation-project-id
@@ -145,9 +143,7 @@
 (deftable sys-presentation-project
   (:create-sequence 'sys-presentation-project-id-seq)
   (!dao-def)
-  (:alter-table sys-presentation-project
-                :add :constraint "presentation-project-id-unique"
-                :unique 'presentation-project-id))
+  (!unique 'presentation-project-id))
 
 (defclass sys-selectable-restriction ()
   ((restriction-id
