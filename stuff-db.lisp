@@ -726,32 +726,49 @@ don't exist in DB."
                            (:= 'filename filename)
                            (:= 'byte-position byte-position))))))
 
+
 (defun insert-footprints (common-table-name)
   "Give images of acquisition project common-table-name that don't
 have up-to-date footprints fresh footprints."
-  (let* ((aggregate-view-name
+  (let* ((log-frequency 200)
+         (aggregate-view-name
           (aggregate-view-name common-table-name))
-         (image-records
-          (query (:select 'measurement-id 'filename 'byte-position
+         (number-of-image-records
+          (query (:select (:count '*)
                           :from aggregate-view-name
                           :where (:and
                                   (:or
                                    (:is-null 'footprint)
                                    (:!= 'footprint-device-stage-of-life-id
                                         'device-stage-of-life-id))
-                                  'usable)))))
+                                  'usable))
+                 :single!)))
     (loop
-       for (measurement-id filename byte-position) in image-records
-       sum (update-footprint
-            common-table-name measurement-id filename byte-position)
+       for image-records
+       = (query (:limit
+                 (:order-by
+                  (:select 'measurement-id 'filename 'byte-position
+                           :from aggregate-view-name
+                           :where (:and
+                                   (:or
+                                    (:is-null 'footprint)
+                                    (:!= 'footprint-device-stage-of-life-id
+                                         'device-stage-of-life-id))
+                                   'usable))
+                  'measurement-id 'filename 'byte-position)
+                 log-frequency))
+       while image-records
+       sum (loop
+              for (measurement-id filename byte-position) in image-records
+              sum (update-footprint
+                   common-table-name measurement-id filename byte-position))
        into number-of-updated-footprints
-       do (when (zerop (mod number-of-updated-footprints 200))
-            (cl-log:log-message
-             :db-dat
-             "Updating image footprints of acquisition project ~A: ~
-              ~D out of ~D done."
-             common-table-name
-             number-of-updated-footprints (length image-records)))
+       do (cl-log:log-message
+           :db-dat
+           "Updating image footprints of acquisition project ~A: ~
+           ~D out of ~D done."
+           common-table-name
+           number-of-updated-footprints number-of-image-records)
        finally (return number-of-updated-footprints))))
 
 (defun insert-all-footprints (postgresql-credentials)
