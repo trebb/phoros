@@ -1225,7 +1225,7 @@ coordinates received, wrapped in an array."
                           :default-request-type :post)
     ()
   "Receive longitude, latitude, radius, and step-size; respond
-with the a JSON object comprising the elements linestring (a WKT
+with a JSON object comprising the elements linestring (a WKT
 linestring stitched together of the nearest auxiliary points from
 within radius around coordinates), current-point (the point on
 linestring closest to coordinates), and previous-point and next-point
@@ -1547,6 +1547,11 @@ table."
                          :class "streetmap-vertical-strut")
                    (:div :id "streetmap-layer-switcher"
                          :class "streetmap-layer-switcher")
+                   (:button :id "display-aux-data-button"
+                            :type "button"
+                            :onclick (ps-inline
+                                      (request-aux-points-near-cursor 30))
+                            "view" :br "aux" :br "data")
                    (:button :id "unselect-all-restrictions-button"
                             :type "button"
                             :onclick (ps-inline (unselect-all-restrictions))
@@ -1562,71 +1567,95 @@ table."
                    (:div :id "streetmap-zoom" :class "streetmap-zoom")))
        (:div :class "phoros-controls" :id "phoros-controls"
              (:div :id "real-phoros-controls"
-                   (:h2 (:span :id "h2-controls") (:span :id "creator"))
-                   (:div :id "point-kind"
-                         :class "combobox"
-                         (:select :id "point-kind-select"
-                                  :name "point-kind-select"
-                                  :class "combobox-select"
-                                  :onchange (ps-inline
-                                             (consolidate-combobox
-                                              "point-kind"))
-                                  :disabled t)
-                         (:input :id "point-kind-input"
-                                 :name "point-kind-input"
-                                 :class "combobox-input"
-                                 :onchange (ps-inline
-                                            (unselect-combobox-selection
-                                             "point-kind"))
-                                 :disabled t
-                                 :type "text"))
-                   (:input :id "point-numeric-description"
-                           :class "vanilla-input"
-                           :disabled t
-                           :type "text" :name "point-numeric-description")
+                   (:h2 :class "point-creator h2-phoros-controls"
+                        "Create Point")
+                   (:h2 :class "point-editor h2-phoros-controls"
+                        "Edit Point"
+                        (:span :id "creator"))
+                   (:h2 :class "point-viewer h2-phoros-controls"
+                        "View Point"
+                        (:span :id "creator"))
+                   (:h2 :class "aux-data-viewer h2-phoros-controls"
+                        "View Auxiliary Data")
+                   (:h2 :class "multiple-points-viewer"
+                        "Multiple Points Selected")
+                   (:div :class "multiple-points-viewer"
+                         (:p "You have selected multiple user points.")
+                         (:p "Unselect all but one to edit or view its properties."))
+                   (:span :class "point-creator point-editor point-viewer"
+                          (:div :id "point-kind"
+                                :class "combobox"
+                                (:select :id "point-kind-select"
+                                         :name "point-kind-select"
+                                         :class "combobox-select"
+                                         :onchange (ps-inline
+                                                    (consolidate-combobox
+                                                     "point-kind"))
+                                         :disabled t)
+                                (:input :id "point-kind-input"
+                                        :name "point-kind-input"
+                                        :class "combobox-input"
+                                        :onchange (ps-inline
+                                                   (unselect-combobox-selection
+                                                    "point-kind"))
+                                        :disabled t
+                                        :type "text"))
+                          (:input :id "point-numeric-description"
+                                  :class "vanilla-input"
+                                  :disabled t
+                                  :type "text" :name "point-numeric-description")
 
-                   (:div :id "point-description"
-                         :class "combobox"
-                         (:select :id "point-description-select"
-                                  :name "point-description-select"
-                                  :class "combobox-select"
-                                  :onchange (ps-inline
-                                             (consolidate-combobox
-                                              "point-description"))
-                                  :disabled t)
-                         (:input :id "point-description-input"
-                                 :name "point-description-input"
-                                 :class "combobox-input"
-                                 :onchange (ps-inline
-                                            (unselect-combobox-selection
-                                             "point-description"))
-                                 :disabled t
-                                 :type "text"))
-                   (:button :id "delete-point-button" :disabled t
+                          (:div :id "point-description"
+                                :class "combobox"
+                                (:select :id "point-description-select"
+                                         :name "point-description-select"
+                                         :class "combobox-select"
+                                         :onchange (ps-inline
+                                                    (consolidate-combobox
+                                                     "point-description"))
+                                         :disabled t)
+                                (:input :id "point-description-input"
+                                        :name "point-description-input"
+                                        :class "combobox-input"
+                                        :onchange (ps-inline
+                                                   (unselect-combobox-selection
+                                                    "point-description"))
+                                        :disabled t
+                                        :type "text"))
+                          (:button :id "delete-point-button" :disabled t
+                                   :type "button"
+                                   :onclick (ps-inline (delete-point))
+                                   "del")
+                          (:button :disabled t :id "finish-point-button"
+                                   :type "button"
+                                   (:b "finish"))
+                          (:div :id "uniquify-buttons"
+                                (:button :id "suggest-unique-button"
+                                         :type "button"
+                                         :onclick (ps-inline
+                                                   (insert-unique-suggestion))
+                                         (:b "suggest"))
+                                (:button :id "force-duplicate-button"
+                                         :type "button"
+                                         "push")))
+
+                   (:button :id "display-aux-data-dismiss-button"
+                            :class "aux-data-viewer"
                             :type "button"
-                            :onclick (ps-inline (delete-point))
-                            "del")
-                   (:button :disabled t :id "finish-point-button"
-                            :type "button"
-                            (:b "finish"))
-                   (:div :id "uniquify-buttons"
-                         (:button :id "suggest-unique-button"
-                                  :type "button"
-                                  :onclick (ps-inline
-                                            (insert-unique-suggestion))
-                                  (:b "suggest"))
-                         (:button :id "force-duplicate-button"
-                                  :type "button"
-                                  "push"))
+                            :onclick (ps-inline (dismiss-aux-data))
+                            "dismiss")
                    (:div :id "aux-point-distance-or-point-creation-date"
-                         (:code :id "point-creation-date")
+                         (:code :id "point-creation-date"
+                                :class "point-editor point-viewer")
                          (:select :id "aux-point-distance" :disabled t
+                                  :class "point-creator aux-data-viewer"
                                   :size 1 :name "aux-point-distance"
                                   :onchange (ps-inline
                                              (aux-point-distance-selected))
                                   :onclick (ps-inline
                                             (enable-aux-point-selection)))
                          (:div :id "include-aux-data"
+                               :class "point-creator"
                                (:label
                                 (:input :id "include-aux-data-p"
                                         :class "tight-input"
@@ -1636,12 +1665,14 @@ table."
                                                    (flip-aux-data-inclusion)))
                                 "aux data")))
                    (:div :id "aux-data"
+                         :class "point-creator point-editor point-viewer aux-data-viewer"
                          (:div :id "aux-numeric-list")
-                         (:div :id "aux-text-list")))
-             (:div :id "multiple-points-phoros-controls"
-                   (:h2 "Multiple Points Selected")
-                   (:p "You have selected multiple user points.")
-                   (:p "Unselect all but one to edit or view its properties."))
+                         (:div :id "aux-text-list"))
+             ;; (:div :id "multiple-points-phoros-controls"
+             ;;       (:h2 "Multiple Points Selected")
+             ;;       (:p "You have selected multiple user points.")
+             ;;       (:p "Unselect all but one to edit or view its properties.")
+                   )
              (:div :class "walk-mode-controls"
                    (:div :id "walk-mode"
                          (:input :id "walk-p"

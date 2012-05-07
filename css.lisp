@@ -189,12 +189,12 @@ button, select {
     width: 66px;
 }
 #finish-point-button {
-    float:right;
+    float: right;
     width: 175px;
     height: 30px;
 }
 #uniquify-buttons {
-    float:right;
+    float: right;
     width: 175px;
     height: 30px;
 }
@@ -252,7 +252,7 @@ button, select {
     width: 210px;
     height: 323px;
 }
-#real-phoros-controls, #multiple-points-phoros-controls {
+#real-phoros-controls {
     height: 285px;
     width: 210px;
 }
@@ -292,11 +292,26 @@ button, select {
     clear: both;
 }
 .streetmap-layer-switcher {
-    /* height: 92px; */
+    width: 130px;
+    float: left;
+}
+#display-aux-data-button {
+    font-size: small;
+    padding: 0px;
+    margin: 5px;
+    border-width: 2px;
+    float: right;
+}
+#display-aux-data-dismiss-button {
+    width: 210px;
+    height: 30px;
+    margin-bottom: 5px;
+    float: left;
+    clear: both;
 }
 .streetmap-layer-switcher span {    /*layer name*/
     cursor: pointer;
-    color: white; 
+    color: white;
 }
 #unselect-all-restrictions-button {
     font-size: smaller;
@@ -306,6 +321,7 @@ button, select {
     margin-left: 5px;
     margin-top: 5px;
     float: left;
+    clear: both;
 }
 #restriction-select {
     font-family: 'andale mono', 'lucida console', monospace;
@@ -323,8 +339,8 @@ button, select {
 }
 .streetmap-vertical-strut {
     float: right;
-    height: 177px;
-    width: px;
+    height: 130px;
+    width: 0px;
     background-color: black;
 }
 .streetmap-mouse-position {

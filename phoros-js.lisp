@@ -42,7 +42,7 @@
           (who-ps-html
            (:p "User role.  \"Read\" can't write or modify anything.
            \"Write\" may write user points and edit/delete their own
-           ones (and ownerless points). \"Admin\" may write user
+           ones (and ownerless points).  \"Admin\" may write user
            points and edit/delete points written by anyone."))
           :presentation-project-name
           (who-ps-html
@@ -76,12 +76,19 @@
            set up by a different version of Phoros); changes in B mean
            user-visible changes in feature set; changes in C denote
            bug fixes and minor improvements."))
-          :h2-controls
+          :h2-phoros-controls
           (who-ps-html
            (:p "Current action."))
-          :multiple-points-phoros-controls
+          :multiple-points-viewer
           (who-ps-html
            (:p "Try reading the text under mouse pointer."))
+          :display-aux-data-dismiss-button
+          (who-ps-html
+           (:p "Leave display of auxiliary data."))
+          :display-aux-data-button
+          (who-ps-html
+           (:p "Cancel current action and display auxiliary data from
+           an area around map cursor."))
           :delete-point-button
           (who-ps-html
            (:p "Delete current point."))
@@ -144,9 +151,11 @@
            include auxiliary data."))
           :aux-point-distance
           (who-ps-html
-           (:p "Select a set of auxiliary data, either by its distance
-           (in metres) from the current estimated position, or by
-           clicking its representation in streetmap."))
+           (:p "Select a set of auxiliary data by its distance (in
+           metres) from the current estimated position if any, or its
+           distance from streetmap cursor otherwise.")
+           (:p "Alternatively, a set of auxiliary data is also
+           selectable by clicking its representation in streetmap."))
           :aux-data
           (who-ps-html
            (:p "Auxiliary data connected to this presentation project;
@@ -518,12 +527,14 @@
          (remove-layer *streetmap* layer-name))
 
        (defun reset-controls ()
-         (reveal-element-with-id "real-phoros-controls")
-         (hide-element-with-id "multiple-points-phoros-controls")
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "delete-point-button")
          (disable-element-with-id "remove-work-layers-button")
-         (setf (inner-html-with-id "h2-controls") "Create Point")
+         (hide-elements-of-class "multiple-points-viewer")
+         (hide-elements-of-class "point-editor")
+         (hide-elements-of-class "point-viewer")
+         (hide-elements-of-class "aux-data-viewer")
+         (reveal-elements-of-class "point-creator")
          (setf (inner-html-with-id "creator") nil)
          (setf (inner-html-with-id "point-creation-date") nil)
          (hide-aux-data-choice)
@@ -571,14 +582,28 @@
            (setf (chain document (get-element-by-id id) disabled) t)))
 
        (defun hide-element-with-id (id)
-         "Hide HTML element wit id=\"id\"."
+         "Hide HTML element with id=\"id\"."
          (setf (chain document (get-element-by-id id) style display)
                "none"))
 
+       (defun hide-elements-of-class (class-name)
+         "Hide HTML elements with class=\"class\"."
+         (loop
+            for element in (chain document
+                                  (get-elements-by-class-name class-name))
+            do (setf (@ element style display) "none")))
+
        (defun reveal-element-with-id (id)
-         "Reveal HTML element wit id=\"id\"."
+         "Reveal HTML element with id=\"id\"."
          (setf (chain document (get-element-by-id id) style display)
                ""))
+
+       (defun reveal-elements-of-class (class-name)
+         "Reveal HTML elements with class=\"class\"."
+         (loop
+            for element in (chain document
+                                  (get-elements-by-class-name class-name))
+            do (setf (@ element style display) "")))
 
        (defun hide-aux-data-choice ()
          "Disable selector for auxiliary data."
@@ -716,8 +741,8 @@
          (setf (@ *streetmap* user-point-choice-response)
                (chain
                 *open-layers
-                *Request
-                (*POST*
+                *request
+                (*post*
                  (create :url (+ "/" +proxy-root+
                                  "/lib/user-point-attributes.json")
                          :data nil
@@ -748,8 +773,8 @@
          (setf (@ *streetmap* restriction-select-choice-response)
                (chain
                 *open-layers
-                *Request
-                (*POST*
+                *request
+                (*post*
                  (create :url (+ "/" +proxy-root+
                                  "/lib/selectable-restrictions.json")
                          :data nil
@@ -810,6 +835,8 @@
        (defun request-photos-for-point (lonlat-spherical-mercator)
          "Fetch photo data near lonlat-spherical-mercator; set or
          update streetmap cursor."
+         (hide-elements-of-class "aux-data-viewer")
+         (reveal-elements-of-class "point-creator")
          (disable-element-with-id "finish-point-button")
          (disable-element-with-id "remove-work-layers-button")
          (remove-any-layers "Estimated Position")
@@ -863,8 +890,8 @@
            (setf (@ *streetmap* photo-request-response)
                  (chain
                   *open-layers
-                  *Request
-                  (*POST*
+                  *request
+                  (*post*
                    (create
                     :url (+ "/" +proxy-root+ "/lib/nearest-image-data")
                     :data content
@@ -998,6 +1025,7 @@
        (defun draw-epipolar-line ()
          "Draw an epipolar line from response triggered by clicking
          into a (first) photo."
+         (disable-streetmap-nearest-aux-points-layer)
          (enable-element-with-id "remove-work-layers-button")
          (let* ((epipolar-line
                  (chain *json-parser*
@@ -1023,9 +1051,29 @@
                   (add-features feature))))
        ;; either *line-string or *multi-point are usable
 
+       (defun request-aux-points-near-cursor (count)
+         "Draw into streetmap the count nearest points of auxiliary
+         data around streetmap cursor."
+         (reset-layers-and-controls)
+         (hide-elements-of-class "point-creator")
+         (hide-elements-of-class "point-editor")
+         (hide-elements-of-class "point-viewer")
+         (reveal-elements-of-class "aux-data-viewer")
+         (let ((lonlat-geographic
+                (chain (@ *streetmap* clicked-lonlat)
+                       (clone)
+                       (transform +spherical-mercator+ +geographic+))))
+           (request-nearest-aux-points (create :longitude (@ lonlat-geographic lon)
+                                               :latitude (@ lonlat-geographic lat))
+                                       count)))
+
+       (defun dismiss-aux-data ()
+         "Dismiss the display of aux data near cursor."
+         (reset-layers-and-controls))
+
        (defun request-nearest-aux-points (global-position count)
          "Draw into streetmap the count nearest points of auxiliary
-         data."
+         data around global-position."
          (let ((global-position-etc global-position)
                content)
            (setf (@ global-position-etc count) count)
@@ -1033,8 +1081,8 @@
                                 (write global-position-etc)))
            (setf (@ *streetmap* aux-local-data-request-response)
                  (chain *open-layers
-                        *Request
-                        (*POST*
+                        *request
+                        (*post*
                          (create :url (+ "/" +proxy-root+
                                          "/lib/aux-local-data")
                                  :data content
@@ -1056,8 +1104,8 @@
                 (content (chain *json-parser* (write payload))))
            (setf (@ *streetmap* aux-data-linestring-request-response)
                  (chain *open-layers
-                        *Request
-                        (*POST*
+                        *request
+                        (*post*
                          (create :url (+ "/" +proxy-root+
                                          "/lib/aux-local-linestring.json")
                                  :data content
@@ -1121,6 +1169,8 @@
              (chain *streetmap*
                     (add-layer (@ *streetmap* estimated-position-layer))))
            (request-nearest-aux-points *global-position* 7)
+           (hide-elements-of-class "aux-data-viewer")
+           (reveal-elements-of-class "point-creator")
            (loop
               for i in *images*
               for p in estimated-positions
@@ -1156,8 +1206,6 @@
 
        (defun draw-nearest-aux-points ()
          "Draw a few auxiliary points into streetmap."
-         (reveal-element-with-id "include-aux-data")
-         (reveal-element-with-id "aux-point-distance")
          (let ((features
                 (chain *json-parser*
                        (read
@@ -1471,8 +1519,8 @@
            (setf *uniquify-point-attributes-response*
                  (chain
                   *open-layers
-                  *Request
-                  (*POST*
+                  *request
+                  (*post*
                    (create
                     :url (+ "/" +proxy-root+ "/lib/uniquify-point-attributes")
                     :data content
@@ -1532,8 +1580,8 @@
            (setf *uniquify-point-attributes-response*
                  (chain
                   *open-layers
-                  *Request
-                  (*POST*
+                  *request
+                  (*post*
                    (create :url (+ "/"
                                    +proxy-root+
                                    "/lib/uniquify-point-attributes")
@@ -1582,8 +1630,8 @@
              (disable-element-with-id "finish-point-button")
              (chain
               *open-layers
-              *Request
-              (*POST*
+              *request
+              (*post*
                (create :url (+ "/" +proxy-root+ "/lib/store-point")
                        :data content
                        :headers (create "Content-type" "text/plain"
@@ -1611,8 +1659,8 @@
            (disable-element-with-id "finish-point-button")
            (disable-element-with-id "delete-point-button")
            (chain *open-layers
-                  *Request
-                  (*POST*
+                  *request
+                  (*post*
                    (create :url (+ "/" +proxy-root+ "/lib/update-point")
                            :data content
                            :headers (create "Content-type" "text/plain"
@@ -1634,8 +1682,8 @@
            (disable-element-with-id "finish-point-button")
            (disable-element-with-id "delete-point-button")
            (chain *open-layers
-                  *Request
-                  (*POST*
+                  *request
+                  (*post*
                    (create :url (+ "/" +proxy-root+ "/lib/delete-point")
                            :data content
                            :headers (create "Content-type" "text/plain"
@@ -1712,8 +1760,8 @@
                                                 (@ i photo-parameters))))
                         (@ i epipolar-request-response)
                         (chain *open-layers
-                               *Request
-                               (*POST*
+                               *request
+                               (*post*
                                 (create :url (+ "/" +proxy-root+
                                                 "/lib/epipolar-line")
                                         :data content
@@ -1746,8 +1794,8 @@
                                                        photo-parameters)))))))))
                     (setf (@ clicked-image estimated-positions-request-response)
                           (chain *open-layers
-                                 *Request
-                                 (*POST*
+                                 *request
+                                 (*post*
                                   (create :url (+ "/" +proxy-root+
                                                   "/lib/estimated-positions")
                                           :data content
@@ -1842,7 +1890,10 @@
 
        (defun zoom-images-to-max-extent ()
          "Zoom out all images."
-         (loop for i across *images* do (chain i map (zoom-to-max-extent))))
+         (loop
+            for i across *images*
+            do (when (> (@ i map layers length) 0)
+                 (chain i map (zoom-to-max-extent)))))
 
        (defun zoom-anything-to-point ()
          "For streetmap and for images that have an Active Point or an
@@ -1981,8 +2032,11 @@
                     "${numericDescription}")))
            (cond
              ((> selected-features-count 1)
-              (hide-element-with-id "real-phoros-controls")
-              (reveal-element-with-id "multiple-points-phoros-controls"))
+              (hide-elements-of-class "point-editor")
+              (hide-elements-of-class "point-viewer")
+              (hide-elements-of-class "aux-data-viewer")
+              (hide-elements-of-class "point-creator")
+              (reveal-elements-of-class "multiple-points-viewer"))
              ((= selected-features-count 1)
               (setf (value-with-id "point-kind-input")
                     (@ *current-user-point* attributes kind))
@@ -2000,6 +2054,8 @@
                     (html-table
                      (@ *current-user-point* attributes aux-text)
                      +aux-text-labels+))
+              (hide-elements-of-class "aux-data-viewer")
+              (reveal-elements-of-class "point-editor")
               (if (write-permission-p
                    (@ *current-user-point* attributes user-name))
                   (progn
@@ -2009,11 +2065,17 @@
                           (lambda () (finish-point #'update-point)))
                     (enable-element-with-id "finish-point-button")
                     (enable-element-with-id "delete-point-button")
-                    (setf (inner-html-with-id "h2-controls") "Edit Point"))
+                    (hide-elements-of-class "point-creator")
+                    (hide-elements-of-class "point-viewer")
+                    (hide-elements-of-class "aux-data-viewer")
+                    (reveal-elements-of-class "point-editor"))
                   (progn
                     (disable-element-with-id "finish-point-button")
                     (disable-element-with-id "delete-point-button")
-                    (setf (inner-html-with-id "h2-controls") "View Point")))
+                    (hide-elements-of-class "point-creator")
+                    (hide-elements-of-class "point-editor")
+                    (hide-elements-of-class "aux-data-viewer")
+                    (reveal-elements-of-class "point-viewer")))
               (setf (inner-html-with-id "creator")
                     (if (@ *current-user-point* attributes user-name)
                         (+ "(by "
@@ -2021,8 +2083,11 @@
                            ")")
                         "(ownerless)")))
              (t
-              (hide-element-with-id "multiple-points-phoros-controls")
-              (reveal-element-with-id "real-phoros-controls"))))
+              (hide-elements-of-class "multiple-points-viewer")
+              (hide-elements-of-class "point-editor")
+              (hide-elements-of-class "point-viewer")
+              (hide-elements-of-class "aux-data-viewer")
+              (reveal-elements-of-class "point-creator"))))
          (chain *streetmap* user-point-layer (redraw))
          (remove-any-layers "User Point") ;from images
          (setf content
@@ -2037,8 +2102,8 @@
                                  collect (@ i photo-parameters))))))
          (setf *user-point-in-images-response*
                (chain *open-layers
-                      *Request
-                      (*POST*
+                      *request
+                      (*post*
                        (create :url (+ "/" +proxy-root+
                                        "/lib/user-point-positions")
                                :data content
@@ -2178,8 +2243,11 @@
            (enable-element-with-id "point-description-select")
            (enable-element-with-id "point-numeric-description")
            (request-user-point-choice true))
-         (setf (inner-html-with-id "h2-controls") "Create Point")
-         (hide-element-with-id "multiple-points-phoros-controls")
+         (hide-elements-of-class "point-editor")
+         (hide-elements-of-class "point-viewer")
+         (hide-elements-of-class "aux-data-viewer")
+         (hide-elements-of-class "multiple-points-viewer")
+         (reveal-elements-of-class "point-creator")
          (hide-element-with-id "no-footprints-p")
          (hide-element-with-id "caching-indicator")
          (hide-element-with-id "uniquify-buttons")
@@ -2389,7 +2457,7 @@
                         trigger (lambda ()
                                   (chain *streetmap*
                                          (zoom-to-extent
-                                          +presentation-project-bounds+ ))))))))
+                                          +presentation-project-bounds+))))))))
                (pan-zoom-panel
                 (new (chain *open-layers
                             *control
