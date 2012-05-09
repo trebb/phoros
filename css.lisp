@@ -233,12 +233,13 @@ button, select {
 #aux-data {
     float: left;
     width: 210px;
-    height: 145px;
-    margin-top: 5px;
+    height: 148px;
+    margin-top: 2px;
     overflow: auto;
     line-height: 1;
 }
 .aux-data-table {
+    margin-top: 3px;
 }
 .aux-data-label {
     padding-right: 5px;
