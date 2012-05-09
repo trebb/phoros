@@ -196,12 +196,7 @@ session."
            (presentation-project-name (second s))
            (presentation-project-id
             (ignore-errors
-              (query
-               (:select 'presentation-project-id
-                        :from 'sys-presentation-project
-                        :where (:= 'presentation-project-name
-                                   presentation-project-name))
-               :single))))
+              (presentation-project-id-from-name presentation-project-name))))
       
       ;; TODO: remove the following line (which seems to function as a
       ;; wakeup call of sorts)...
@@ -573,6 +568,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                         'device-stage-of-life-id   ;debug
                         'generic-device-id         ;debug
                         'directory
+                        'measurement-id
                         'filename 'byte-position 'point-id
                         (:as (:not (:is-null 'footprint))
                              'footprintp)
@@ -627,6 +623,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                         'device-stage-of-life-id   ;debug
                         'generic-device-id         ;debug
                         'directory
+                        'measurement-id
                         'filename 'byte-position 'point-id
                         (:as (:not (:is-null 'footprint))
                              'footprintp)
@@ -1849,18 +1846,18 @@ respond with a JSON object comprising the elements
   image-points for."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (let* ((user-point-table-name
-          (user-point-table-name (hunchentoot:session-value
-                                  'presentation-project-name)))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-         (user-point-ids (first data))
-         (user-point-count (length user-point-ids))
-         (destination-photo-parameters (second data))
-         (cartesian-system
-          (cdr (assoc :cartesian-system
-                      (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
-         (user-points
-          (with-connection *postgresql-credentials*
+  (with-connection *postgresql-credentials*
+    (let* ((user-point-table-name
+            (user-point-table-name (hunchentoot:session-value
+                                    'presentation-project-name)))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+           (user-point-ids (first data))
+           (user-point-count (length user-point-ids))
+           (destination-photo-parameters (second data))
+           (cartesian-system
+            (cdr (assoc :cartesian-system
+                        (first destination-photo-parameters)))) ;TODO: in rare cases, coordinate systems of the images shown may differ
+           (user-points
             (query
              (:select
               (:as (:st_x 'coordinates) 'longitude)
@@ -1877,50 +1874,89 @@ respond with a JSON object comprising the elements
               'aux-text
               :from user-point-table-name :natural :left-join 'sys-user
               :where (:in 'user-point-id (:set user-point-ids)))
-             :plists)))
-         (global-points-cartesian
-          (loop
-             for global-point-geographic in user-points
-             collect
-             (ignore-errors ;in case no destination-photo-parameters have been sent
-               (pairlis '(:x-global :y-global :z-global)
-                        (proj:cs2cs
-                         (list
-                          (proj:degrees-to-radians
-                           (getf global-point-geographic :longitude))
-                          (proj:degrees-to-radians
-                           (getf global-point-geographic :latitude))
-                          (getf global-point-geographic :ellipsoid-height))
-                         :destination-cs cartesian-system)))))
-         (image-coordinates
-          (loop
-             for photo-parameter-set in destination-photo-parameters
-             collect
-             (encode-geojson-to-string
-              (loop
-                 for global-point-cartesian in global-points-cartesian
-                 for user-point in user-points
-                 collect
-                 (ignore-errors
-                   (let ((photo-coordinates
-                          (photogrammetry :reprojection
-                                          photo-parameter-set
-                                          global-point-cartesian))
-                         (photo-point
-                          user-point))
-                     (setf (getf photo-point :x)
-                           (cdr (assoc :m photo-coordinates)))
-                     (setf (getf photo-point :y)
-                           (cdr (assoc :n photo-coordinates)))
-                     photo-point)))
-              :junk-keys '(:longitude :latitude :ellipsoid-height)))))
-    (with-output-to-string (s)
-      (json:with-object (s)
-        (json:encode-object-member :user-point-count user-point-count s)
-        (json:as-object-member (:image-points s)
-          (json:with-array (s)
-            (loop for i in image-coordinates do
-                 (json:as-array-member (s) (princ i s)))))))))
+             :plists))
+           (global-points-cartesian
+            (loop
+               for global-point-geographic in user-points
+               collect
+               (ignore-errors ;in case no destination-photo-parameters have been sent
+                 (pairlis '(:x-global :y-global :z-global)
+                          (proj:cs2cs
+                           (list
+                            (proj:degrees-to-radians
+                             (getf global-point-geographic :longitude))
+                            (proj:degrees-to-radians
+                             (getf global-point-geographic :latitude))
+                            (getf global-point-geographic :ellipsoid-height))
+                           :destination-cs cartesian-system)))))
+           (image-coordinates
+            (loop
+               for photo-parameter-set in destination-photo-parameters
+               collect
+               (encode-geojson-to-string
+                (loop
+                   for global-point-cartesian in global-points-cartesian
+                   for user-point in user-points
+                   collect
+                   (when (point-within-image-p
+                          (getf user-point :id)
+                          (hunchentoot:session-value 'presentation-project-name)
+                          (cdr (assoc :byte-position photo-parameter-set))
+                          (cdr (assoc :filename photo-parameter-set))
+                          (cdr (assoc :measurement-id photo-parameter-set)))
+                     (ignore-errors
+                       (let ((photo-coordinates
+                              (photogrammetry :reprojection
+                                              photo-parameter-set
+                                              global-point-cartesian))
+                             (photo-point
+                              user-point))
+                         (setf (getf photo-point :x)
+                               (cdr (assoc :m photo-coordinates)))
+                         (setf (getf photo-point :y)
+                               (cdr (assoc :n photo-coordinates)))
+                         photo-point))))
+                :junk-keys '(:longitude :latitude :ellipsoid-height)))))
+      (with-output-to-string (s)
+        (json:with-object (s)
+          (json:encode-object-member :user-point-count user-point-count s)
+          (json:as-object-member (:image-points s)
+            (json:with-array (s)
+              (loop for i in image-coordinates do
+                   (json:as-array-member (s) (princ i s))))))))))
+
+(defun point-within-image-p (user-point-id presentation-project-name
+                             byte-position filename measurement-id)
+  "Return t if either point with user-point-id is inside the footprint
+of the image described by byte-position, filename, and measurement-id;
+or if that image doesn't have a footprint.  Return nil otherwise."
+  (let* ((user-point-table-name (user-point-table-name
+                                 presentation-project-name))
+         (presentation-project-id (presentation-project-id-from-name
+                                   presentation-project-name))
+         (common-table-names (common-table-names presentation-project-id)))
+    (query
+     (sql-compile
+      `(:union
+        ,@(loop
+             for common-table-name in common-table-names
+             for aggregate-view-name
+             = (aggregate-view-name common-table-name)
+             collect  
+             `(:select
+               t
+               :from ',aggregate-view-name
+               :where (:and (:= 'byte-position ,byte-position)
+                            (:= 'filename ,filename)
+                            (:= 'measurement-id ,measurement-id)
+                            (:or (:is-null 'footprint)
+                                 (:st_within
+                                  (:select 'coordinates
+                                           :from ,user-point-table-name
+                                           :where (:= 'user-point-id
+                                                      ,user-point-id))
+                                  'footprint)))))))
+     :single)))
 
 (hunchentoot:define-easy-handler
     (multi-position-intersection :uri "/phoros/lib/intersection")
