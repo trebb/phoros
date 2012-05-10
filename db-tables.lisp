@@ -1079,22 +1079,26 @@ CREATE INDEX idx_<aux-table>_the_geom
 
 VACUUM FULL ANALYZE <aux-table> (the_geom);"
   (create-plpgsql-helpers)
-  (let ((aux-point-view-name
-         (aux-point-view-name presentation-project-name))
-        (thread-aux-points-function-name
-         (thread-aux-points-function-name presentation-project-name)))
-    (execute (format nil "
+  (flet ((to-sql-name-or-null (name)
+           (if name
+               (s-sql:to-sql-name name)
+               :null)))
+    (let ((aux-point-view-name
+           (aux-point-view-name presentation-project-name))
+          (thread-aux-points-function-name
+           (thread-aux-points-function-name presentation-project-name)))
+      (execute (format nil "
 CREATE VIEW ~A
 AS (SELECT ~A AS coordinates,
     ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric,
     ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text
     FROM ~A)"
-                     (s-sql:to-sql-name aux-point-view-name)
-                     coordinates-column
-                     (mapcar #'s-sql:to-sql-name numeric-columns)
-                     (mapcar #'s-sql:to-sql-name text-columns)
-                     (s-sql:to-sql-name aux-table)))
-    (execute (format nil "~
+                       (s-sql:to-sql-name aux-point-view-name)
+                       (s-sql:to-sql-name coordinates-column)
+                       (mapcar #'to-sql-name-or-null numeric-columns)
+                       (mapcar #'to-sql-name-or-null text-columns)
+                       (s-sql:to-sql-name aux-table)))
+      (execute (format nil "~
 CREATE OR REPLACE FUNCTION ~0@*~A
   (point GEOMETRY, sample_radius DOUBLE PRECISION, sample_size INT,
    step_size DOUBLE PRECISION, old_azimuth DOUBLE PRECISION,
@@ -1277,9 +1281,9 @@ BEGIN
   RETURN;
 END;
 $$ LANGUAGE plpgsql;"
-                     (s-sql:to-sql-name thread-aux-points-function-name)
-                     (s-sql:to-sql-name aux-point-view-name)
-                     (phoros-version)))))
+                       (s-sql:to-sql-name thread-aux-points-function-name)
+                       (s-sql:to-sql-name aux-point-view-name)
+                       (phoros-version))))))
 
 (defun create-acquisition-project (common-table-name)
   "Create in current database a fresh set of canonically named tables.

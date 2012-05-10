@@ -273,10 +273,10 @@
      :documentation "Number of photos shown to the HTTP client.")
     ("aux-numeric-label"
      :type string :list t :optional t :action *aux-numeric-labels*
-     :documentation "Label for an element of auxiliary numeric data.  Repeat if necessary.")
+     :documentation "HTML label for an element of auxiliary numeric data.  Repeat if necessary.  The succession of labels should match the auxiliary data (defined by --numeric-column) of all presentation projects served by this server instance.")
     ("aux-text-label"
      :type string :list t :optional t :action *aux-text-labels*
-     :documentation "Label for an element of auxiliary text data.  Repeat if necessary.")
+     :documentation "HTML label for an element of auxiliary text data.  Repeat if necessary.  The succession of labels should match the auxiliary data (defined by --text-column) of all presentation projects served by this server instance.")
     ("login-intro" :type string :list t :optional t :action *login-intro*
      :documentation "Text to be shown below the login form.  Use repeatedly to divide text into paragraphs.  You can use HTML markup as long as it is legal inside <p>...</p>")))
 
@@ -337,10 +337,10 @@
      :documentation "Name of the geometry column (which should have an index) in the auxiliary data table.")
     ("numeric-column"
      :type string :list t :optional t
-     :documentation "Name of a numeric column in the auxiliary data table.  Repeat if necessary.")
+     :documentation "Name of a numeric column in the auxiliary data table.  An empty string defines an empty placeholder column.  Repeat if necessary.")
     ("text-column"
      :type string :list t :optional t
-     :documentation "Name of a text column in the auxiliary data table.  Repeat if necessary.")))
+     :documentation "Name of a text column in the auxiliary data table.  An empty string defines an empty placeholder column.  Repeat if necessary.")))
 
 (defparameter cli:*user-points-options*
   '(("get-user-points"
@@ -607,6 +607,9 @@ given."
      "The array elements of both aux-numeric and aux-text of auxiliary
      points can then be incorporated into neighbouring user points
      during user point creation."
+     "To match the array elements to the labels shown on HTTP client
+     \(defined by --aux-numeric-label, --aux-text-label), NULL array
+     elements can be used act as placeholders where appropriate."
      (format nil
              "Also, a walk mode along auxiliary points becomes
      available to the HTTP client.  PL/pgSQL function ~(~A~) is
@@ -1200,7 +1203,11 @@ a view."
     (with-connection (list aux-database aux-user aux-password aux-host
                            :port aux-port
                            :use-ssl (s-sql:from-sql-name aux-use-ssl))
-      (let ((aux-view-in-phoros-db-p
+      (let ((numeric-columns
+             (nsubstitute nil "" numeric-column :test #'string=))
+            (text-columns
+             (nsubstitute nil "" text-column :test #'string=))
+            (aux-view-in-phoros-db-p
              (every #'equal
                     (list host port database user password use-ssl)
                     (list aux-host aux-port aux-database
@@ -1220,9 +1227,9 @@ a view."
             (delete-aux-view presentation-project-name))
           (apply #'create-aux-view
                  presentation-project-name
-                 :coordinates-column (s-sql:to-sql-name coordinates-column)
-                 :numeric-columns numeric-column
-                 :text-columns text-column
+                 :coordinates-column coordinates-column
+                 :numeric-columns numeric-columns
+                 :text-columns text-columns
                  :allow-other-keys t
                  (cli:remaining-options))
           (add-spherical-mercator-ref)
@@ -1238,7 +1245,7 @@ a view."
            aux-database aux-host aux-port
            (aux-point-view-name presentation-project-name)
            aux-table coordinates-column
-           numeric-column text-column
+           numeric-columns text-columns
            (thread-aux-points-function-name presentation-project-name)))))))
 
 (defun cli:store-user-points-action (presentation-project)

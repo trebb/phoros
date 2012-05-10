@@ -2159,20 +2159,24 @@
          labels and a data column from aux-data."
          (if aux-data
              (who-ps-html
-              (:table :class "aux-data-table"
-                      (chain aux-data
-                             (reduce (lambda (x y i)
-                                       (+ x (who-ps-html
-                                             (:tr
-                                              (:td :class "aux-data-label"
-                                                   (+
-                                                    (if labels
-                                                        (elt labels i)
-                                                        i)
-                                                    ":"))
-                                              (:td :class "aux-data-value"
-                                                   y)))))
-                                     ""))))
+              (:table
+               :class "aux-data-table"
+               (chain aux-data
+                      (reduce (lambda (x y i)
+                                (if y
+                                    (+ x (who-ps-html
+                                          (:tr
+                                           (:td :class "aux-data-label"
+                                                (+
+                                                 (if (and labels
+                                                          (elt labels i))
+                                                     (elt labels i)
+                                                     (+ "#" i))
+                                                 ":"))
+                                           (:td :class "aux-data-value"
+                                                y))))
+                                    x))
+                              ""))))
              ""))
 
        (defun nearest-aux-point-selected (event)

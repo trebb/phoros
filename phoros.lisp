@@ -1187,8 +1187,7 @@ coordinates received, wrapped in an array."
     (encode-geojson-to-string
      (ignore-errors
        (with-connection *postgresql-aux-credentials*
-         (nsubst
-          nil :null
+         (nillify-null
           (query
            (s-sql:sql-compile
             `(:limit
@@ -1216,6 +1215,15 @@ coordinates received, wrapped in an array."
                'distance)
               ,count))
            :plists)))))))
+
+(defun nillify-null (x)
+  "Replace occurences of :null in nested sequence x by nil."
+  (cond ((eq :null x) nil)
+        ((stringp x) x)
+        ((numberp x) x)
+        ((symbolp x) x)
+        (t (map (type-of x) #'nillify-null x))))
+                              
 
 (hunchentoot:define-easy-handler
     (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
@@ -1246,8 +1254,7 @@ respectively)."
          (sql-response
           (ignore-errors
             (with-connection *postgresql-aux-credentials*
-              (nsubst
-               nil :null
+              (nillify-null
                (query
                 (sql-compile
                  `(:select '* :from
@@ -1308,9 +1315,10 @@ and the number of points returned."
     (values
      (if indent
          (indent-json
-          (encode-geojson-to-string (nsubst nil :null user-point-plist)))
-         (encode-geojson-to-string (nsubst nil :null user-point-plist)))
+          (encode-geojson-to-string (nillify-null user-point-plist)))
+         (encode-geojson-to-string (nillify-null user-point-plist)))
      (length user-point-plist))))
+
 (hunchentoot:define-easy-handler
     (user-points :uri "/phoros/lib/user-points.json")
     (bbox)
