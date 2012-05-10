@@ -1089,12 +1089,13 @@ VACUUM FULL ANALYZE <aux-table> (the_geom);"
            (thread-aux-points-function-name presentation-project-name)))
       (execute (format nil "
 CREATE VIEW ~A
-AS (SELECT ~A AS coordinates,
+AS (SELECT ST_Transform(~A, ~D) AS coordinates,
     ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric,
     ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text
     FROM ~A)"
                        (s-sql:to-sql-name aux-point-view-name)
                        (s-sql:to-sql-name coordinates-column)
+                       *standard-coordinates*
                        (mapcar #'to-sql-name-or-null numeric-columns)
                        (mapcar #'to-sql-name-or-null text-columns)
                        (s-sql:to-sql-name aux-table)))
