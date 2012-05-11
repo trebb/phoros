@@ -1086,16 +1086,32 @@ VACUUM FULL ANALYZE <aux-table> (the_geom);"
     (let ((aux-point-view-name
            (aux-point-view-name presentation-project-name))
           (thread-aux-points-function-name
-           (thread-aux-points-function-name presentation-project-name)))
+           (thread-aux-points-function-name presentation-project-name))
+          (srid-count
+           (query
+            (:select (:as (:select (:count t)
+                                   :from (make-symbol aux-table)
+                                   :where (:<> (:st_srid (make-symbol coordinates-column))
+                                               *standard-coordinates*))
+                          'bad)
+                     (:as (:select (:count (make-symbol coordinates-column))
+                                   :from (make-symbol aux-table))
+                          'total))
+            :plist)))
+      (unless (zerop (getf srid-count :bad))
+        (warn "In column ~A of auxiliary data table ~A, ~D out of ~D values ~
+              have currently an unsuitable SRID not equal to ~D."
+              coordinates-column aux-table
+              (getf srid-count :bad) (getf srid-count :total)
+              *standard-coordinates*))
       (execute (format nil "
 CREATE VIEW ~A
-AS (SELECT ST_Transform(~A, ~D) AS coordinates,
+AS (SELECT ~A AS coordinates,
     ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_numeric,
     ~:[NULL~;ARRAY[~:*~{~A~#^, ~}]~] AS aux_text
     FROM ~A)"
                        (s-sql:to-sql-name aux-point-view-name)
                        (s-sql:to-sql-name coordinates-column)
-                       *standard-coordinates*
                        (mapcar #'to-sql-name-or-null numeric-columns)
                        (mapcar #'to-sql-name-or-null text-columns)
                        (s-sql:to-sql-name aux-table)))
