@@ -1235,8 +1235,15 @@ linestring stitched together of the nearest auxiliary points from
 within radius around coordinates), current-point (the point on
 linestring closest to coordinates), and previous-point and next-point
 \(points on linestring step-size before and after current-point
-respectively)."
+respectively).  Wipe away any unfinished business first."
   (assert-authentication)
+  (dolist (old-thread (hunchentoot:session-value 'recent-threads))
+    (ignore-errors
+      (bt:interrupt-thread old-thread
+                           #'(lambda () (signal 'superseded)))))
+  (setf (hunchentoot:session-value 'recent-threads) nil)
+  (setf (hunchentoot:session-value 'number-of-threads) 1)
+  (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((thread-aux-points-function-name
           (thread-aux-points-function-name (hunchentoot:session-value
