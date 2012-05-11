@@ -1290,6 +1290,7 @@
                              (*lon-lat (@ current-point geometry x)
                                        (@ current-point geometry y))))))
            (chain *streetmap* (pan-to current-point-lonlat))
+           (setf (@ *streetmap* clicked-lonlat) current-point-lonlat)
            (setf (@ *streetmap* linestring-central-azimuth) azimuth)
            (request-photos-for-point current-point-lonlat)
            (setf (@ *streetmap* step-back-point) previous-point)
