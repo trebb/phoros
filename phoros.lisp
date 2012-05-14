@@ -823,13 +823,13 @@ ingredients for the URLs of the 256 nearest images."
          (point-form
           (format nil "SRID=4326; POINT(~S ~S ~S)"
                   longitude latitude ellipsoid-height))
-         (aux-numeric-raw (cdr (assoc :aux-numeric data)))
+         (aux-numeric-raw (setf *t* (cdr (assoc :aux-numeric data))))
          (aux-text-raw (cdr (assoc :aux-text data)))
          (aux-numeric (if aux-numeric-raw
-                          (apply #'vector aux-numeric-raw)
+                          (nullify-nil (apply #'vector aux-numeric-raw))
                           :null))
          (aux-text (if aux-text-raw
-                       (apply #'vector aux-text-raw)
+                       (nullify-nil (apply #'vector aux-text-raw))
                        :null))
          (user-point-table-name
           (user-point-table-name presentation-project-name)))
@@ -1224,7 +1224,14 @@ coordinates received, wrapped in an array."
         ((symbolp x) x)
         (t (map (type-of x) #'nillify-null x))))
                               
-
+(defun nullify-nil (x)
+  "Replace occurences of nil in nested sequence x by :null."
+  (cond ((null x) :null)
+        ((stringp x) x)
+        ((numberp x) x)
+        ((symbolp x) x)
+        (t (map (type-of x) #'nullify-nil x))))
+                              
 (hunchentoot:define-easy-handler
     (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
                           :default-request-type :post)
