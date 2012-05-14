@@ -59,6 +59,11 @@ cd ../                          # where the phoros binary lives
          --text-column=strasse                          \
          $pg_aux_credentials
 
+./phoros --create-image-attribute=my_presentation_project                       \
+         --tag="front cams only"                                                \
+         --sql-clause="recorded_device_id = '21' OR recorded_device_id = '22'"  \
+         $pg_credentials
+
 for i in /path/to/all/projects/one_project/*;
 do
     ./phoros --store-images-and-points=this_acquisition_project \
