@@ -224,7 +224,7 @@ button, select {
     height: 21px;
     float: left;
 }
-#include-aux-data {
+#include-aux-data, #display-nearest-aux-data {
     float: right;
 }
 #point-creation-date {
@@ -295,20 +295,6 @@ button, select {
 .streetmap-layer-switcher {
     width: 130px;
     float: left;
-}
-#display-aux-data-button {
-    font-size: small;
-    padding: 0px;
-    margin: 5px;
-    border-width: 2px;
-    float: right;
-}
-#display-aux-data-dismiss-button {
-    width: 210px;
-    height: 30px;
-    margin-bottom: 5px;
-    float: left;
-    clear: both;
 }
 .streetmap-layer-switcher span {    /*layer name*/
     cursor: pointer;

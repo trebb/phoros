@@ -1544,6 +1544,7 @@ table."
       (:body
        :onload (ps (init))
        (:noscript (:b (:em "You can't do much without JavaScript here.")))
+       ;; main header line
        (:h1 :id "title"
             "Phoros: " (who:str (hunchentoot:session-value 'user-full-name))
             (who:fmt " (~A)" (hunchentoot:session-value 'user-name))
@@ -1559,207 +1560,225 @@ table."
                    (:span :id "caching-indicator")
                    (:span :id "phoros-version"
                           (who:fmt "v~A" (phoros-version)))))
-       (:div :class "controlled-streetmap"
-             (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
-             (:div :id "streetmap-controls" :class "streetmap-controls"
-                   (:div :id "streetmap-vertical-strut"
-                         :class "streetmap-vertical-strut")
-                   (:div :id "streetmap-layer-switcher"
-                         :class "streetmap-layer-switcher")
-                   (:button :id "display-aux-data-button"
-                            :type "button"
-                            :onclick (ps-inline
-                                      (request-aux-points-near-cursor 30))
-                            "view" :br "aux" :br "data")
-                   (:button :id "unselect-all-restrictions-button"
-                            :type "button"
-                            :onclick (ps-inline (unselect-all-restrictions))
-                            "clear" :br "all")
-                   (:select :id "restriction-select"
-                            :name "restriction-select"
-                            :size 3
-                            :multiple t
-                            :onchange (ps-inline (request-photos)))
-                   (:div :id "streetmap-overview" :class "streetmap-overview")
-                   (:div :id "streetmap-mouse-position"
-                         :class "streetmap-mouse-position")
-                   (:div :id "streetmap-zoom" :class "streetmap-zoom")))
-       (:div :class "phoros-controls" :id "phoros-controls"
-             (:div :id "real-phoros-controls"
-                   (:h2 :class "point-creator h2-phoros-controls"
-                        "Create Point")
-                   (:h2 :class "point-editor h2-phoros-controls"
-                        "Edit Point"
-                        (:span :id "creator"))
-                   (:h2 :class "point-viewer h2-phoros-controls"
-                        "View Point"
-                        (:span :id "creator"))
-                   (:h2 :class "aux-data-viewer h2-phoros-controls"
-                        "View Auxiliary Data")
-                   (:h2 :class "multiple-points-viewer"
-                        "Multiple Points Selected")
-                   (:div :class "multiple-points-viewer"
-                         (:p "You have selected multiple user points.")
-                         (:p "Unselect all but one to edit or view its properties."))
-                   (:span :class "point-creator point-editor point-viewer"
-                          (:div :id "point-kind"
-                                :class "combobox"
-                                (:select :id "point-kind-select"
-                                         :name "point-kind-select"
-                                         :class "combobox-select"
-                                         :onchange (ps-inline
-                                                    (consolidate-combobox
-                                                     "point-kind"))
-                                         :disabled t)
-                                (:input :id "point-kind-input"
-                                        :name "point-kind-input"
-                                        :class "combobox-input"
-                                        :onchange (ps-inline
-                                                   (unselect-combobox-selection
-                                                    "point-kind"))
-                                        :disabled t
-                                        :type "text"))
-                          (:input :id "point-numeric-description"
-                                  :class "vanilla-input"
-                                  :disabled t
-                                  :type "text" :name "point-numeric-description")
+       ;; streetmap area (northwest)
+       (:div
+        :class "controlled-streetmap"
+        (:div :id "streetmap" :class "streetmap" :style "cursor:crosshair")
+        (:div :id "streetmap-controls" :class "streetmap-controls"
+              (:div :id "streetmap-vertical-strut"
+                    :class "streetmap-vertical-strut")
+              (:div :id "streetmap-layer-switcher"
+                    :class "streetmap-layer-switcher")
+              (:button :id "unselect-all-restrictions-button"
+                       :type "button"
+                       :onclick (ps-inline (unselect-all-restrictions))
+                       "clear" :br "all")
+              (:select :id "restriction-select"
+                       :name "restriction-select"
+                       :size 3
+                       :multiple t
+                       :onchange (ps-inline (request-photos)))
+              (:div :id "streetmap-overview" :class "streetmap-overview")
+              (:div :id "streetmap-mouse-position"
+                    :class "streetmap-mouse-position")
+              (:div :id "streetmap-zoom" :class "streetmap-zoom")))
+       ;; control area (north)
+       (:div
+        :class "phoros-controls" :id "phoros-controls"
+        (:div :id "real-phoros-controls"
+              (:h2 :class "point-creator h2-phoros-controls"
+                   "Create Point")
+              (:h2 :class "point-editor h2-phoros-controls"
+                   "Edit Point"
+                   (:span :id "creator"))
+              (:h2 :class "point-viewer h2-phoros-controls"
+                   "View Point"
+                   (:span :id "creator"))
+              (:h2 :class "aux-data-viewer h2-phoros-controls"
+                   "View Auxiliary Data")
+              (:h2 :class "multiple-points-viewer"
+                   "Multiple Points Selected")
+              (:div :class "multiple-points-viewer"
+                    (:p "You have selected multiple user points.")
+                    (:p "Unselect all but one to edit or view its properties."))
+              (:span :class "point-creator point-editor point-viewer"
+                     (:div
+                      :id "point-kind"
+                      :class "combobox"
+                      (:select
+                       :id "point-kind-select"
+                       :name "point-kind-select"
+                       :class "combobox-select write-permission-dependent"
+                       :onchange (ps-inline
+                                  (consolidate-combobox
+                                   "point-kind"))
+                       :disabled t)
+                      (:input
+                       :id "point-kind-input"
+                       :name "point-kind-input"
+                       :class "combobox-input write-permission-dependent"
+                       :onchange (ps-inline
+                                  (unselect-combobox-selection
+                                   "point-kind"))
+                       :disabled t
+                       :type "text"))
+                     (:input :id "point-numeric-description"
+                             :class "vanilla-input write-permission-dependent"
+                             :disabled t
+                             :type "text" :name "point-numeric-description")
 
-                          (:div :id "point-description"
-                                :class "combobox"
-                                (:select :id "point-description-select"
-                                         :name "point-description-select"
-                                         :class "combobox-select"
-                                         :onchange (ps-inline
-                                                    (consolidate-combobox
-                                                     "point-description"))
-                                         :disabled t)
-                                (:input :id "point-description-input"
-                                        :name "point-description-input"
-                                        :class "combobox-input"
-                                        :onchange (ps-inline
-                                                   (unselect-combobox-selection
-                                                    "point-description"))
-                                        :disabled t
-                                        :type "text"))
-                          (:button :id "delete-point-button" :disabled t
-                                   :type "button"
-                                   :onclick (ps-inline (delete-point))
-                                   "del")
-                          (:button :disabled t :id "finish-point-button"
-                                   :type "button"
-                                   (:b "finish"))
-                          (:div :id "uniquify-buttons"
-                                (:button :id "suggest-unique-button"
-                                         :type "button"
-                                         :onclick (ps-inline
-                                                   (insert-unique-suggestion))
-                                         (:b "suggest"))
-                                (:button :id "force-duplicate-button"
-                                         :type "button"
-                                         "push")))
-
-                   (:button :id "display-aux-data-dismiss-button"
-                            :class "aux-data-viewer"
-                            :type "button"
-                            :onclick (ps-inline (dismiss-aux-data))
-                            "dismiss")
-                   (:div :id "aux-point-distance-or-point-creation-date"
-                         (:code :id "point-creation-date"
-                                :class "point-editor point-viewer")
-                         (:select :id "aux-point-distance" :disabled t
-                                  :class "point-creator aux-data-viewer"
-                                  :size 1 :name "aux-point-distance"
-                                  :onchange (ps-inline
-                                             (aux-point-distance-selected))
-                                  :onclick (ps-inline
-                                            (enable-aux-point-selection)))
-                         (:div :id "include-aux-data"
-                               :class "point-creator"
-                               (:label
-                                (:input :id "include-aux-data-p"
-                                        :class "tight-input"
-                                        :type "checkbox" :checked t
-                                        :name "include-aux-data-p"
-                                        :onchange (ps-inline
-                                                   (flip-aux-data-inclusion)))
-                                "aux data")))
-                   (:div :id "aux-data"
-                         :class "point-creator point-editor point-viewer aux-data-viewer"
-                         (:div :id "aux-numeric-list")
-                         (:div :id "aux-text-list"))
-             ;; (:div :id "multiple-points-phoros-controls"
-             ;;       (:h2 "Multiple Points Selected")
-             ;;       (:p "You have selected multiple user points.")
-             ;;       (:p "Unselect all but one to edit or view its properties.")
-                   )
-             (:div :class "walk-mode-controls"
-                   (:div :id "walk-mode"
-                         (:input :id "walk-p"
-                                 :class "tight-input"
-                                 :type "checkbox" :checked nil
-                                 :onchange (ps-inline
-                                            (flip-walk-mode)))
-                         (:label :for "walk-p"
-                                 "snap+walk"))
-                   (:div :id "decrease-step-size"
-                         :onclick (ps-inline (decrease-step-size)))
-                   (:div :id "step-size"
-                         :onclick (ps-inline (increase-step-size))
-                         "4")
-                   (:div :id "increase-step-size"
-                         :onclick (ps-inline (increase-step-size))
-                         :ondblclick (ps-inline (increase-step-size)
-                                                (increase-step-size)))
-                   (:div :id "step-button" :disabled nil
-                         :onclick (ps-inline (step))
-                         :ondblclick (ps-inline (step t))
-                         "step"))
-             (:div :class "image-main-controls"
-                   (:div :id "auto-zoom"
-                         (:input :id "zoom-to-point-p"
-                                 :class "tight-input"
-                                 :type "checkbox" :checked t)
-                         (:label :for "zoom-to-point-p"
-                                 "auto"))
-                   (:div :id "brighten-images"
-                         (:input :id "brighten-images-p"
-                                 :class "tight-input"
-                                 :type "checkbox" :checked nil)
-                         (:label :for "brighten-images-p"
-                                 "bright"))
-                   (:div :id "zoom-images-to-max-extent"
-                         :onclick (ps-inline (zoom-images-to-max-extent)))
-                   (:div :id "no-footprints-p"
-                         (:b "?"))
-                   (:div :id "remove-work-layers-button" :disabled t
-                         :onclick (ps-inline (reset-layers-and-controls))
-                         "restart")))
-       (:div :class "help-div"
-             (:button :id "download-user-points-button"
-                      :type "button"
-                      :onclick (format nil "self.location.href = \"/~A/lib/user-points.json\""
-                                       *proxy-root*)
-                      "download points") ;TODO: offer other formats and maybe projections
-             (:button :id "blurb-button"
-                      :type "button"
-                      :onclick (ps-inline
-                                (chain window
-                                       (open
-                                        (+ "/"
-                                           +proxy-root+
-                                           "/lib/blurb?openlayers-version="
-                                           (@ *open-layers *version_number*))
-                                        "About Phoros")))
-                      (:img :src (format nil "/~A/lib/public_html/phoros-logo-plain.png"
-                                         *proxy-root*)
-                            :alt "Phoros" :style "vertical-align:middle"
-                            :height 20))
-             (:button :id "logout-button"
-                      :type "button"
-                      :onclick (ps-inline (bye))
-                      "bye")
-             (:h2 :id "h2-help" "Help")
-             (:div :id "help-display"))
+                     (:div
+                      :id "point-description"
+                      :class "combobox"
+                      (:select
+                       :id "point-description-select"
+                       :name "point-description-select"
+                       :class "combobox-select write-permission-dependent"
+                       :onchange (ps-inline
+                                  (consolidate-combobox
+                                   "point-description"))
+                       :disabled t)
+                      (:input
+                       :id "point-description-input"
+                       :name "point-description-input"
+                       :class "combobox-input write-permission-dependent"
+                       :onchange (ps-inline
+                                  (unselect-combobox-selection
+                                   "point-description"))
+                       :disabled t
+                       :type "text"))
+                     (:button :id "delete-point-button" :disabled t
+                              :type "button"
+                              :onclick (ps-inline (delete-point))
+                              "del")
+                     (:button :disabled t :id "finish-point-button"
+                              :type "button"
+                              (:b "finish"))
+                     (:div :id "uniquify-buttons"
+                           (:button :id "suggest-unique-button"
+                                    :type "button"
+                                    :onclick (ps-inline
+                                              (insert-unique-suggestion))
+                                    (:b "suggest"))
+                           (:button :id "force-duplicate-button"
+                                    :type "button"
+                                    "push")))
+              (:div :id "aux-point-distance-or-point-creation-date"
+                    (:code :id "point-creation-date"
+                           :class "point-editor point-viewer")
+                    (:select
+                     :id "aux-point-distance" :disabled t
+                     :class "point-creator aux-data-viewer aux-data-dependent"
+                     :size 1 :name "aux-point-distance"
+                     :onchange (ps-inline
+                                (aux-point-distance-selected))
+                     :onclick (ps-inline
+                               (enable-aux-point-selection)))
+                    (:div
+                     :id "include-aux-data"
+                     :class "point-creator aux-data-dependent"
+                     (:label
+                      (:input :id "include-aux-data-p"
+                              :class "tight-input"
+                              :type "checkbox" :checked t
+                              :name "include-aux-data-p"
+                              :onchange (ps-inline
+                                         (flip-aux-data-inclusion)))
+                      "aux data"))
+                    (:div :id "display-nearest-aux-data"
+                          :class "aux-data-viewer"
+                          (:label
+                           (:input :id "display-nearest-aux-data-p"
+                                   :class "tight-input"
+                                   :type "checkbox" :checked t
+                                   :name "display-nearest-aux-data-p"
+                                   :onchange (ps-inline
+                                              (flip-nearest-aux-data-display)))
+                           "display")))
+              (:div
+               :id "aux-data"
+               :class "point-creator point-editor point-viewer aux-data-viewer"
+               (:div :id "aux-numeric-list")
+               (:div :id "aux-text-list")))
+        (:div :class "walk-mode-controls"
+              (:div :id "walk-mode"
+                    :class "aux-data-dependent"
+                    (:input :id "walk-p"
+                            :class "tight-input"
+                            :type "checkbox" :checked nil
+                            :onchange (ps-inline
+                                       (flip-walk-mode)))
+                    (:label :for "walk-p"
+                            "snap+walk"))
+              (:div :id "decrease-step-size"
+                    :class "aux-data-dependent"
+                    :onclick (ps-inline (decrease-step-size)))
+              (:div :id "step-size"
+                    :class "aux-data-dependent"
+                    :onclick (ps-inline (increase-step-size))
+                    "4")
+              (:div :id "increase-step-size"
+                    :class "aux-data-dependent"
+                    :onclick (ps-inline (increase-step-size))
+                    :ondblclick (ps-inline (increase-step-size)
+                                           (increase-step-size)))
+              (:div :id "step-button" :disabled nil
+                    :class "aux-data-dependent"
+                    :onclick (ps-inline (step))
+                    :ondblclick (ps-inline (step t))
+                    "step"))
+        (:div :class "image-main-controls"
+              (:div :id "auto-zoom"
+                    (:input :id "zoom-to-point-p"
+                            :class "tight-input"
+                            :type "checkbox" :checked t)
+                    (:label :for "zoom-to-point-p"
+                            "auto"))
+              (:div :id "brighten-images"
+                    (:input :id "brighten-images-p"
+                            :class "tight-input"
+                            :type "checkbox" :checked nil)
+                    (:label :for "brighten-images-p"
+                            "bright"))
+              (:div :id "zoom-images-to-max-extent"
+                    :onclick (ps-inline (zoom-images-to-max-extent)))
+              (:div :id "no-footprints-p"
+                    (:b "?"))
+              (:div :id "remove-work-layers-button" :disabled t
+                    :onclick (ps-inline (reset-layers-and-controls))
+                    "restart")))
+       ;; help area (northeast)
+       (:div
+        :class "help-div"
+        (:button
+         :id "download-user-points-button"
+         :type "button"
+         :onclick (format nil
+                          "self.location.href = \"/~A/lib/user-points.json\""
+                          *proxy-root*)
+         "download points") ;TODO: offer other formats and maybe projections
+        (:button
+         :id "blurb-button"
+         :type "button"
+         :onclick (ps-inline
+                   (chain window
+                          (open
+                           (+ "/"
+                              +proxy-root+
+                              "/lib/blurb?openlayers-version="
+                              (@ *open-layers *version_number*))
+                           "About Phoros")))
+         (:img :src (format nil "/~A/lib/public_html/phoros-logo-plain.png"
+                            *proxy-root*)
+               :alt "Phoros" :style "vertical-align:middle"
+               :height 20))
+        (:button :id "logout-button"
+                 :type "button"
+                 :onclick (ps-inline (bye))
+                 "bye")
+        (:h2 :id "h2-help" "Help")
+        (:div :id "help-display"))
+       ;; image area (south)
        (:div :id "images" :style "clear:both"
              (loop
                 for i from 0 below *number-of-images* do 
