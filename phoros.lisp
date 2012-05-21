@@ -746,7 +746,6 @@ ingredients for the URLs of the 256 nearest images."
                  (radius (* 5d-4))   ; assuming geographic coordinates
                  (point-form (format nil "POINT(~F ~F)" longitude latitude))
                  (result
-
                   (handler-case
                       (ignore-errors
                         (query
@@ -794,7 +793,6 @@ ingredients for the URLs of the 256 nearest images."
                     (superseded ()
                       (setf (hunchentoot:return-code*)
                             hunchentoot:+http-gateway-time-out+)
-                      ;; (decf (hunchentoot:session-value 'number-of-threads))
                       nil))))
             (decf (hunchentoot:session-value 'number-of-threads))
             (json:encode-json-to-string result))))
@@ -1252,47 +1250,51 @@ respectively).  Wipe away any unfinished business first."
   (setf (hunchentoot:session-value 'number-of-threads) 1)
   (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
   (setf (hunchentoot:content-type*) "application/json")
-  (let* ((thread-aux-points-function-name
-          (thread-aux-points-function-name (hunchentoot:session-value
-                                            'presentation-project-name)))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
-         (longitude (cdr (assoc :longitude data)))
-         (latitude (cdr (assoc :latitude data)))
-         (radius (cdr (assoc :radius data)))
-         (step-size (cdr (assoc :step-size data)))
-         (azimuth (if (numberp (cdr (assoc :azimuth data)))
-                      (cdr (assoc :azimuth data))
-                      0))
-         (point-form 
-          (format nil "POINT(~F ~F)" longitude latitude))
-         (sql-response
-          (ignore-errors
-            (with-connection *postgresql-aux-credentials*
-              (nillify-null
-               (query
-                (sql-compile
-                 `(:select '* :from
-                           (,thread-aux-points-function-name
-                            (:st_geomfromtext
-                             ,point-form ,*standard-coordinates*)
-                            ,radius
-                            ,*number-of-points-per-aux-linestring*
-                            ,step-size
-                            ,azimuth
-                            ,(proj:degrees-to-radians 91))))
-                :plist))))))
-    (with-output-to-string (s)
-      (json:with-object (s)
-        (json:encode-object-member
-         :linestring (getf sql-response :threaded-points) s)
-        (json:encode-object-member
-         :current-point (getf sql-response :current-point) s)
-        (json:encode-object-member
-         :previous-point (getf sql-response :back-point) s)
-        (json:encode-object-member
-         :next-point (getf sql-response :forward-point) s)
-        (json:encode-object-member
-         :azimuth (getf sql-response :new-azimuth) s)))))
+  (handler-case
+      (let* ((thread-aux-points-function-name
+              (thread-aux-points-function-name (hunchentoot:session-value
+                                                'presentation-project-name)))
+             (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+             (longitude (cdr (assoc :longitude data)))
+             (latitude (cdr (assoc :latitude data)))
+             (radius (cdr (assoc :radius data)))
+             (step-size (cdr (assoc :step-size data)))
+             (azimuth (if (numberp (cdr (assoc :azimuth data)))
+                          (cdr (assoc :azimuth data))
+                          0))
+             (point-form 
+              (format nil "POINT(~F ~F)" longitude latitude))
+             (sql-response
+              (ignore-errors
+                (with-connection *postgresql-aux-credentials*
+                  (nillify-null
+                   (query
+                    (sql-compile
+                     `(:select '* :from
+                               (,thread-aux-points-function-name
+                                (:st_geomfromtext
+                                 ,point-form ,*standard-coordinates*)
+                                ,radius
+                                ,*number-of-points-per-aux-linestring*
+                                ,step-size
+                                ,azimuth
+                                ,(proj:degrees-to-radians 91))))
+                    :plist))))))
+        (with-output-to-string (s)
+          (json:with-object (s)
+            (json:encode-object-member
+             :linestring (getf sql-response :threaded-points) s)
+            (json:encode-object-member
+             :current-point (getf sql-response :current-point) s)
+            (json:encode-object-member
+             :previous-point (getf sql-response :back-point) s)
+            (json:encode-object-member
+             :next-point (getf sql-response :forward-point) s)
+            (json:encode-object-member
+             :azimuth (getf sql-response :new-azimuth) s))))
+    (superseded ()
+      ;; (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
+      nil)))
 
 (defun get-user-points (user-point-table-name &key
                         (bounding-box "-180,-90,180,90")
@@ -1474,7 +1476,6 @@ table."
         (decf (hunchentoot:session-value 'number-of-threads)))
     (superseded ()
       (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
-      ;; (decf (hunchentoot:session-value 'number-of-threads))
       nil)
     (condition (c)
       (cl-log:log-message
