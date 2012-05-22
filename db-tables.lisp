@@ -1045,6 +1045,32 @@ belonging to images."
       (s-sql:to-sql-name aggregate-view-name)
       (s-sql:to-sql-name image-data-table-name)))))
 
+(defconstant *aggregate-view-columns*
+  (list 'usable
+        'recorded-device-id                ;debug
+        'device-stage-of-life-id           ;debug
+        'generic-device-id                 ;debug
+        'directory
+        'measurement-id
+        'filename 'byte-position 'point-id
+        'trigger-time
+        ;;'coordinates   ;the search target
+        'longitude 'latitude 'ellipsoid-height
+        'cartesian-system
+        'east-sd 'north-sd 'height-sd
+        'roll 'pitch 'heading
+        'roll-sd 'pitch-sd 'heading-sd
+        'sensor-width-pix 'sensor-height-pix
+        'pix-size
+        'bayer-pattern 'color-raiser
+        'mounting-angle
+        'dx 'dy 'dz 'omega 'phi 'kappa
+        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+        'b-ddx 'b-ddy 'b-ddz
+        'b-drotx 'b-droty 'b-drotz)
+  "Most of the column names of aggregate-view")
+
 (defun aux-view-exists-p (presentation-project-name)
   "See if there is a view into auxiliary point table that belongs to
 presentation-project-name."
@@ -1430,13 +1456,45 @@ wasn't any."
       (execute
        (:drop-table :if-exists (user-line-table-name project-name))))))
 
+(defun postmodern-as-clauses (row-alist)
+  "Make a list of constant :as clauses from query result row-alist.
+Alias names are the column names from row-alist prefixed by first-."
+  (loop
+     for column in row-alist
+     collect `(:as
+               ,(cdr column)
+               ,(intern (string (prefix-aggregate-view-column (car column)))
+                        'keyword))))
+
+(defun prefix-aggregate-view-column (column-name)
+  "Return a symbol named column-name, prefixed by first-."
+  (make-symbol (concatenate 'string
+                            (string 'first-)
+                            (string column-name))))
+
+(defun some-internal-image-reference (sql-clause)
+  "Return t if there are occurences of
+first-<something-from-*aggregate-view-columns*>, which act as
+references to the first image."
+  (loop
+     for i in *aggregate-view-columns*
+     thereis
+       (ppcre:scan
+        (ppcre:create-scanner
+         (s-sql:to-sql-name (prefix-aggregate-view-column i))
+         :case-insensitive-mode
+         t)
+        sql-clause)))
+
 (defun* create-image-attribute (presentation-project-name
                                &mandatory-key tag sql-clause)
   "Store a boolean SQL expression into current database.  Return SQL
 expression previously stored for presentation-project-name and tag if
 any; return nil otherwise.  Second return value is the number of
 images covered by the SQL expression, and third return value is the
-total number of images in presentation project."
+total number of images in presentation project.  Both second and third
+return value are nil if sql-clause contains references to the first
+image."
   (assert-phoros-db-major-version)
   (let* ((presentation-project-id
           (presentation-project-id-from-name presentation-project-name))
@@ -1446,26 +1504,47 @@ total number of images in presentation project."
           (common-table-names presentation-project-id))
          (selected-restrictions-conjunction
           (sql-where-conjunction (list sql-clause)))
+         (arbitrary-image-query
+          (sql-compile
+           `(:union
+             ,@(loop
+                  for common-table-name in common-table-names
+                  for aggregate-view-name
+                  = (aggregate-view-name common-table-name)
+                  collect  
+                    `(:limit (:select ,@*aggregate-view-columns*
+                                      :from ',aggregate-view-name)
+                             1)))))
+         (internal-reference-p (some-internal-image-reference sql-clause))
+         (arbitrary-image (query arbitrary-image-query :alist))
          (counting-selected-query
+          ;; Only useful as an SQL syntax check if sql-clause contains
+          ;; internal references.
           (sql-compile
            `(:select
              (:sum count)
              :from
-             (:as (:union
-                   ,@(loop
-                        for common-table-name in common-table-names
-                        for aggregate-view-name
-                        = (aggregate-view-name common-table-name)
-                        collect  
-                        `(:select
-                          (:as (:count '*) 'count)
-                          :from
-                          ',aggregate-view-name
-                          :where
-                          (:and (:= 'presentation-project-id
-                                    ,presentation-project-id)
-                                (:raw ,selected-restrictions-conjunction)))))
-                  'count))))
+             (:as
+              (:union
+               ,@(loop
+                    for common-table-name in common-table-names
+                    for aggregate-view-name
+                    = (aggregate-view-name common-table-name)
+                    collect  
+                    `(:select
+                      (:as (:count t) 'count)
+                      :from
+                      (:as
+                       (:select
+                        ,@(postmodern-as-clauses arbitrary-image)
+                        '*
+                        :from ',aggregate-view-name)
+                       'images-of-acquisition-project-plus-reference-image)
+                      :where
+                      (:and (:= 'presentation-project-id
+                                ,presentation-project-id)
+                            (:raw ,selected-restrictions-conjunction)))))
+              'acquisition-project-image-counts))))
          (counting-total-query
           (sql-compile
            `(:select
@@ -1479,27 +1558,26 @@ total number of images in presentation project."
                         collect  
                         `(:select
                           (:as (:count '*) 'count)
-                          :from
-                          ',aggregate-view-name
-                          :where
-                          (:= 'presentation-project-id
-                              ,presentation-project-id))))
-                  'count))))
+                          :from ',aggregate-view-name
+                          :where (:= 'presentation-project-id
+                                     ,presentation-project-id))))
+                  'acquisition-project-image-counts))))
          (number-of-selected-images
           (if common-table-names ;otherwise: presentation-project is empty
               (query counting-selected-query :single!)
               0))
          (total-number-of-images
-          (if common-table-names ;otherwise: presentation-project is empty
-              (query counting-total-query :single!)
-              0)))
+          (unless internal-reference-p    ;otherwise don't waste time
+            (if common-table-names ;otherwise: presentation-project is empty
+                (query counting-total-query :single!)
+                0))))
     (save-dao (make-instance 'sys-selectable-restriction
                              :presentation-project-id presentation-project-id
                              :restriction-id tag :sql-clause sql-clause))
     (values
      (when old-selectable-restriction (sql-clause old-selectable-restriction))
-     number-of-selected-images
-     total-number-of-images)))
+     (if internal-reference-p nil number-of-selected-images)
+     (if internal-reference-p nil total-number-of-images))))
 
 (defun* delete-image-attribute (presentation-project-name &mandatory-key tag)
   "Delete SQL expression stored with tag under

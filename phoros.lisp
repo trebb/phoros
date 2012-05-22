@@ -508,7 +508,9 @@ wrapped in an array.  Wipe away any unfinished business first."
             (sql-compile
              `(:limit
                (:select
-                'centroid :from
+                'centroid
+                ,@*aggregate-view-columns*
+                :from
                 (:as
                  (:order-by
                   (:union
@@ -529,8 +531,17 @@ wrapped in an array.  Wipe away any unfinished business first."
                            'distance)
                           (:as (:st_centroid 'footprint)
                                'centroid)
-                          :from
-                          ',aggregate-view-name
+                          ,@*aggregate-view-columns*
+                          :from (:as
+                                 (:select
+                                  '*
+                                  ;; no-ops wrt self-references in
+                                  ;; selected-restrictions-conjunction
+                                  ,@(postmodern-as-clauses
+                                     (pairlis *aggregate-view-columns*
+                                              *aggregate-view-columns*))
+                                  :from ',aggregate-view-name)
+                                 'images-of-acquisition-project)
                           :where
                           (:and
                            (:= 'presentation-project-id
@@ -545,10 +556,12 @@ wrapped in an array.  Wipe away any unfinished business first."
                   'distance)
                  'centroids))
                1)))
-           (nearest-footprint-centroid
+           (nearest-footprint-image
             (ignore-errors (logged-query "centroid of nearest footprint"
                                          nearest-footprint-centroid-query
-                                         :single)))
+                                         :alist)))
+           (nearest-footprint-centroid
+            (cdr (assoc :centroid nearest-footprint-image)))
            (image-data-with-footprints-query
             (sql-compile
              `(:limit
@@ -560,39 +573,22 @@ wrapped in an array.  Wipe away any unfinished business first."
                       = (aggregate-view-name common-table-name)
                       collect  
                       `(:select
+                        ,@*aggregate-view-columns*
                         (:as (:st_distance 'coordinates
                                            ,nearest-footprint-centroid)
                              'distance)
-                        'usable
-                        'recorded-device-id        ;debug
-                        'device-stage-of-life-id   ;debug
-                        'generic-device-id         ;debug
-                        'directory
-                        'measurement-id
-                        'filename 'byte-position 'point-id
                         (:as (:not (:is-null 'footprint))
                              'footprintp)
                         ,(when *render-footprints-p*
                                '(:as (:st_asewkt 'footprint)
                                  'footprint-wkt))
-                        'trigger-time
-                        ;;'coordinates   ;the search target
-                        'longitude 'latitude 'ellipsoid-height
-                        'cartesian-system
-                        'east-sd 'north-sd 'height-sd
-                        'roll 'pitch 'heading
-                        'roll-sd 'pitch-sd 'heading-sd
-                        'sensor-width-pix 'sensor-height-pix
-                        'pix-size
-                        'bayer-pattern 'color-raiser
-                        'mounting-angle
-                        'dx 'dy 'dz 'omega 'phi 'kappa
-                        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                        'b-ddx 'b-ddy 'b-ddz
-                        'b-drotx 'b-droty 'b-drotz
-                        :from
-                        ',aggregate-view-name
+                        :from (:as
+                               (:select
+                                '*
+                                ,@(postmodern-as-clauses
+                                   nearest-footprint-image)
+                                :from ',aggregate-view-name)
+                               'images-of-acquisition-project-plus-reference-image)
                         :where
                         (:and
                          (:= 'presentation-project-id
@@ -602,6 +598,51 @@ wrapped in an array.  Wipe away any unfinished business first."
                          (:raw ,selected-restrictions-conjunction)))))
                 'distance)
                ,count)))
+           (nearest-image-without-footprints-query
+            (sql-compile
+             `(:limit
+               (:order-by
+                (:union
+                 ,@(loop
+                      for common-table-name in common-table-names
+                      for aggregate-view-name
+                        = (aggregate-view-name common-table-name)
+                      collect  
+                        `(:select
+                          ,@*aggregate-view-columns*
+                          (:as (:st_distance 'coordinates
+                                             (:st_geomfromtext
+                                              ,point-form
+                                              ,*standard-coordinates*))
+                               'distance)
+                          (:as (:not (:is-null 'footprint))
+                               'footprintp)
+                          :from (:as
+                                 (:select
+                                  '*
+                                  ;; no-ops wrt self-references in
+                                  ;; selected-restrictions-conjunction
+                                  ,@(postmodern-as-clauses
+                                     (pairlis *aggregate-view-columns*
+                                              *aggregate-view-columns*))
+                                  :from ',aggregate-view-name)
+                                 'images-of-acquisition-project)
+                          :where
+                          (:and (:= 'presentation-project-id
+                                    ,presentation-project-id)
+                                (:st_dwithin 'coordinates
+                                             (:st_geomfromtext
+                                              ,point-form
+                                              ,*standard-coordinates*)
+                                             ,snap-distance)
+                                (:raw ,selected-restrictions-conjunction)))))
+                'distance)
+               1)))
+           (nearest-image-without-footprint
+            (unless nearest-footprint-centroid ;otherwise save time
+              (ignore-errors (logged-query "no footprint, first image"
+                                           nearest-image-without-footprints-query
+                                           :alist))))
            (image-data-without-footprints-query
             (sql-compile
              `(:limit
@@ -613,38 +654,21 @@ wrapped in an array.  Wipe away any unfinished business first."
                       = (aggregate-view-name common-table-name)
                       collect  
                       `(:select
+                        ,@*aggregate-view-columns*
                         (:as (:st_distance 'coordinates
                                            (:st_geomfromtext
                                             ,point-form
                                             ,*standard-coordinates*))
                              'distance)
-                        'usable
-                        'recorded-device-id        ;debug
-                        'device-stage-of-life-id   ;debug
-                        'generic-device-id         ;debug
-                        'directory
-                        'measurement-id
-                        'filename 'byte-position 'point-id
                         (:as (:not (:is-null 'footprint))
                              'footprintp)
-                        'trigger-time
-                        ;;'coordinates   ;the search target
-                        'longitude 'latitude 'ellipsoid-height
-                        'cartesian-system
-                        'east-sd 'north-sd 'height-sd
-                        'roll 'pitch 'heading
-                        'roll-sd 'pitch-sd 'heading-sd
-                        'sensor-width-pix 'sensor-height-pix
-                        'pix-size
-                        'bayer-pattern 'color-raiser
-                        'mounting-angle
-                        'dx 'dy 'dz 'omega 'phi 'kappa
-                        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
-                        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
-                        'b-ddx 'b-ddy 'b-ddz
-                        'b-drotx 'b-droty 'b-drotz
-                        :from
-                        ',aggregate-view-name
+                        :from (:as
+                               (:select
+                                '*
+                                ,@(postmodern-as-clauses
+                                   nearest-image-without-footprint)
+                                :from ',aggregate-view-name)
+                               'images-of-acquisition-project)
                         :where
                         (:and (:= 'presentation-project-id
                                   ,presentation-project-id)

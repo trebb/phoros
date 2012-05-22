@@ -21,7 +21,7 @@ interface.                              http://phoros.boundp.org"
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.3.1"
+  "13.4.0"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister
@@ -48,14 +48,14 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "log")
                (:file "photogrammetry")
                (:file "indent-json")
+               (:file "db-tables")
+               (:file "stuff-db")
                (:file "phoros")
                (:file "css")
                (:file "cli")
                (:file "phoros-js")
                (:file "blurb")
-               (:file "pictures-file")
-               (:file "db-tables")
-               (:file "stuff-db"))
+               (:file "pictures-file"))
 
   :depends-on (:phoml
                :trivial-shell           ;for proj4-sh

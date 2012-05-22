@@ -593,7 +593,11 @@ given."
      pix_size, bayer_pattern, color_raiser, mounting_angle, dx, dy,
      dz, omega, phi, kappa, c, xh, yh, a1, a2, a3, b1, b2, c1, c2, r0,
      b_dx, b_dy, b_dz, b_rotx, b_roty, b_rotz, b_ddx, b_ddy, b_ddz,
-     b_drotx, b_droty, b_drotz, nx, ny, nz, d.")
+     b_drotx, b_droty, b_drotz, nx, ny, nz, d."
+     "Additionally, each of the column names can be prefixed by
+     \"first_\" in order to refer to image data of the first
+     image. (Example: \"measurement_ed = first_measurement_id\" only
+     displays images with equal measurement_id.)")
     (show-help-section
      cli:*aux-view-options*
      "Connect A Presentation Project To A Table Of Auxiliary Data"
@@ -1090,7 +1094,7 @@ trigger-time to stdout."
           image attribute, tagged ~A, for presentation project ~A ~
           in database ~A at ~A:~D~
           ~0@*~@[, replacing the SQL clause previously stored there of ~S~].  ~
-          ~6@*The new SQL clause currently selects ~D out of ~D images."
+          ~6@*~@[The new SQL clause currently selects ~D out of ~D images.~]"
          old-image-attribute
          tag
          presentation-project-name
