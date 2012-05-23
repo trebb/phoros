@@ -399,7 +399,7 @@
            hunchentoot:*log-lisp-backtraces-p*
            (trivial-backtrace:print-backtrace c :output nil))
           (format *error-output* "~A~&" c)
-          #+sbcl (sb-ext:quit :unix-status 1)))
+          #+sbcl (sb-ext:exit :abort t)))
        (warning
         (lambda (c) (cl-log:log-message :warning "~A" c))))
     (cffi:use-foreign-library phoml)
