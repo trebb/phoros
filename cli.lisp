@@ -1091,7 +1091,7 @@ trigger-time to stdout."
         (cl-log:log-message
          :db-dat
          "~:[Stored a fresh~;Updated an~] ~
-          image attribute, tagged ~A, for presentation project ~A ~
+          image attribute, tagged ~S, for presentation project ~A ~
           in database ~A at ~A:~D~
           ~0@*~@[, replacing the SQL clause previously stored there of ~S~].  ~
           ~6@*~@[The new SQL clause currently selects ~D out of ~D images.~]"
@@ -1118,7 +1118,7 @@ trigger-time to stdout."
         (cl-log:log-message
          :db-dat
          "~:[Tried to delete a nonexistent~;Deleted~] ~
-            image attribute tagged ~A from ~
+            image attribute tagged ~S from ~
             presentation project ~A in database ~A at ~A:~D.  ~
             ~0@*~@[Its SQL clause, now deleted, was ~S~]"
          replaced-sql-clause tag presentation-project-name
