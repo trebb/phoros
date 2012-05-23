@@ -34,6 +34,9 @@
 (defparameter *spherical-mercator* 900913
   "EPSG code of the coordinate system used for some distance calculations.")
 
+(defvar *verbosity* nil
+  "List of strings like \"topic:7\".")
+
 (defvar *postgresql-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
 
@@ -55,20 +58,6 @@ proxy configuration if Phoros is hidden behind a proxy.")
 
 (defparameter *login-intro* nil
   "A few friendly words to be shown below the login form.")
-
-(defparameter *log-sql-p* nil
-  "If t, log SQL queries and results.")
-
-(defparameter *postgresql-warnings* nil
-  "If t, show PostgreSQL's WARNINGs and NOTICEs.")
-
-(defparameter *render-footprints-p* nil
-  "If t, put image footprints into images on client.")
-
-(defparameter *use-multi-file-openlayers* nil
-  "If t, use OpenLayers uncompiled from openlayers/*, which makes
-  debugging easier.  Otherwise use a single-file shrunk
-  ol/Openlayers.js.")
 
 (defparameter *number-of-images* 4
   "Number of photos shown to the HTTP client.")
@@ -137,7 +126,7 @@ the key argument, or the whole dotted string."
 (defun muffle-postgresql-warnings ()
   "For current DB, silence PostgreSQL's warnings about implicitly
 created stuff."
-  (unless *postgresql-warnings*
+  (unless (cli:verbosity-level :postgresql-warnings)
     (execute "SET client_min_messages TO ERROR;")))
 
 (defun check-db (db-credentials)
@@ -579,7 +568,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                              'distance)
                         (:as (:not (:is-null 'footprint))
                              'footprintp)
-                        ,(when *render-footprints-p*
+                        ,(when (cli:verbosity-level :render-footprints)
                                '(:as (:st_asewkt 'footprint)
                                  'footprint-wkt))
                         :from (:as
@@ -691,7 +680,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                                     image-data-without-footprints-query
                                     :alists)))
               (superseded () nil))))
-      (when *render-footprints-p*
+      (when (cli:verbosity-level :render-footprints)
         (setf
          result
          (loop
@@ -1541,7 +1530,7 @@ table."
                  'string
                  "Phoros: " (hunchentoot:session-value
                              'presentation-project-name))))
-       (if *use-multi-file-openlayers*
+       (if (cli:verbosity-level :use-multi-file-openlayers)
            (who:htm
             (:script
              :src (format nil "/~A/lib/openlayers/lib/Firebug/firebug.js"

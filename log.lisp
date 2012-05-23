@@ -56,7 +56,9 @@
      (start-log-messenger :info)
      (start-log-messenger :warning)
      (start-log-messenger :error)
-     (if *log-sql-p* (start-log-messenger :sql) (stop-log-messenger :sql))
+     (if (cli:verbosity-level :log-sql)
+         (start-log-messenger :sql)
+         (stop-log-messenger :sql))
      (start-log-messenger :debug)
 
      (cl-log:start-messenger

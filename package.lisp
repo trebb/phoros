@@ -107,4 +107,5 @@
            :list-presentation-project-action
            :format-table
            :split-last-row
-           :server-action))
+           :server-action
+           :verbosity-level))

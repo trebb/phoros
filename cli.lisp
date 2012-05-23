@@ -28,9 +28,14 @@
     (("licence" "license") :action #'cli:licence-action
      :documentation "(*) Print licence boilerplate and exit.")
     ("version" :action #'cli:version-action
-     :documentation "(*) Print version information and exit.  Use --verbose=1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
-    ("verbose" :type integer :initial-value 0
-     :documentation "Dependent on zero-indexed bits set in this integer, emit various kinds of debugging output.  Bit 9: log SQL activity; bit 10: display image footprints on http client; bit 11: show PostgreSQL warnings; bit 13: log http server error backtraces; bit 14: use multi-file version of OpenLayers; bit 15: send nicely formatted JavaScript; bit 16: send http server error messages to client.")
+     :documentation "(*) Print version information and exit.  Use --verbose=libraries:1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
+    ("verbose" :type string :list t :optional t :action *verbosity*
+     :documentation "Emit debugging output as specified in the form of <verbosity-topic>:<verbosity-level>.  Repeat if necessary.  log-sql:1 - log SQL activity; render-footprints:1 - display image footprints on http client; postgresql-warnings:1 - show PostgreSQL warnings; log-error-backtraces:1 - log http server error backtraces; use-multi-file-openlayers:1 - use multi-file version of OpenLayers; pretty-javascript:1 - send nicely formatted JavaScript; show-server-errors:0 - send http server error messages to client; libraries:1 - include library versions in Phoros version output.")
+    ;; use-multi-file-openlayers:1 - Use OpenLayers uncompiled from
+    ;; openlayers/*, which makes debugging easier and is necessary for
+    ;; (ps; ... (debug-info ...)...) to work; doesn't work with
+    ;; (OpenLayers 2.10 AND Firefox 4), though.  Otherwise use a
+    ;; single-file shrunk ol/Openlayers.js.
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'cli:check-db-action
@@ -396,7 +401,7 @@
           (cl-log:log-message
            :error "~A ~:[~;[Backtrace follows]~&~A~]~&"
            c
-           hunchentoot:*log-lisp-backtraces-p*
+           (cli:verbosity-level :log-error-backtraces)
            (trivial-backtrace:print-backtrace c :output nil))
           (format *error-output* "~A~&" c)
           #+sbcl (sb-ext:exit :abort t)))
@@ -434,30 +439,32 @@ lists shaped like (symbol default)."
                      (string= (subseq option 0 2) "--"))
            collect option)))))
 
+(defun cli:verbosity-level (topic)
+  "Return the number associated with verbose topic, or nil if the
+number is 0 or doesn't exist."
+  (let* ((digested-verbosity
+          (loop
+             for entry in *verbosity*
+             collect
+               (destructuring-bind (topic &optional level)
+                   (cl-utilities:split-sequence
+                    #\: entry :count 2 :remove-empty-subseqs t)
+                 (cons (intern (string-upcase topic) 'keyword)
+                       (ignore-errors
+                         (parse-integer level :junk-allowed t))))))
+         (level (cdr (assoc topic digested-verbosity))))
+    (unless (or (null level) (zerop level))
+      level)))
+
 (defun cli:remaining-options ()
   "Return current set of options (from both .phoros config file and
-command line) as an alist, and a list of the non-option arguments.  In
-passing, set global variables according to the --verbose option
-given."
+command line) as an alist, and a list of the non-option arguments."
   (setf cli:*command-line-arguments*
         (append (cli:.phoros-options) cli:*command-line-arguments*))
   (let ((options
          (multiple-value-list
           (cli:process-command-line-options
            cli:*options* cli:*command-line-arguments*))))
-    (destructuring-bind (&key verbose &allow-other-keys)
-        (car options)
-      (setf *log-sql-p* (logbitp 9 verbose))
-      (setf *render-footprints-p* (logbitp 10 verbose))
-      (setf *postgresql-warnings* (logbitp 11 verbose))
-      ;;(setf hunchentoot:*show-lisp-backtraces-p* (logbitp 12 verbose))  ;doesn't seem to exist
-      ;; obeyed by both hunchentoot and Phoros' own logging:
-      (setf hunchentoot:*log-lisp-backtraces-p* (logbitp 13 verbose))
-      ;; necessary for (ps ... (debug-info ...)...); doesn't work with
-      ;; (OpenLayers 2.10 AND Firefox 4), though:
-      (setf *use-multi-file-openlayers* (logbitp 14 verbose))
-      (setf *ps-print-pretty* (logbitp 15 verbose))
-      (setf hunchentoot:*show-lisp-errors-p* (logbitp 16 verbose)))
     (values-list options)))
 
 (defun cli:help-action (&rest rest)
@@ -635,11 +642,9 @@ given."
 (defun cli:version-action (&rest rest)
   "Print --version message. TODO: OpenLayers, Proj4js version."
   (declare (ignore rest))
-  (cli:with-options (verbose)
-    (case verbose
-      (0
-       (format *standard-output* "~&~A~&" (phoros-version)))
-      (otherwise
+  (cli:with-options ()
+    (case (cli:verbosity-level :libraries)
+      (1
        (format
         *standard-output*
         "~&~A version ~A~&  ~A version ~A~&  ~
@@ -648,7 +653,9 @@ given."
         (phoros-version)
         (lisp-implementation-type) (lisp-implementation-version)
         (proj:version)
-        (phoml:get-version-number))))))
+        (phoml:get-version-number)))
+      (t
+       (format *standard-output* "~&~A~&" (phoros-version))))))
 
 (defun cli:licence-action (&rest rest)
   "Print --licence boilerplate."
@@ -681,6 +688,11 @@ given."
 (defun cli:check-dependencies-action (&rest rest)
   "Say OK if the necessary external dependencies are available."
   (declare (ignore rest))
+  (cli:with-options ()
+    (print *verbosity*)
+    (print (cli:verbosity-level :bb))
+    (print (cli:verbosity-level :aa))
+    (terpri))
   (check-dependencies))
 
 (defun cli:nuke-all-tables-action (&rest rest)
@@ -1520,6 +1532,12 @@ exceeds the respective column-width over multiple rows."
                 :use-ssl (s-sql:from-sql-name aux-use-ssl)))
     (insert-all-footprints *postgresql-credentials*)
     (delete-all-imageless-points *postgresql-credentials*)
+    (setf hunchentoot:*log-lisp-backtraces-p*
+          (cli:verbosity-level :log-error-backtraces))
+    (setf hunchentoot:*show-lisp-errors-p*
+          (cli:verbosity-level :show-server-errors))
+    (setf *ps-print-pretty*
+          (cli:verbosity-level :pretty-javascript))
     (start-server :proxy-root proxy-root
                   :http-port http-port :address address
                   :common-root common-root)
