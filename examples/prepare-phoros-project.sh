@@ -22,21 +22,21 @@ cd ../                          # where the phoros binary lives
          $pg_credentials
 
 ./phoros --create-user=ahr                              \
-         --user-password=ahr                            \
+         --user-password="ahr"                          \
          --user-full-name="Andreas Heine"               \
          --user-role=read                               \
          --presentation-project=my_presentation_project \
          $pg_credentials
 
 ./phoros --create-user=tl                               \
-         --user-password=tl                             \
+         --user-password="tl"                           \
          --user-full-name="Thomas Lehmann"              \
          --user-role=write                              \
          --presentation-project=my_presentation_project \
          $pg_credentials
 
 ./phoros --create-user=bb                               \
-         --user-password=bb                             \
+         --user-password="bb"                           \
          --user-full-name="Bert Burgemeister"           \
          --user-role=admin                              \
          --presentation-project=my_presentation_project \
@@ -62,6 +62,11 @@ cd ../                          # where the phoros binary lives
 ./phoros --create-image-attribute=my_presentation_project                       \
          --tag="front cams only"                                                \
          --sql-clause="recorded_device_id = '21' OR recorded_device_id = '22'"  \
+         $pg_credentials
+
+./phoros --create-image-attribute=my_presentation_project                                               \
+         --tag="within 10 minutes"                                                                      \
+         --sql-clause="trigger_time BETWEEN (first_trigger_time - 300) AND (first_trigger_time + 300)"  \
          $pg_credentials
 
 for i in /path/to/all/projects/one_project/*;

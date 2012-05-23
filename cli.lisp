@@ -596,7 +596,7 @@ given."
      b_drotx, b_droty, b_drotz, nx, ny, nz, d."
      "Additionally, each of the column names can be prefixed by
      \"first_\" in order to refer to image data of the first
-     image. (Example: \"measurement_ed = first_measurement_id\" only
+     image. (Example: \"measurement_id = first_measurement_id\" only
      displays images with equal measurement_id.)")
     (show-help-section
      cli:*aux-view-options*
