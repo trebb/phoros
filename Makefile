@@ -44,8 +44,12 @@ SOURCE = *.lisp *.asd Makefile
 phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)
-	$(LISP) --lose-on-corruption --disable-ldb --end-runtime-options \
-		--disable-debugger --load make.lisp
+	$(LISP) --lose-on-corruption \
+		--disable-ldb \
+		--dynamic-space-size 4096 \
+		--end-runtime-options \
+		--disable-debugger \
+		--load make.lisp
 
 $(OPENLAYERS_TARBALL) :
 	wget http://openlayers.org/download/$@
