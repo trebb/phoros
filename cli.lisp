@@ -36,6 +36,8 @@
     ;; (ps; ... (debug-info ...)...) to work; doesn't work with
     ;; (OpenLayers 2.10 AND Firefox 4), though.  Otherwise use a
     ;; single-file shrunk ol/Openlayers.js.
+    ("umask" :type string :initial-value "002" :action *umask*
+     :documentation "File permissions mask (an octal number) applied when Phoros creates files and directories.")
     ("log-dir" :type string :initial-value ""
      :documentation "Where to put the log files.  Created if necessary; should end with a slash.")
     ("check-db" :action #'cli:check-db-action
@@ -455,6 +457,16 @@ number is 0 or doesn't exist."
          (level (cdr (assoc topic digested-verbosity))))
     (unless (or (null level) (zerop level))
       level)))
+
+(defun cli:set-umask ()
+  "Set umask to the value from its octal representation stored in
+*umask*"
+  (let ((umask (ignore-errors (parse-integer *umask* :radix 8))))
+    (assert (typep umask '(integer #o000 #o777)) ()
+            "~A is not a valid umask."
+            *umask*)
+    #+sbcl(sb-posix:umask umask)
+    #-sbcl(warn "Ignoring umask.")))
 
 (defun cli:remaining-options ()
   "Return current set of options (from both .phoros config file and

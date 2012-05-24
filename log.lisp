@@ -31,6 +31,7 @@
 
 (defun launch-logger (&optional (log-dir ""))
   "Start logging facility.  Create log-dir if necessary."
+  (cli:set-umask)
   (flet ((start-log-messenger (name-keyword)
            (cl-log:start-messenger
             'cl-log:text-file-messenger

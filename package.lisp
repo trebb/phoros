@@ -108,4 +108,5 @@
            :format-table
            :split-last-row
            :server-action
-           :verbosity-level))
+           :verbosity-level
+           :set-umask))
