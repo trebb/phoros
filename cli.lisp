@@ -688,11 +688,6 @@ command line) as an alist, and a list of the non-option arguments."
 (defun cli:check-dependencies-action (&rest rest)
   "Say OK if the necessary external dependencies are available."
   (declare (ignore rest))
-  (cli:with-options ()
-    (print *verbosity*)
-    (print (cli:verbosity-level :bb))
-    (print (cli:verbosity-level :aa))
-    (terpri))
   (check-dependencies))
 
 (defun cli:nuke-all-tables-action (&rest rest)
