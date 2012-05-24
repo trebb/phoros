@@ -96,6 +96,32 @@ proxy configuration if Phoros is hidden behind a proxy.")
   (asdf:system-licence (asdf:find-system :phoros))
   "Phoros licence as defined in system definition.")
 
+(defparameter *aggregate-view-columns*
+  (list 'usable
+        'recorded-device-id                ;debug
+        'device-stage-of-life-id           ;debug
+        'generic-device-id                 ;debug
+        'directory
+        'measurement-id
+        'filename 'byte-position 'point-id
+        'trigger-time
+        ;;'coordinates   ;the search target
+        'longitude 'latitude 'ellipsoid-height
+        'cartesian-system
+        'east-sd 'north-sd 'height-sd
+        'roll 'pitch 'heading
+        'roll-sd 'pitch-sd 'heading-sd
+        'sensor-width-pix 'sensor-height-pix
+        'pix-size
+        'bayer-pattern 'color-raiser
+        'mounting-angle
+        'dx 'dy 'dz 'omega 'phi 'kappa
+        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+        'b-ddx 'b-ddy 'b-ddz
+        'b-drotx 'b-droty 'b-drotz)
+  "Most of the column names of aggregate-view.")
+
 (defun version-number-parts (dotted-string)
   "Return the three version number components of something like
   \"11.22.33\"."

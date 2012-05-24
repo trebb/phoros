@@ -48,13 +48,13 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "log")
                (:file "photogrammetry")
                (:file "indent-json")
-               (:file "db-tables")
-               (:file "stuff-db")
                (:file "phoros")
                (:file "css")
                (:file "cli")
                (:file "phoros-js")
                (:file "blurb")
+               (:file "db-tables")
+               (:file "stuff-db")
                (:file "pictures-file"))
 
   :depends-on (:phoml
