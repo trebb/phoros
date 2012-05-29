@@ -979,14 +979,15 @@
 
      (defun handle-request-cache-fodder-group ()
        "Handle the response triggered by request-cache-fodder-group."
-       (setf (@ *cache-stuffer* photo-url-ingredients)
-             (chain *json-parser*
-                    (read (@ *cache-stuffer*
-                             cache-fodder-request-response
-                             response-text))))
-       (setf (@ *cache-stuffer* index) 0)
-       (reveal-element-with-id "caching-indicator")
-       (cache-photo))
+       (when (setf (@ *cache-stuffer* photo-url-ingredients)
+                   (chain *json-parser*
+                          (read (@ *cache-stuffer*
+                                   cache-fodder-request-response
+                                   response-text))))
+         ;; otherwise preemptive caching is probably suppressed by server
+         (setf (@ *cache-stuffer* index) 0)
+         (reveal-element-with-id "caching-indicator")
+         (cache-photo)))
 
      (defun cache-photo ()
        "Cache another image if the previous one is done."

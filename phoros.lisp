@@ -770,6 +770,8 @@ wrapped in an array.  Wipe away any unfinished business first."
   "Receive coordinates, respond with a json array of the necessary
 ingredients for the URLs of the 256 nearest images."
   (assert-authentication)
+  (when (cli:verbosity-level :suppress-preemptive-caching)
+    (return-from nearest-image-urls ""))
   (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
   (if (<= (hunchentoot:session-value 'number-of-threads)
           0)              ;only stuff cache if everything else is done
@@ -781,7 +783,8 @@ ingredients for the URLs of the 256 nearest images."
                                            'presentation-project-id))
                  (common-table-names (common-table-names
                                       presentation-project-id))
-                 (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+                 (data (json:decode-json-from-string
+                        (hunchentoot:raw-post-data)))
                  (longitude (cdr (assoc :longitude data)))
                  (latitude (cdr (assoc :latitude data)))
                  (count 256)
