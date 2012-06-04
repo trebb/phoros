@@ -76,3 +76,83 @@ tagged by the short string message-tag."
           ,executed-query
           (/ ,query-milliseconds 1000)
           ,query-result)))))
+
+(defmacro cli:with-options ((&key log database aux-database tolerate-missing)
+                            (&rest options)
+                            &body body
+                            &aux postgresql-credentials)
+  "Evaluate body with options bound to the values of the respective
+command line arguments.  Signal error if tolerate-missing is nil and a
+command line argument doesn't have a value.  Elements of options may
+be symbols named according to the :long-name argument of the option,
+or lists shaped like (symbol) which bind symbol to a list of values
+collected for multiple occurence of that option.  If log is t, start
+logging first.  If database or aux-database are t, evaluate body with
+the appropriate database connection(s) and bind the following
+additional variables to the values of the respective command line
+arguments: host, port, database, user, password, use-ssl; and/or
+aux-host, aux-port, aux-database, aux-user, aux-password,
+aux-use-ssl."
+  (assert (not (and database aux-database)) ()
+          "Can't handle connection to both database and aux-database ~
+          at the same time.")
+  (when database
+    (setf options
+          (append options '(host port database user password use-ssl)))
+    (setf postgresql-credentials
+          '(list database user password host :port port
+            :use-ssl (s-sql:from-sql-name use-ssl))))
+  (when aux-database
+    (setf options
+          (append options '(aux-host aux-port aux-database
+                            aux-user aux-password aux-use-ssl)))
+    (setf postgresql-credentials
+          '(list aux-database aux-user aux-password aux-host :port aux-port
+            :use-ssl (s-sql:from-sql-name aux-use-ssl))))
+  (when log (setf options (append options '(log-dir))))
+  (let* ((db-connected-body
+          (if (or database aux-database)
+              `((with-connection ,postgresql-credentials
+                  (muffle-postgresql-warnings)
+                  ,@body))
+              body))
+         (logged-body
+          (if log
+              `((launch-logger log-dir)
+                ,@db-connected-body)
+              db-connected-body)))
+    `(cli:with-context
+         (cli:make-context :cmdline (append (cli:cmdline)
+                                            (cli:.phoros-options)))
+       (let (,@(loop
+                  for option in (remove-duplicates options)
+                  if (symbolp option) collect
+                    (list option
+                          (if tolerate-missing
+                              `(cli:getopt :long-name ,(string-downcase option))
+                              `(cli:getopt-mandatory ,(string-downcase option))))
+                  else collect
+                  `(,(car option)
+                     (loop
+                        for i = ,(if tolerate-missing
+                                     `(cli:getopt :long-name ,(string-downcase
+                                                               (car option)))
+                                     `(cli:getopt-mandatory ,(string-downcase
+                                                            (car option))))
+                        then (cli:getopt :long-name ,(string-downcase
+                                                      (car option)))
+                        while i collect i))))
+         ,@logged-body))))
+
+(defmacro cli:first-action-option (&rest options)
+  "Run action called <option>-action for the first non-nil option;
+return its value."
+  `(cli:with-context
+       (cli:make-context :cmdline (append (cli:cmdline) (cli:.phoros-options)))
+     (loop
+        for option in ',options
+        when (cli:getopt :long-name (string-downcase option))
+        return (funcall (symbol-function (intern (concatenate 'string
+                                                              (string option)
+                                                              "-ACTION")
+                                                 :cli))))))

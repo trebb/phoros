@@ -21,7 +21,7 @@ interface.                              http://phoros.boundp.org"
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.6.0"
+  "13.7.0"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister
@@ -68,7 +68,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :simple-date
                :zpng
                :drakma
-               :command-line-arguments
+               :com.dvlsoft.clon
                :cl-utilities
                :parse-number
                :cl-log

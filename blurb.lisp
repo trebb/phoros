@@ -105,5 +105,22 @@
       (:code "./phoros --help")
       (:p "is given below for reference.")
       (:pre (who:str (who:escape-string-minimal
-                      (with-output-to-string (*standard-output*)
-                        (cli:help-action)))))))))
+                      (cli:with-options () ()
+                        ;; KLUDGE: It should be possible for Phoros to
+                        ;; see its own --help message without any
+                        ;; involvement of the file system.
+                        (with-open-file (s "blurb-help-message.txt"
+                                           :direction :io
+                                           :if-exists :supersede)
+                          (cli:help :output-stream s :line-width 100)
+                          (file-position s :start)
+                          (loop
+                             with help-string = ""
+                             for i = (read-line s nil)
+                             while i
+                             do (setf help-string
+                                      (concatenate 'string
+                                                   help-string
+                                                   i
+                                                   (string #\Newline)))
+                             finally (return help-string)))))))))))

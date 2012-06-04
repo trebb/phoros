@@ -35,40 +35,40 @@
   line interface.")
   (:nicknames :cli)
   (:use :cl)
-  (:import-from :command-line-arguments
-                :compute-and-process-command-line-options
-                :*command-line-arguments*
-                :show-option-help
-                :process-command-line-options)
-  (:export :compute-and-process-command-line-options
-           :*command-line-arguments*
-           :show-option-help
-           :process-command-line-options
-           :*general-options*
-           :*db-connection-options*
-           :*aux-db-connection-options*
-           :*get-image-options*
-           :*camera-hardware-options*
-           :*lens-options*
-           :*generic-device-options*
-           :*device-stage-of-life-options*
-           :*device-stage-of-life-end-options*
-           :*camera-calibration-options*
-           :*acquisition-project-options*
-           :*store-images-and-points-options*
-           :*start-server-options*
-           :*presentation-project-options*
-           :*image-attribute-options*
-           :*aux-view-options*
-           :*user-points-options*
-           :*user-options*
-           :*options*
+  (:import-from :com.dvlsoft.clon
+                :defsynopsis
+                :make-stropt
+                :make-path
+                :make-lispobj
+                :make-switch
+                :make-context
+                :with-context
+                :cmdline
+                :getopt
+                :do-cmdline-options
+                :help)
+  (:export ;; re-export from com.dvlsoft.clon
+           :defsynopsis
+           :make-stropt
+           :make-path
+           :make-lispobj
+           :make-switch
+           :make-context
+           :with-context
+           :cmdline
+           :getopt
+           :do-cmdline-options
+           :help
+           ;; Phoros stuff
            :.phoros-options
+           :getopt-mandatory
            :with-options
-           :remaining-options
+           :first-action-option
+           :string-or-null
            :help-action
            :version-action
            :licence-action
+           :license-action
            :main
            :check-db-action
            :check-dependencies-action
@@ -82,7 +82,6 @@
            :insert-footprints-action
            :canonicalize-bayer-pattern
            :canonicalize-color-raiser
-           :store-stuff
            :store-camera-hardware-action
            :store-lens-action
            :store-generic-device-action

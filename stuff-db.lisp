@@ -991,7 +991,7 @@ date.  Return device-stage-of-life-id of the altered record."
     (device-stage-of-life-id record)))
 
 (defun* store-camera-calibration (&key
-                                  (usable "yes")
+                                  (usable t)
                                   &mandatory-key
                                   device-stage-of-life-id
                                   date

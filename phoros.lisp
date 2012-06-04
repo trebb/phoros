@@ -37,7 +37,7 @@
 (defvar *verbosity* nil
   "List of strings like \"topic:7\".")
 
-(defvar *umask* nil
+(defvar *umask* "002"
   "String containing octal representation of Phoros' umask") 
 
 (defvar *postgresql-credentials* nil

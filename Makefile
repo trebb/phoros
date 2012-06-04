@@ -44,6 +44,7 @@ SOURCE = *.lisp *.asd Makefile
 phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)
+	CC=gcc \
 	$(LISP) --lose-on-corruption \
 		--disable-ldb \
 		--dynamic-space-size 4096 \
