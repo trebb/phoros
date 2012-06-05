@@ -23,19 +23,26 @@
 (let (serial-number description try-overwrite device-stage-of-life-id
                     c common-root bayer-pattern unmounting-date)
   (cli:defsynopsis ()
+    (text :contents *phoros-long-description*)
     (text
      :contents    
-     "Options are also read from file <phoros-invocation-dir>/.phoros or, if that doesn't exist, from file ~/.phoros.  Config file syntax: one option per line; leading or trailing spaces are ignored; anything not beginning with -- is ignored. Command line options take precedence over config file options.")
+     "Some options have a corresponding environment variable.  Phoros will set environment variables from definitions found in file <phoros-invocation-dir>/.phoros or, if that doesn't exist, in file ~/.phoros.")
+    (text
+     :contents
+     "Options specified on the command line take precedence over any environment variables.  Pre-existing environment variables take precendence over definitions found in any .phoros files.")
+    (text
+     :contents
+     "Config file syntax: one option per line; leading or trailing spaces are ignored; anything not beginning with PHOROS_ is ignored.")
+    (flag :long-name "help" :short-name "h"
+          :description "Print this help and exit.")
+    (flag :long-name "licence"
+          :description "Print licence boilerplate and exit.")
+    (flag :long-name "license"
+          :description "Same as --licence")
+    (flag :long-name "version"
+          :description "Print version information and exit.  Use --verbose=libraries:1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
     (group
      (:header "General Options:")
-     (flag :long-name "help" :short-name "h"
-           :description "Print this help and exit.")
-     (flag :long-name "licence"
-           :description "Print licence boilerplate and exit.")
-     (flag :long-name "license"
-           :description "Same as --licence")
-     (flag :long-name "version"
-           :description "Print version information and exit.  Use --verbose=libraries:1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
      (stropt :long-name "verbose"
              :description "Change behaviour, mainly for debugging, as specified in the form of <verbosity-topic>:<verbosity-level>.  Repeat if necessary.
   render-footprints:1 - display image footprints on http client
@@ -130,6 +137,7 @@
            :env-var "PHOROS_AUX_USE_SSL"
            :argument-name "MODE"
            :enum '(:yes :no :try)
+           :default-value :no
            :description "Use SSL in auxiliary database connection. [yes|no|try]"))
     (group
      (:header "Examine .pictures File:")
@@ -229,7 +237,12 @@
                       :description "Numeric camera hardware ID in database.")
              (lispobj :long-name "lens-id"
                       :typespec 'integer :argument-name "ID"
-                      :description "Numeric lens ID in database.")))
+                      :description "Numeric lens ID in database.")
+             (lispobj :long-name "scanner-id" ;unimplemented
+                      :typespec '(or integer (eql :null)) :argument-name "ID"
+                      :default-value :null
+                      :description "Numeric scanner ID in database."
+                      :hidden t)))
      (group
       (:header "Device Stage-Of-Life Definition:")
       (text :contents "A stage-of-life of a generic device is a possibly unfinished period of time during which the mounting constellation of the generic device remains unchanged.")
@@ -439,8 +452,9 @@
                      :typespec 'real :argument-name "NUM"
                      :default-value .001
                      :description "Difference in seconds below which two timestamps are considered equal.")
-            (flag :long-name "aggregate-events"
-                  :description "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case."))
+            (switch :long-name "aggregate-events"
+                    :default-value nil
+                    :description "Put all GPS points in one bucket, disregarding any event numbers.  Use this if you have morons setting up your generic-device.  Hundreds of orphaned images may indicate this is the case."))
      (stropt :long-name "insert-footprints"
              :argument-name "NAME"
              :description "Update image footprints (the area on the ground that is most probably covered by the respective image) for acquisition project NAME."))
@@ -611,6 +625,7 @@
        (warning
         (lambda (c) (cl-log:log-message :warning "~A" c))))
     (cffi:use-foreign-library phoml)
+    (cli:set-.phoros-options)
     (cli:with-options (:tolerate-missing t)
         ((verbose) umask images (aux-numeric-label) (aux-text-label) (login-intro))
       (setf *verbosity* verbose)
@@ -657,8 +672,9 @@
                              delete-user
                              list-user)))
 
-(defun cli:.phoros-options ()
-  "Return nil or a list of options from the most relevant .phoros file."
+(defun cli:set-.phoros-options ()
+  "Set previously non-existent environment variables, whose names must
+start with PHOROS_, according to the most relevant .phoros file."
   (let ((.phoros-path (or (probe-file
                            (make-pathname
                             :name ".phoros"
@@ -669,14 +685,20 @@
                             :directory (directory-namestring
                                         (user-homedir-pathname)))))))
     (when .phoros-path
+      #+sbcl
       (with-open-file (s .phoros-path)
         (loop
            for line = (read-line s nil nil)
-           for option = (string-trim " " line)
            while line
-           when (and (>= (length option) 2)
-                     (string= (subseq option 0 2) "--"))
-           collect option)))))
+           for option = (string-trim " " line)
+           for (name value junk) = (cl-utilities:split-sequence #\= option)
+           when (and (>= (length name) 7)
+                     (string= (subseq name 0 7) "PHOROS_")
+                     value
+                     (not junk))
+           do (sb-posix:setenv name value 0)))
+      #-sbcl
+      (warn "Ignoring settings from ~A" .phoros-path))))
 
 (defun cli:verbosity-level (topic)
   "Return the number associated with verbose topic, or nil if the
@@ -805,6 +827,7 @@ signal error."
   "Delete an acquisition project."
   (cli:with-options (:database t :log t) (delete-acquisition-project)
     (let ((common-table-name delete-acquisition-project))
+      (assert-acquisition-project common-table-name)
       (when (yes-or-no-p
              "You asked me to delete acquisition-project ~A ~
              (including all its measurements) ~
@@ -857,13 +880,14 @@ signal error."
   (cli:with-options (:database t :log t)
       (directory epsilon common-root aggregate-events store-images-and-points)
     (let ((common-table-name store-images-and-points))
+      (assert-acquisition-project common-table-name)
       (cl-log:log-message
        :db-dat
        "Start: storing data from ~A into acquisition project ~A ~
        in database ~A at ~A:~D."
        directory common-table-name database host port)
       (store-images-and-points common-table-name directory
-                               :epsilon (read-from-string epsilon nil)
+                               :epsilon epsilon
                                :root-dir common-root
                                :aggregate-events aggregate-events)
       (cl-log:log-message
@@ -886,6 +910,7 @@ signal error."
                           log-dir
                           insert-footprints)
     (let ((common-table-name insert-footprints))
+      (assert-acquisition-project common-table-name)
       (cl-log:log-message
        :db-dat
        "Updating image footprints of acquisition project ~A ~
@@ -1182,6 +1207,7 @@ trigger-time to stdout."
   "Delete a presentation project."
   (cli:with-options (:database t :log t) (delete-presentation-project)
     (let ((presentation-project-name delete-presentation-project))
+      (assert-presentation-project presentation-project-name)
       (when (yes-or-no-p
              "You asked me to delete presentation-project ~A ~
              (including its tables of user-defined points and lines, ~
@@ -1202,24 +1228,28 @@ trigger-time to stdout."
 (defun cli:add-to-presentation-project-action ()
   "Add measurements to a presentation project."
   (cli:with-options (:database t :log t)
-      (measurement-id acquisition-project add-to-presentation-project)
-    (let ((presentation-project-name add-to-presentation-project))
-      (add-to-presentation-project presentation-project-name
-                                   :measurement-ids measurement-id
-                                   :acquisition-project acquisition-project)
-      (cl-log:log-message
-       :db-dat
-       "Added ~@[measurement-ids ~{~D~#^, ~}~]~
+      (add-to-presentation-project)
+    (cli:with-options (:tolerate-missing t)
+        (measurement-id acquisition-project)
+      (let ((presentation-project-name add-to-presentation-project))
+        (assert-presentation-project presentation-project-name)
+        (add-to-presentation-project presentation-project-name
+                                     :measurement-ids measurement-id
+                                     :acquisition-project acquisition-project)
+        (cl-log:log-message
+         :db-dat
+         "Added ~@[measurement-ids ~{~D~#^, ~}~]~
        ~@[all measurements from acquisition project ~A~] ~
        to presentation project ~A in database ~A at ~A:~D."
-       measurement-id acquisition-project
-       presentation-project-name database host port))))
+         measurement-id acquisition-project
+         presentation-project-name database host port)))))
 
 (defun cli:remove-from-presentation-project-action ()
   "Add measurements to a presentation project."
   (cli:with-options (:database t :log t)
       (measurement-id acquisition-project remove-from-presentation-project)
     (let ((presentation-project-name remove-from-presentation-project))
+      (assert-presentation-project presentation-project-name)
       (remove-from-presentation-project
          presentation-project-name
          :measurement-ids measurement-id
@@ -1235,9 +1265,9 @@ trigger-time to stdout."
 (defun cli:create-image-attribute-action ()
   "Store a boolean SQL expression."
   (cli:with-options (:database t :log t)
-      (tag sql-clause
-           create-image-attribute)
+      (tag sql-clause create-image-attribute)
     (let ((presentation-project-name create-image-attribute))
+      (assert-presentation-project presentation-project-name)
       (multiple-value-bind (old-image-attribute
                             number-of-selected-images
                             total-number-of-images)
@@ -1260,17 +1290,18 @@ trigger-time to stdout."
   "Remove SQL expression specified by presentation-project-name and tag."
   (cli:with-options (:database t :log t)
       (tag delete-image-attribute)
-    (let* ((presentation-project-name delete-image-attribute)
-           (replaced-sql-clause
-            (delete-image-attribute presentation-project-name :tag tag)))
-      (cl-log:log-message
-       :db-dat
-       "~:[Tried to delete a nonexistent~;Deleted~] ~
+    (let ((presentation-project-name delete-image-attribute))
+      (assert-presentation-project presentation-project-name)
+      (let ((replaced-sql-clause
+             (delete-image-attribute presentation-project-name :tag tag)))
+        (cl-log:log-message
+         :db-dat
+         "~:[Tried to delete a nonexistent~;Deleted~] ~
        image attribute tagged ~S from ~
        presentation project ~A in database ~A at ~A:~D.  ~
        ~0@*~@[Its SQL clause, now deleted, was ~S~]"
-       replaced-sql-clause tag presentation-project-name
-       database host port))))
+         replaced-sql-clause tag presentation-project-name
+         database host port)))))
 
 (defun cli:list-image-attribute-action ()
   "List boolean SQL expressions."
@@ -1334,9 +1365,11 @@ user point table, and fire it once."
 (defun cli:create-aux-view-action ()
   "Connect presentation project to an auxiliary data table by means of
 a view."
+  (cli:with-options (:database t :log t) (create-aux-view)
+    (assert-presentation-project create-aux-view))
   (cli:with-options (:aux-database t :log t)
       (host port database user password use-ssl 
-            coordinates-column numeric-column text-column aux-table
+            coordinates-column (numeric-column) (text-column) aux-table
             create-aux-view)
     (let* ((presentation-project-name create-aux-view)
            (numeric-columns
@@ -1385,6 +1418,7 @@ a view."
   "Store user points from a GeoJSON file into database."
   (cli:with-options (:database t :log t) (json-file store-user-points)
     (let ((presentation-project store-user-points))
+      (assert-presentation-project presentation-project)
       (multiple-value-bind
             (points-stored points-already-in-db points-tried zombie-users)
           (store-user-points presentation-project :json-file json-file)
@@ -1417,6 +1451,7 @@ a view."
   "Save user points of presentation project into a GeoJSON file."
   (cli:with-options (:database t :log t) (json-file get-user-points)
     (let ((presentation-project get-user-points))
+      (assert-presentation-project presentation-project)
       (multiple-value-bind (user-points user-point-count)
           (get-user-points (user-point-table-name presentation-project)
                            :indent t)
@@ -1445,6 +1480,7 @@ a view."
        create-user)
     (let ((presentation-project-user create-user)
           fresh-user-p)
+      (mapcar #'assert-presentation-project presentation-project)
       (setf fresh-user-p
             (create-user presentation-project-user
                          :presentation-projects presentation-project

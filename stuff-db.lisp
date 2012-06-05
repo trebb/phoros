@@ -469,7 +469,7 @@ that contains one set of measuring data.  root-dir must be equal for
 all pojects."
   ;; TODO: epsilon could be a range.  We would do a raw mapping by (a bigger) time epsilon and then take speed into account.
   (assert
-   (every #'string= root-dir dir-path)
+   (every #'string= (namestring root-dir) (namestring dir-path))
    () "~A is not a leading part of ~A." root-dir dir-path)
   (assert-phoros-db-major-version)
   (assert     ;not strictly necessary, but may save the user some time
@@ -496,8 +496,7 @@ all pojects."
                                 collect (cons (car i) 0)))
          (mapped-image-counter (length images))
          (cartesian-system (assert-gps-points-sanity gps-points))
-         (dir-below-root-dir
-          (enough-namestring (string-right-trim "/\\ " dir-path) root-dir)))
+         (dir-below-root-dir (enough-namestring dir-path root-dir)))
     (cl-log:log-message
      :db-dat "I assume this measure was taken approximately ~A."
      (timestring (round estimated-time)))

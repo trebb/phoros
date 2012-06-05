@@ -60,7 +60,7 @@
            :do-cmdline-options
            :help
            ;; Phoros stuff
-           :.phoros-options
+           :set-.phoros-options
            :getopt-mandatory
            :with-options
            :first-action-option

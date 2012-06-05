@@ -574,14 +574,29 @@ connected to match."
            Phoros, or use Phoros version ~2:*~D.x.x."
           (phoros-db-major-version) (phoros-version :major t)))
 
+(defun assert-presentation-project (presentation-project-name)
+  "Signal error if presentation-project-name can't be found in current
+database."
+  (presentation-project-id-from-name presentation-project-name))
+
 (defun presentation-project-id-from-name (presentation-project-name)
   "Get from current database the presentation-project-id associated
 with presentation-project-name.  Signal error if there isn't any."
-  (let ((presentation-project (get-dao 'sys-presentation-project presentation-project-name)))
+  (let ((presentation-project
+         (get-dao 'sys-presentation-project presentation-project-name)))
     (assert presentation-project ()
             "There is no presentation project called ~A."
             presentation-project-name)
     (presentation-project-id presentation-project)))
+
+(defun assert-acquisition-project (acquisition-project-name)
+  "Signal error if acquisition-project-name can't be found in current
+database."
+  (assert (select-dao 'sys-acquisition-project
+                      (:= 'common-table-name acquisition-project-name))
+          ()
+          "There is no acquisition project called ~A."
+          acquisition-project-name))
 
 (defun create-sys-tables ()
   "Create in current database a set of sys-* tables, i.e. tables that
@@ -1476,6 +1491,7 @@ image."
           (get-dao 'sys-selectable-restriction presentation-project-id tag))
          (common-table-names
           (common-table-names presentation-project-id))
+         (empty-presentation-project-p (null common-table-names))
          (selected-restrictions-conjunction
           (sql-where-conjunction (list sql-clause)))
          (arbitrary-image-query
@@ -1490,7 +1506,8 @@ image."
                                       :from ',aggregate-view-name)
                              1)))))
          (internal-reference-p (some-internal-image-reference sql-clause))
-         (arbitrary-image (query arbitrary-image-query :alist))
+         (arbitrary-image (unless empty-presentation-project-p
+                            (query arbitrary-image-query :alist)))
          (counting-selected-query
           ;; Only useful as an SQL syntax check if sql-clause contains
           ;; internal references.
@@ -1537,14 +1554,14 @@ image."
                                      ,presentation-project-id))))
                   'acquisition-project-image-counts))))
          (number-of-selected-images
-          (if common-table-names ;otherwise: presentation-project is empty
-              (query counting-selected-query :single!)
-              0))
+          (if empty-presentation-project-p
+              0
+              (query counting-selected-query :single!)))
          (total-number-of-images
           (unless internal-reference-p    ;otherwise don't waste time
-            (if common-table-names ;otherwise: presentation-project is empty
-                (query counting-total-query :single!)
-                0))))
+            (if empty-presentation-project-p
+                0
+                (query counting-total-query :single!)))))
     (save-dao (make-instance 'sys-selectable-restriction
                              :presentation-project-id presentation-project-id
                              :restriction-id tag :sql-clause sql-clause))

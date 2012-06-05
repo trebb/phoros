@@ -121,9 +121,7 @@ aux-use-ssl."
               `((launch-logger log-dir)
                 ,@db-connected-body)
               db-connected-body)))
-    `(cli:with-context
-         (cli:make-context :cmdline (append (cli:cmdline)
-                                            (cli:.phoros-options)))
+    `(cli:with-context (cli:make-context)
        (let (,@(loop
                   for option in (remove-duplicates options)
                   if (symbolp option) collect
@@ -147,8 +145,7 @@ aux-use-ssl."
 (defmacro cli:first-action-option (&rest options)
   "Run action called <option>-action for the first non-nil option;
 return its value."
-  `(cli:with-context
-       (cli:make-context :cmdline (append (cli:cmdline) (cli:.phoros-options)))
+  `(cli:with-context (cli:make-context)
      (loop
         for option in ',options
         when (cli:getopt :long-name (string-downcase option))

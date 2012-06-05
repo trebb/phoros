@@ -92,7 +92,8 @@ proxy configuration if Phoros is hidden behind a proxy.")
   "Phoros description as defined in system definition.")
 
 (defparameter *phoros-long-description*
-  (asdf:system-long-description (asdf:find-system :phoros))
+  (substitute #\Space #\Newline
+              (asdf:system-long-description (asdf:find-system :phoros)))
   "Phoros long-description as defined in system definition.")
 
 (defparameter *phoros-licence*

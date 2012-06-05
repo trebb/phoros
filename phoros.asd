@@ -8,9 +8,9 @@
   :maintainer "Bert Burgemeister <trebbu@googlemail.com>"
 
   :long-description                     ;goes with --help output
-  "Phoros is a tool for photogrammetric road survey.  It stores data
-in a PostgreSQL database and then makes it available over a web
-interface.                              http://phoros.boundp.org"
+  "Phoros (http://phoros.boundp.org) is a tool for photogrammetric
+road survey.  It stores data in a PostgreSQL database and then makes
+it available over a web interface."
 
   :version                              ;goes with --version output
   ;; :version is MAJOR.MINOR.REVISION where
