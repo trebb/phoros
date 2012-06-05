@@ -8,8 +8,12 @@ phoros
 *.tar.gz
 *.tar
 *.html
+.phoros
 debug-build.lisp
 phoros-help.txt
 OpenLayers-*/
 ol/
 public_html/
+gh-pages/
+unexpected_html/
+singlepic
