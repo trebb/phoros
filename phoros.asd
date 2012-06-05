@@ -71,5 +71,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :com.dvlsoft.clon
                :cl-utilities
                :parse-number
+               :named-readtables
                :cl-log
                :trivial-backtrace))

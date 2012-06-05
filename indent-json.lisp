@@ -17,6 +17,59 @@
 
 (in-package :phoros)
 
-(defun indent-json (text)
-  "Do nothing until someone comes up with a decent implementation."
-  text)
+(named-readtables:defreadtable json-syntax
+  (:merge :standard)
+  (:macro-char #\[ #'(lambda (stream char)
+                       (declare (ignore char))
+                       (coerce (read-delimited-list #\] stream)
+                               'vector)))
+  (:macro-char #\{ #'(lambda (stream char)
+                       (declare (ignore char))
+                       (read-delimited-list #\} stream)))
+  (:syntax-from nil #\) #\})
+  (:syntax-from nil #\) #\])
+  (:syntax-from nil #\Space #\:)
+  (:syntax-from nil #\Space #\,)
+  (:case :preserve))
+
+
+(defun pp-json (object &optional stream)
+  "Write object as indented JSON to stream.  Vectors are represented
+as JSON vectors.  Lists, which should have an even number of elements,
+are represented as JSON objects."
+  (cond
+    ((stringp object)
+     (prin1 object stream))
+    ((consp object)
+     (pprint-logical-block
+         (stream object :prefix "{" :suffix "}")
+       (loop
+          (pprint-exit-if-list-exhausted)
+          (pp-json (pprint-pop) stream)
+          (princ ":" stream)
+          (pp-json (pprint-pop) stream)
+          (pprint-exit-if-list-exhausted)
+          (princ "," stream)
+          (pprint-newline :linear stream))))
+    ((vectorp object)
+     (pprint-logical-block
+         (stream (coerce object 'list) :prefix "[" :suffix "]")
+       (loop
+          (pprint-exit-if-list-exhausted)
+          (pp-json (pprint-pop) stream)
+          (pprint-exit-if-list-exhausted)
+          (princ "," stream)
+          (pprint-newline :linear stream))))
+    (t
+     (princ object stream))))
+
+(defun indent-json (json-text)
+  "Indent json-text."
+  (unwind-protect 
+       (let ((*read-default-float-format* 'long-float)
+             (*print-right-margin* 100))
+         (named-readtables:in-readtable json-syntax)
+         (with-output-to-string (s)
+             (pp-json (read-from-string json-text nil)
+                      s)))
+    (named-readtables:in-readtable :standard)))
