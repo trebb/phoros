@@ -1327,11 +1327,9 @@ common-table-name."
     (cl-postgres-error:syntax-error-or-access-violation () nil))
   (assert-phoros-db-major-version)
   (when (select-dao 'sys-acquisition-project
-                    (:= 'common-table-name
-                        (s-sql:to-sql-name common-table-name)))
-    (error "There is already a row with a common-table-name of ~A in table ~A."
-           common-table-name
-           (s-sql:to-sql-name (dao-table-name 'sys-acquisition-project))))
+                    (:= 'common-table-name common-table-name))
+    (error "There is already an acquisition project by the name of ~A."
+           common-table-name))
   (create-table 'point-data)
   (create-table 'image-data)
   (create-aggregate-view common-table-name)
