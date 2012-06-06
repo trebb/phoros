@@ -1,5 +1,5 @@
 # PHOROS -- Photogrammetric Road Survey
-# Copyright (C) 2010, 2011 Bert Burgemeister
+# Copyright (C) 2010, 2011, 2012 Bert Burgemeister
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ LIBPHOML = libphoml.so
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
 EXAMPLES_DIR = examples
+ETC_DIR = etc
 OPENLAYERS_DIR = ol		#for compiled/shrunk OpenLayers
 OPENLAYERS_CONFIG = phoros.cfg
 OPENLAYERS_JS = ol/OpenLayers.js
@@ -36,7 +37,7 @@ DEPLOYMENT_HTML = public_html/deployment.html
 PUBLIC_CSS = public_html/style.css
 NOT_FOUND_HTML = public_html/404.html
 PHOROS_VERSION = $(shell ./phoros --version)
-LATEST_TAG = $(shell git tag | tail -n 1)
+LATEST_TAG = $(shell git describe)
 MACHINE_TYPE = $(shell uname -m)
 PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
@@ -152,6 +153,7 @@ phoml.tar :
 
 bin-tarball : phoros TimeSteps.history README				\
           $(EXAMPLES_DIR)						\
+	  $(ETC_DIR)							\
           $(OPENLAYERS_DIR)						\
           $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
 	  $(LIBPHOML_DIR)/$(LIBPHOML)
@@ -159,6 +161,7 @@ bin-tarball : phoros TimeSteps.history README				\
 		--transform='s,^,phoros_$(PHOROS_VERSION)/,'		\
 		phoros TimeSteps.history README				\
                 $(EXAMPLES_DIR)						\
+		$(ETC_DIR)						\
 		$(OPENLAYERS_DIR)					\
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML)			\
