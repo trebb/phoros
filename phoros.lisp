@@ -28,6 +28,9 @@
               "./phoml/lib/libphoml.so"))
   (t (:default "libphoml")))
 
+(defvar *unix-exit-code* 0
+  "UNIX exit code.")
+
 (defparameter *standard-coordinates* 4326
   "EPSG code of the coordinate system that we use for communication.")
 

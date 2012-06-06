@@ -109,10 +109,10 @@
                         ;; KLUDGE: It should be possible for Phoros to
                         ;; see its own --help message without any
                         ;; involvement of the file system.
-                        (with-open-file (s "blurb-help-message.txt"
-                                           :direction :io
-                                           :if-exists :supersede)
-                          (cli:help :output-stream s :line-width 100)
+                        (osicat:with-temporary-file (s)
+                          (cli:help :output-stream s
+                                    :line-width 100
+                                    :theme "etc/phoros.cth")
                           (file-position s :start)
                           (loop
                              with help-string = ""

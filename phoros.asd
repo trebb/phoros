@@ -59,6 +59,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
   :depends-on (:phoml
                :trivial-shell           ;for proj4-sh
+               :osicat
                :cl-ppcre
                :hunchentoot
                :cl-who

@@ -1,0 +1,22 @@
+;; -*- lisp -*-
+:face (synopsis :padding-bottom 1)
+:face (text :padding-top 1
+            :padding-bottom 1)
+:face (option :padding-left 2
+	      :item-separator #\Newline
+	      :face (syntax :item-separator ", ")
+	      :face (usage :padding-left (10 absolute)
+			   :item-separator #\Newline
+			   :face (fallback :face (header))
+			   :face (default :face (header))
+                           :face (environment :face (header))))
+:face (group :padding-top 1 :padding-bottom 1
+	     :item-separator #\Newline
+	     :face (header :padding-bottom 1
+                           :bold t)
+             :face (text :padding-top 1
+                         :padding-bottom 1
+                         :padding-left (10 absolute))
+	     :face (group :padding-left 2
+                          :padding-bottom 1
+			  :item-separator #\Newline))

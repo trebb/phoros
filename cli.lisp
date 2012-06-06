@@ -33,14 +33,22 @@
     (text
      :contents
      "Config file syntax: one option per line; leading or trailing spaces are ignored; anything not beginning with PHOROS_ is ignored.")
-    (flag :long-name "help" :short-name "h"
-          :description "Print this help and exit.")
+    (enum :long-name "help" :short-name "h"
+          :argument-name "FORMAT"
+          :enum '(:long :short)
+          :argument-type :optional
+          :fallback-value :long
+          :description "Print help in different formats [long|short] and exit.")
     (flag :long-name "licence"
           :description "Print licence boilerplate and exit.")
     (flag :long-name "license"
           :description "Same as --licence")
-    (flag :long-name "version"
-          :description "Print version information and exit.  Use --verbose=libraries:1 to see more.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
+    (enum :long-name "version"
+          :argument-name "FORMAT"
+          :enum '(:all :minimal)
+          :argument-type :optional
+          :fallback-value :minimal
+          :description "Print different amounts [minimal|all] of version information and exit.  In a version string A.B.C, changes in A denote incompatible changes in data; changes in B mean user-visible changes in feature set.")
     (group
      (:header "General Options:")
      (stropt :long-name "verbose"
@@ -52,21 +60,21 @@
   log-error-backtraces:1 - log http server error backtraces
   use-multi-file-openlayers:1 - use multi-file version of OpenLayers
   pretty-javascript:1 - send nicely formatted JavaScript
-  show-server-errors:0 - send http server error messages to client
-  libraries:1 - include library versions in Phoros version output.")
+  show-server-errors:0 - send http server error messages to client.")
      ;; use-multi-file-openlayers:1 - Use OpenLayers uncompiled from
      ;; openlayers/*, which makes debugging easier and is necessary for
      ;; (ps; ... (debug-info ...)...) to work; doesn't work with
      ;; (OpenLayers 2.10 AND Firefox 4), though.  Otherwise use a
      ;; single-file shrunk ol/Openlayers.js.
      (stropt :long-name "umask"
+             :env-var "PHOROS_UMASK"
              :argument-name "OCTAL_NUMBER"
              :default-value "002"
              :description "File permissions mask applied when Phoros creates files and directories.")
      (path :long-name "log-dir"
            :env-var "PHOROS_LOG_DIR"
            :type :directory
-           :default-value #P"./"
+           :default-value #P"log.d/"
            :description "Where to put the log files.  Created if necessary; should end with a slash.")
      (flag :long-name "check-db"
            :description "Check connection to databases (including auxiliary if applicable) and exit.")
@@ -459,7 +467,7 @@
              :argument-name "NAME"
              :description "Update image footprints (the area on the ground that is most probably covered by the respective image) for acquisition project NAME."))
     (group
-     (:header "Become A HTTP Presentation Server:")
+     (:header "Become An HTTP Presentation Server:")
      (text :contents "Phoros is a Web server in its own right, but you can also put it behind a proxy server to make it part of a larger Web site.  E.g., for Apache, load module proxy_http and use this configuration:
     ProxyPass /phoros http://127.0.0.1:8080/phoros
     ProxyPassReverse /phoros http://127.0.0.1:8080/phoros")
@@ -522,7 +530,7 @@
                   :type :file
                   :description "File containing the body of a PL/pgSQL trigger function.  Any ocurrence of the strings ~0@*~A and ~1@*~A will be replaced by the name of the user point table/of the user line table respectively.  Omit this option to reset that function to just emit a notice.")))
     (group
-     (:header "Define Selectable Attributes For Images.:")
+     (:header "Define Selectable Attributes For Images:")
      (text :contents "HTTP client users can select classes of images defined here.  Attributes are defined as PostgreSQL expressions and may use the following column names:")
      ;; ... which are obtainable like so:
      ;;   SELECT column_name
@@ -613,7 +621,13 @@
 (defun cli:main ()
   "The UNIX command line entry point."
   (handler-bind
-      ((serious-condition
+      ((sb-sys:interactive-interrupt
+        (lambda (c)
+          (declare (ignore c))
+          (cl-log:log-message
+           :error "Interactive interrupt.")
+          (osicat-posix:exit 2)))
+       (serious-condition
         (lambda (c)
           (cl-log:log-message
            :error "~A ~:[~;[Backtrace follows]~&~A~]~&"
@@ -621,7 +635,7 @@
            (cli:verbosity-level :log-error-backtraces)
            (trivial-backtrace:print-backtrace c :output nil))
           (format *error-output* "~A~&" c)
-          #+sbcl (sb-ext:exit :abort t)))
+          (osicat-posix:exit 1)))
        (warning
         (lambda (c) (cl-log:log-message :warning "~A" c))))
     (cffi:use-foreign-library phoml)
@@ -670,7 +684,8 @@
                              store-user-points
                              create-user
                              delete-user
-                             list-user)))
+                             list-user)
+    (osicat-posix:exit *unix-exit-code*)))
 
 (defun cli:set-.phoros-options ()
   "Set previously non-existent environment variables, whose names must
@@ -683,22 +698,25 @@ start with PHOROS_, according to the most relevant .phoros file."
                            (make-pathname
                             :name ".phoros"
                             :directory (directory-namestring
-                                        (user-homedir-pathname)))))))
+                                        (user-homedir-pathname))))))
+        (unix-environment (osicat:environment)))
     (when .phoros-path
-      #+sbcl
       (with-open-file (s .phoros-path)
         (loop
            for line = (read-line s nil nil)
            while line
            for option = (string-trim " " line)
            for (name value junk) = (cl-utilities:split-sequence #\= option)
-           when (and (>= (length name) 7)
-                     (string= (subseq name 0 7) "PHOROS_")
-                     value
-                     (not junk))
-           do (sb-posix:setenv name value 0)))
-      #-sbcl
-      (warn "Ignoring settings from ~A" .phoros-path))))
+           if (and (>= (length name) 7)
+                   (string= (subseq name 0 7) "PHOROS_")
+                   value
+                   (not junk))
+           do (setf unix-environment
+                    (adjoin (cons name value)
+                            unix-environment
+                            :test #'(lambda (x y)
+                                      (string= (car x) (car y)))))))
+      (setf (osicat:environment) unix-environment))))
 
 (defun cli:verbosity-level (topic)
   "Return the number associated with verbose topic, or nil if the
@@ -722,10 +740,9 @@ number is 0 or doesn't exist."
 *umask*"
   (let ((umask (ignore-errors (parse-integer *umask* :radix 8))))
     (assert (typep umask '(integer #o000 #o777)) ()
-            "~A is not a valid umask."
+            "~O is not a valid umask."
             *umask*)
-    #+sbcl(sb-posix:umask umask)
-    #-sbcl(warn "Ignoring umask.")))
+    (osicat-posix:umask umask)))
 
 (defun cli:getopt-mandatory (long-name)
   "Return value of command line option long-name if any. Otherwise
@@ -735,13 +752,16 @@ signal error."
     value))
 
 (defun cli:help-action ()
-  (cli:help))
+  (cli:with-options () (help)
+    (ecase help
+      (:long (cli:help :theme "etc/phoros.cth"))
+      (:short (cli:help :theme "etc/short.cth")))))
 
 (defun cli:version-action ()
   "Print --version message. TODO: OpenLayers, Proj4js version."
-  (cli:with-options () ()
-    (case (cli:verbosity-level :libraries)
-      (1
+  (cli:with-options () (version)
+    (ecase version
+      (:all
        (format
         *standard-output*
         "~&~A version ~A~&  ~A version ~A~&  ~
@@ -751,7 +771,7 @@ signal error."
         (lisp-implementation-type) (lisp-implementation-version)
         (proj:version)
         (phoml:get-version-number)))
-      (t
+      (:minimal
        (format *standard-output* "~&~A~&" (phoros-version))))))
 
 (defun cli:licence-action ()
@@ -763,25 +783,27 @@ signal error."
 
 (defun cli:check-db-action ()
   "Tell us if databases are accessible."
-  (cli:with-options () (host aux-host port aux-port
-                          database aux-database
-                          user aux-user
-                          password aux-password
-                          use-ssl aux-use-ssl)
+  (cli:with-options ()
+      (host port database user use-ssl
+            aux-host aux-port
+            aux-database aux-user aux-password password aux-use-ssl)
     (format *error-output*
             "Checking database ~A at ~A:~D and ~
             auxiliary database ~A at ~A:~D.~%"
             database host port
             aux-database aux-host aux-port)
-    (when (and
-           (check-db (list database user password host
-                           :port port
-                           :use-ssl (s-sql:from-sql-name use-ssl)))
-           (check-db (list aux-database aux-user aux-password aux-host
-                           :port aux-port
-                           :use-ssl (s-sql:from-sql-name aux-use-ssl))))
-      (format *error-output*
-              "Both are accessible.~%"))))
+    (if (and
+         (check-db (list database user password host
+                         :port port
+                         :use-ssl (s-sql:from-sql-name use-ssl)))
+         (check-db (list aux-database aux-user aux-password aux-host
+                         :port aux-port
+                         :use-ssl (s-sql:from-sql-name aux-use-ssl))))
+        (progn
+          (format *error-output*
+                  "Both are accessible.~%")
+          (setf *unix-exit-code* 0))
+        (setf *unix-exit-code* 2))))
 
 (defun cli:check-dependencies-action ()
   "Say OK if the necessary external dependencies are available."
