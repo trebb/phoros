@@ -1,12 +1,21 @@
 #! /bin/bash
 
-pg_credentials='--host=my_db_server --database=phoros_workspace --user=some_db_user --password=wonttell'
-pg_aux_credentials='--host=my_db_server --aux-database=phoros_aux --user=some_db_user --password=wonttell'
+export PHOROS_HOST=my_db_server
+export PHOROS_DATABASE=phoros_workspace
+export PHOROS_USER=some_db_user
+export PHOROS_PASSWORD=wonttell
+
+export PHOROS_AUX_HOST=my_db_server
+export PHOROS_AUX_DATABASE=phoros_aux
+export PHOROS_AUX_USER=some_db_user
+export PHOROS_AUX_PASSWORD=wonttell
+
+export PHOROS_COMMON_ROOT=/path/to/all/projects/
+export PHOROS_LOG_DIR=server.log/
 
 cd ../                          # where the phoros binary lives
 
 ./phoros --server --common-root=/path/to/all/projects/                                          \
-         $pg_credentials $pg_aux_credentials                                                    \
          --aux-numeric-label=Station                                                            \
          --aux-text-label=VNK                                                                   \
          --aux-text-label=NNK                                                                   \
