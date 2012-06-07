@@ -1,3 +1,7 @@
 [submodule "phoml"]
 	path = phoml
 	url = https://github.com/trebb/phoml.git
+
+[submodule "sb-daemon"]
+	path = sb-daemon
+	url = https://github.com/nikodemus/sb-daemon.git

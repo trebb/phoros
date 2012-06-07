@@ -60,7 +60,8 @@
   log-error-backtraces:1 - log http server error backtraces
   use-multi-file-openlayers:1 - use multi-file version of OpenLayers
   pretty-javascript:1 - send nicely formatted JavaScript
-  show-server-errors:0 - send http server error messages to client.")
+  show-server-errors:1 - send HTTP server error messages to client
+  no-daemon:1 - run HTTP server in foreground.")
      ;; use-multi-file-openlayers:1 - Use OpenLayers uncompiled from
      ;; openlayers/*, which makes debugging easier and is necessary for
      ;; (ps; ... (debug-info ...)...) to work; doesn't work with
@@ -472,7 +473,7 @@
     ProxyPass /phoros http://127.0.0.1:8080/phoros
     ProxyPassReverse /phoros http://127.0.0.1:8080/phoros")
      (flag :long-name "server"
-           :description "Start HTTP presentation server.  Entry URIs are http://<host>:<port>/phoros/<presentation-project>.  Asynchronously update lacking image footprints (which should have been done already using --insert-footprints).")
+           :description "Start HTTP presentation server as a daemon.  Entry URIs are http://<host>:<port>/phoros/<presentation-project>.  Asynchronously update lacking image footprints (which should have been done already using --insert-footprints).")
      (group ()
             (stropt :long-name "proxy-root"
                     :default-value "phoros"
@@ -494,7 +495,12 @@
             (stropt :long-name "aux-text-label"
                     :description "HTML label for an element of auxiliary text data.  Repeat if necessary.  The succession of labels should match the auxiliary data (defined by --text-column) of all presentation projects served by this server instance.")
             (stropt :long-name "login-intro"
-                    :description "Text to be shown below the login form.  Use repeatedly to divide text into paragraphs.  You can use HTML markup as long as it is legal inside <p>...</p>")))
+                    :description "Text to be shown below the login form.  Use repeatedly to divide text into paragraphs.  You can use HTML markup as long as it is legal inside <p>...</p>")
+            (path :long-name "pid-file"
+                  :env-var "PHOROS_PID_FILE"
+                  :type :file
+                  :default-value #P"phoros.pid"
+                  :description "Where to put Phoros' PID when run as a daemon.")))
     (group
      (:header "Manage Presentation Projects:")
      (text :contents "A presentation project is a set of measurements that can be visited under a dedicated URL \(http://<host>:<port>/phoros/<presentation-project>).  Its extent may or may not be equal to the extent of an acquisition project.")
@@ -1644,7 +1650,7 @@ exceeds the respective column-width over multiple rows."
   "Start the HTTP server."
   (cli:with-options (:log t)
       (host port database user password use-ssl
-            proxy-root http-port address common-root)
+            proxy-root http-port address common-root pid-file)
     (cli:with-options (:tolerate-missing t)
         (aux-host aux-port aux-database aux-user aux-password aux-use-ssl)
       (setf *postgresql-credentials*
@@ -1656,6 +1662,18 @@ exceeds the respective column-width over multiple rows."
                       :port aux-port
                       :use-ssl (s-sql:from-sql-name aux-use-ssl))
                 *postgresql-credentials*))
+      #+sbcl(unless (cli:verbosity-level :no-daemon)
+              (assert
+               (not (with-open-file (s pid-file :if-does-not-exist nil)
+                      (when s
+                        (probe-file (make-pathname
+                                     :directory (list :absolute "proc" 
+                                                      (read-line s nil)))))))
+               ()
+               "~A contains the PID of a running process ~
+               so I won't put my own there.  Giving up."
+               (truename pid-file)
+               (sb-daemon:daemonize :pidfile pid-file :exit-parent t)))
       (insert-all-footprints *postgresql-credentials*)
       (delete-all-imageless-points *postgresql-credentials*)
       (setf hunchentoot:*log-lisp-backtraces-p*
@@ -1671,10 +1689,10 @@ exceeds the respective column-width over multiple rows."
       (cl-log:log-message
        :info
        "HTTP server listens on port ~D ~
-     of ~:[all available addresses~;address ~:*~A~].  ~
-     It expects to be called with a URL path root of /~A/.  ~
-     Phoros database is ~A on ~A:~D.  Auxiliary database is ~A on ~A:~D.  ~
-     Files are searched for in ~A."
+       of ~:[all available addresses~;address ~:*~A~].  ~
+       It expects to be called with a URL path root of /~A/.  ~
+       Phoros database is ~A on ~A:~D.  Auxiliary database is ~A on ~A:~D.  ~
+       Files are searched for in ~A."
        http-port address
        proxy-root
        database host port

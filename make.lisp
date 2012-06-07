@@ -22,6 +22,9 @@
 (push (make-pathname :directory '(:relative "phoml"))
       asdf:*central-registry*)
 
+(push (make-pathname :directory '(:relative "sb-daemon"))
+      asdf:*central-registry*)
+
 (push (make-pathname :directory '(:relative :up "phoros"))
       asdf:*central-registry*)
 
