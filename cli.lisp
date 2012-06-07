@@ -53,14 +53,14 @@
      (:header "General Options:")
      (stropt :long-name "verbose"
              :description "Change behaviour, mainly for debugging, as specified in the form of <verbosity-topic>:<verbosity-level>.  Repeat if necessary.
-  render-footprints:1 - display image footprints on http client
-  suppress-preemptive-caching:1 - don't stuff browser cache with lots of images around map cursor
-  log-sql:1 - log SQL activity
-  postgresql-warnings:1 - show PostgreSQL warnings
-  log-error-backtraces:1 - log http server error backtraces
-  use-multi-file-openlayers:1 - use multi-file version of OpenLayers
-  pretty-javascript:1 - send nicely formatted JavaScript
-  show-server-errors:1 - send HTTP server error messages to client
+  render-footprints:1 - display image footprints on http client;
+  suppress-preemptive-caching:1 - don't stuff browser cache with lots of images around map cursor;
+  log-sql:1 - log SQL activity;
+  postgresql-warnings:1 - show PostgreSQL warnings;
+  log-error-backtraces:1 - log http server error backtraces;
+  use-multi-file-openlayers:1 - use multi-file version of OpenLayers;
+  pretty-javascript:1 - send nicely formatted JavaScript;
+  show-server-errors:1 - send HTTP server error messages to client;
   no-daemon:1 - run HTTP server in foreground.")
      ;; use-multi-file-openlayers:1 - Use OpenLayers uncompiled from
      ;; openlayers/*, which makes debugging easier and is necessary for
@@ -632,7 +632,7 @@
           (declare (ignore c))
           (cl-log:log-message
            :error "Interactive interrupt.")
-          (osicat-posix:exit 2)))
+          #+sbcl(sb-ext:exit :code 2 :abort t)))
        (serious-condition
         (lambda (c)
           (cl-log:log-message
@@ -641,7 +641,7 @@
            (cli:verbosity-level :log-error-backtraces)
            (trivial-backtrace:print-backtrace c :output nil))
           (format *error-output* "~A~&" c)
-          (osicat-posix:exit 1)))
+          (sb-ext:exit :code 1 :abort t)))
        (warning
         (lambda (c) (cl-log:log-message :warning "~A" c))))
     (cffi:use-foreign-library phoml)
@@ -691,7 +691,7 @@
                              create-user
                              delete-user
                              list-user)
-    (osicat-posix:exit *unix-exit-code*)))
+    (sb-ext:exit :code *unix-exit-code*)))
 
 (defun cli:set-.phoros-options ()
   "Set previously non-existent environment variables, whose names must
@@ -704,25 +704,22 @@ start with PHOROS_, according to the most relevant .phoros file."
                            (make-pathname
                             :name ".phoros"
                             :directory (directory-namestring
-                                        (user-homedir-pathname))))))
-        (unix-environment (osicat:environment)))
+                                        (user-homedir-pathname)))))))
     (when .phoros-path
+      #+sbcl
       (with-open-file (s .phoros-path)
         (loop
            for line = (read-line s nil nil)
            while line
            for option = (string-trim " " line)
            for (name value junk) = (cl-utilities:split-sequence #\= option)
-           if (and (>= (length name) 7)
-                   (string= (subseq name 0 7) "PHOROS_")
-                   value
-                   (not junk))
-           do (setf unix-environment
-                    (adjoin (cons name value)
-                            unix-environment
-                            :test #'(lambda (x y)
-                                      (string= (car x) (car y)))))))
-      (setf (osicat:environment) unix-environment))))
+           when (and (>= (length name) 7)
+                     (string= (subseq name 0 7) "PHOROS_")
+                     value
+                     (not junk))
+           do (sb-posix:setenv name value 0)))
+      #-sbcl
+      (warn "Ignoring settings from ~A" .phoros-path))))
 
 (defun cli:verbosity-level (topic)
   "Return the number associated with verbose topic, or nil if the
@@ -748,7 +745,8 @@ number is 0 or doesn't exist."
     (assert (typep umask '(integer #o000 #o777)) ()
             "~O is not a valid umask."
             *umask*)
-    (osicat-posix:umask umask)))
+    #+sbcl(sb-posix:umask umask)
+    #-sbcl(warn "Ignoring umask.")))
 
 (defun cli:getopt-mandatory (long-name)
   "Return value of command line option long-name if any. Otherwise
@@ -809,7 +807,7 @@ signal error."
           (format *error-output*
                   "Both are accessible.~%")
           (setf *unix-exit-code* 0))
-        (setf *unix-exit-code* 2))))
+        (setf *unix-exit-code* 32))))
 
 (defun cli:check-dependencies-action ()
   "Say OK if the necessary external dependencies are available."
@@ -1673,8 +1671,8 @@ exceeds the respective column-width over multiple rows."
                ()
                "~A contains the PID of a running process ~
                so I won't put my own there.  Giving up."
-               (truename pid-file)
-               (sb-daemon:daemonize :pidfile pid-file :exit-parent t)))
+               (truename pid-file))
+              (sb-daemon:daemonize :pidfile pid-file :exit-parent t))
       (insert-all-footprints *postgresql-credentials*)
       (delete-all-imageless-points *postgresql-credentials*)
       (setf hunchentoot:*log-lisp-backtraces-p*

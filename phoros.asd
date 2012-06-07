@@ -21,7 +21,7 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.8.0"
+  "13.8.1"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister
@@ -60,7 +60,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
   :depends-on (:phoml
                :sb-daemon
                :trivial-shell           ;for proj4-sh
-               :osicat
                :cl-ppcre
                :hunchentoot
                :cl-who
