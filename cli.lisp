@@ -1653,6 +1653,7 @@ exceeds the respective column-width over multiple rows."
             proxy-root http-port address common-root pid-file)
     (cli:with-options (:tolerate-missing t)
         (aux-host aux-port aux-database aux-user aux-password aux-use-ssl)
+      (setf address (unless (string= address "*") address))
       (setf *postgresql-credentials*
             (list database user password host :port port
                   :use-ssl (s-sql:from-sql-name use-ssl)))
@@ -1684,7 +1685,7 @@ exceeds the respective column-width over multiple rows."
             (cli:verbosity-level :pretty-javascript))
       (start-server :proxy-root proxy-root
                     :http-port http-port
-                    :address (unless (string= address "*") address)
+                    :address address
                     :common-root common-root)
       (cl-log:log-message
        :info
