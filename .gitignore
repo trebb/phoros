@@ -4,6 +4,7 @@
 *.png
 *.ini
 *.json
+*.pid
 phoros
 *.tar.gz
 *.tar
@@ -11,6 +12,7 @@ phoros
 .phoros
 debug-build.lisp
 phoros-help.txt
+bogus*
 OpenLayers-*/
 ol/
 public_html/
