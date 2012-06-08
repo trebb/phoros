@@ -1,0 +1,2 @@
+*.lisp diff=lisp
+*.asd diff=lisp
