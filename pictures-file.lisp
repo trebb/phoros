@@ -475,7 +475,7 @@ at path."
        finally (return (- picture-start (length "PICTUREHEADER_BEGIN"))))))
 
 (defun* send-nth-png (n output-stream path
-                     &key color-raiser
+                     &key (color-raiser #(1 1 1))
                      &mandatory-key bayer-pattern)
   "Read image number n (zero-indexed) in .pictures file at path and
 send it to the binary output-stream.  Return UNIX trigger-time of

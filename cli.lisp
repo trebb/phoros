@@ -1197,25 +1197,27 @@ sql-string-p is t, convert it into a string in SQL syntax."
 (defun cli:get-image-action ()
   "Output a PNG file extracted from a .pictures file; print its
 trigger-time to stdout."
-  (cli:with-options () (count byte-position in out
-                           raw-bayer-pattern raw-color-raiser)
-    (with-open-file (out-stream out :direction :output
-                                :element-type 'unsigned-byte
-                                :if-exists :supersede)
-      (let ((trigger-time
-             (if byte-position
-                 (send-png out-stream in byte-position
-                           :bayer-pattern
-                           (cli:canonicalize-bayer-pattern raw-bayer-pattern)
-                           :color-raiser
-                           (cli:canonicalize-color-raiser raw-color-raiser))
-                 (send-nth-png count out-stream in
-                               :bayer-pattern
-                               (cli:canonicalize-bayer-pattern raw-bayer-pattern)
-                               :color-raiser
-                               (cli:canonicalize-color-raiser raw-color-raiser)))))
-        (format *standard-output*
-                "~&~A~%" (timestring (utc-from-unix trigger-time)))))))
+  (cli:with-options () (in out bayer-pattern color-raiser)
+    (cli:with-options (:tolerate-missing t) (count byte-position)
+      (with-open-file (out-stream out :direction :output
+                                  :element-type 'unsigned-byte
+                                  :if-exists :supersede)
+        (let ((trigger-time
+               (if byte-position
+                   (send-png out-stream in byte-position
+                             :bayer-pattern
+                             (cli:canonicalize-bayer-pattern bayer-pattern)
+                             :color-raiser
+                             (cli:canonicalize-color-raiser color-raiser))
+                   (send-nth-png count out-stream in
+                                 :bayer-pattern
+                                 (cli:canonicalize-bayer-pattern
+                                  bayer-pattern)
+                                 :color-raiser
+                                 (cli:canonicalize-color-raiser
+                                  color-raiser)))))
+          (format *standard-output*
+                  "~&~A~%" (timestring (utc-from-unix trigger-time))))))))
 
 (defun cli:create-presentation-project-action ()
   "Make a presentation project."
