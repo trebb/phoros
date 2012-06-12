@@ -1,0 +1,4 @@
+;; -*- lisp -*-
+:face (text :hidden t)
+:face (option :hidden t)
+:face (group :hidden t)

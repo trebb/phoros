@@ -141,15 +141,3 @@ aux-use-ssl."
                                                       (car option)))
                         while i collect i))))
          ,@logged-body))))
-
-(defmacro cli:first-action-option (&rest options)
-  "Run action called <option>-action for the first non-nil option;
-return its value."
-  `(cli:with-context (cli:make-context)
-     (loop
-        for option in ',options
-        when (cli:getopt :long-name (string-downcase option))
-        return (funcall (symbol-function (intern (concatenate 'string
-                                                              (string option)
-                                                              "-ACTION")
-                                                 :cli))))))

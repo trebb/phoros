@@ -1,5 +1,6 @@
 ;; -*- lisp -*-
-:face (synopsis :bold t)
+:face (synopsis :bold t
+                :padding-bottom 0)
 :face (text :hidden t)
 :face (option :padding-left 2
 	      :face (syntax :item-separator "/"

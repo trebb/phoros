@@ -624,6 +624,19 @@
              :fallback-value "*"
              :description "List the specified user with their presentation projects, or all users if no user is given."))))
 
+(defun cli:first-action-option (&rest options)
+  "Run action called <option>-action for the first non-nil option;
+return its value."
+  (cli:with-context (cli:make-context)
+     (loop
+        for option in options
+        when (cli:getopt :long-name (string-downcase option))
+        return (funcall (symbol-function (intern (concatenate 'string
+                                                              (string option)
+                                                              "-ACTION")
+                                                 :cli)))
+        finally (cli:help :theme "etc/one-line.cth"))))
+
 (defun cli:main ()
   "The UNIX command line entry point."
   (handler-bind
@@ -654,43 +667,43 @@
       (setf *aux-numeric-labels* aux-numeric-label)
       (setf *aux-text-labels* aux-text-label)
       (setf *login-intro* login-intro))
-    (cli:first-action-option help
-                             licence
-                             license
-                             version
-                             check-db
-                             check-dependencies
-                             nuke-all-tables
-                             create-sys-tables
-                             get-image
-                             store-camera-hardware
-                             store-lens
-                             store-generic-device
-                             store-device-stage-of-life
-                             store-device-stage-of-life-end
-                             store-camera-calibration
-                             create-acquisition-project
-                             delete-acquisition-project
-                             delete-measurement
-                             list-acquisition-project
-                             store-images-and-points
-                             insert-footprints
-                             server
-                             create-presentation-project
-                             delete-presentation-project
-                             list-presentation-project
-                             add-to-presentation-project
-                             remove-from-presentation-project
-                             redefine-trigger-function
-                             create-image-attribute
-                             delete-image-attribute
-                             list-image-attribute
-                             create-aux-view
-                             get-user-points
-                             store-user-points
-                             create-user
-                             delete-user
-                             list-user)
+    (cli:first-action-option 'help
+                             'licence
+                             'license
+                             'version
+                             'check-db
+                             'check-dependencies
+                             'nuke-all-tables
+                             'create-sys-tables
+                             'get-image
+                             'store-camera-hardware
+                             'store-lens
+                             'store-generic-device
+                             'store-device-stage-of-life
+                             'store-device-stage-of-life-end
+                             'store-camera-calibration
+                             'create-acquisition-project
+                             'delete-acquisition-project
+                             'delete-measurement
+                             'list-acquisition-project
+                             'store-images-and-points
+                             'insert-footprints
+                             'server
+                             'create-presentation-project
+                             'delete-presentation-project
+                             'list-presentation-project
+                             'add-to-presentation-project
+                             'remove-from-presentation-project
+                             'redefine-trigger-function
+                             'create-image-attribute
+                             'delete-image-attribute
+                             'list-image-attribute
+                             'create-aux-view
+                             'get-user-points
+                             'store-user-points
+                             'create-user
+                             'delete-user
+                             'list-user)
     (sb-ext:exit :code *unix-exit-code*)))
 
 (defun cli:set-.phoros-options ()
