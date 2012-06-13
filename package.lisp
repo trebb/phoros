@@ -28,7 +28,16 @@
   (:use :cl
         :phoros-photogrammetry
         :parenscript
-        :postmodern))
+        :postmodern)
+  (:export :defun*))
+
+(defpackage :phoros-image-reader
+  (:documentation "The part of Phoros that makes servable images from
+  raw files of measuring data.")
+  (:nicknames :img)
+  (:use :cl :phoros)
+  (:export :send-png
+           :send-nth-png))
 
 (defpackage :phoros-command-line-interface
   (:documentation "The part of Phoros that provides its UNIX command

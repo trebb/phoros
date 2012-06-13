@@ -1217,12 +1217,12 @@ trigger-time to stdout."
                                   :if-exists :supersede)
         (let ((trigger-time
                (if byte-position
-                   (send-png out-stream in byte-position
+                   (img:send-png out-stream in byte-position
                              :bayer-pattern
                              (cli:canonicalize-bayer-pattern bayer-pattern)
                              :color-raiser
                              (cli:canonicalize-color-raiser color-raiser))
-                   (send-nth-png count out-stream in
+                   (img:send-nth-png count out-stream in
                                  :bayer-pattern
                                  (cli:canonicalize-bayer-pattern
                                   bayer-pattern)

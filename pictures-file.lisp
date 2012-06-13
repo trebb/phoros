@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 ;;; 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-(in-package :phoros)
+(in-package :img)
 
 (defparameter *picture-header-length-tolerance* 20
   "Amount of leeway for the length of a picture header in a .pictures
@@ -34,13 +34,12 @@ keyword."
           (file-position stream start-position)
           (let ((chunk-size (length keyword)))
             (cl:loop
-             for next-chunk = (let ((result
-                                     (make-array (list chunk-size)
-                                                 :fill-pointer 0)))
-                                (dotimes
-                                    (i chunk-size (coerce result 'string))
-                                  (vector-push-extend
-                                   (code-char (read-byte stream)) result))) ; TODO: try read-sequence
+             for next-chunk = (let ((result (make-array
+                                             (list chunk-size)
+                                             :element-type 'unsigned-byte)))
+                                (read-sequence result stream)
+                                (coerce (map 'vector #'code-char result)
+                                        'string))
              if (string/= next-chunk keyword) do
              (let ((next-position (- (file-position stream) chunk-size -1)))
                (if (< next-position end-position)
@@ -66,30 +65,28 @@ keyword."
 (defun read-huffman-table (stream &optional start-position)
   "Return in a hash table a huffman table read from stream.  Start
 either at stream's file position or at start-position."
-  (let* ((huffman-codes-start
-          (if start-position
-              start-position
-              (file-position stream))))
+  (let ((huffman-codes-start (if start-position
+                                 start-position
+                                 (file-position stream))))
     (file-position stream (+ (* 511 4) huffman-codes-start)) ; start of lengths
-    (let* ((lengths (loop
-                       repeat 511
-                       for length = (read-byte stream) ; TODO: try read-sequence
-                       collect length))
+    (let* ((lengths (make-list 511))
            (huffman-table (make-hash-table :size 1000 :test #'equal)))
+      (read-sequence lengths stream)
       (file-position stream huffman-codes-start)
       (loop
          for i from -255 to 255
          for length in lengths
          for key = (make-array (list length) :element-type 'bit)
-         for code = (let ((code-part 0))
-                      (setf code-part (dpb (read-byte stream)
-                                           (byte 8 24) code-part))
-                      (setf code-part (dpb (read-byte stream)
-                                           (byte 8 16) code-part))
-                      (setf code-part (dpb (read-byte stream)
-                                           (byte 8 8) code-part))
-                      (dpb (read-byte stream)
-                           (byte 8 0) code-part)) ; TODO: try read-sequence
+         for code = (let ((raw (make-array '(4) :element-type 'unsigned-byte))
+                          (code-part 0))
+                      (read-sequence raw stream)
+                      (loop
+                         for raw-byte across raw
+                         for code-position from 24 downto 0 by 8
+                         do (setf code-part (dpb raw-byte
+                                                 (byte 8 code-position)
+                                                 code-part))
+                         finally (return code-part)))
          unless (zerop length)
          do (loop
                for key-index from 0 below length
@@ -104,18 +101,21 @@ either at stream's file position or at start-position."
   "Return a compressed picture in a bit array.  Start either at
 start-position or, if that is nil, at stream's file position."
   (when start-position (file-position stream start-position))
-  (let ((compressed-picture
+  (let ((raw (make-array (list length) :element-type 'unsigned-byte))
+        (compressed-picture
          (make-array (list (* 8 length)) :element-type 'bit)))
+    (read-sequence raw stream)
     (loop
-       for byte-position from 0 below length
-       for byte = (read-byte stream) ; TODO: try read-sequence
+       for byte across raw
+       for byte-position from 0
        do (loop
              for source-bit from 7 downto 0
              for destination-bit from 0 to 7
              do (setf (sbit compressed-picture
-                            (+ destination-bit (* 8 byte-position)))
-                      (ldb (byte 1 source-bit) byte))))
-    compressed-picture))
+                            (+ destination-bit
+                               (* 8 byte-position)))
+                      (ldb (byte 1 source-bit) byte)))
+       finally (return compressed-picture))))
 
 (defun get-leading-byte (bit-array &optional (start 0) &aux (result 0))
   "Return integer made of eight bits from bit-array."
@@ -128,142 +128,155 @@ start-position or, if that is nil, at stream's file position."
      finally (return result)))
 
 (defun uncompress-picture (huffman-table compressed-picture
-                           height width color-type &key reversep)
+                           height width channels &key reversep)
   "Return the Bayer pattern extracted from compressed-picture, turned
-upside-down if reversep is t, in a zpng:png image, everything in color
-channel 0."
-  (let* ((samples-per-pixel
-          (zpng:samples-per-pixel (make-instance 'zpng:png
-                                                 :color-type color-type
-                                                 :width 1 :height 1)))
-         (image-data
-          (make-array (list (* height width samples-per-pixel))
+upside-down if reversep is t, in an (array (unsigned-byte 8) (height
+width channels)), everything in channel 0."
+  (declare (optimize (safety 0))
+           (type (unsigned-byte 16) height width)
+           (type vector compressed-picture))
+  (let* ((uncompressed-image
+          (make-array (list height width channels)
                       :element-type '(unsigned-byte 8)))
-         (uncompressed-image
-          (make-array (list height width samples-per-pixel)
+         (uncompressed-image-vector
+          (make-array (list (* height width channels))
                       :element-type '(unsigned-byte 8)
-                      :displaced-to image-data))
+                      :displaced-to uncompressed-image))
+        
          (channel (if reversep
-                      (1- samples-per-pixel) ;becomes 0 by reversal
+                      (1- channels)     ;becomes 0 by reversal
                       0))
          (compressed-picture-index 0)
          (min-key-length
           (loop
-             for code being the hash-key in huffman-table
+             for code of-type simple-bit-vector being the hash-key in huffman-table
              minimize (length code)))
          (max-key-length
           (loop
-             for code being the hash-key in huffman-table
+             for code of-type simple-bit-vector being the hash-key in huffman-table
              maximize (length code))))
+    (declare (type (signed-byte 48) compressed-picture-index)
+             (type (unsigned-byte 8) channels))
     (loop
        for row from 0 below height
        do
-         (setf (aref uncompressed-image row 0 channel)
-               (get-leading-byte compressed-picture
-                                 (prog1 compressed-picture-index
-                                   (incf compressed-picture-index 8))))
-         (setf (aref uncompressed-image row 1 channel)
-               (get-leading-byte compressed-picture
-                                 (prog1 compressed-picture-index
-                                   (incf compressed-picture-index 8))))
-         (loop
-            for column from 2 below width
-            for try-start from compressed-picture-index
-            do
-            (loop
-               for key-length from min-key-length to max-key-length
-               for huffman-code = (subseq compressed-picture
-                                          try-start (+ try-start key-length))
-               for pixel-delta-maybe = (gethash huffman-code huffman-table)
-               when pixel-delta-maybe
-               do
-                 (setf (aref uncompressed-image row column channel)
-                       (- (aref uncompressed-image row (- column 2) channel)
-                          pixel-delta-maybe))
-               and do (incf try-start (1- key-length))
-               and return nil
-               finally (error
-                        "Decoder out of step at row ~S, column ~S.  Giving up."
-                        row column))
-            finally
-            (setf compressed-picture-index (1+ try-start))))
-    (make-instance 'zpng:png
-                   :color-type color-type
-                   :width width :height height
-                   :image-data (if reversep
-                                   (reverse image-data)
-                                   image-data))))
+       (setf (aref uncompressed-image row 0 channel)
+             (get-leading-byte compressed-picture
+                               (prog1 compressed-picture-index
+                                 (incf compressed-picture-index 8))))
+       (setf (aref uncompressed-image row 1 channel)
+             (get-leading-byte compressed-picture
+                               (prog1 compressed-picture-index
+                                 (incf compressed-picture-index 8))))
+       (loop
+          for column from 2 below width
+          for try-start of-type (unsigned-byte 48) from compressed-picture-index
+          do
+          (loop
+             for key-length from min-key-length to max-key-length
+             for huffman-code = (subseq compressed-picture
+                                        try-start (+ try-start key-length))
+             for pixel-delta-maybe = (gethash huffman-code huffman-table)
+             when pixel-delta-maybe
+             do
+             (setf (aref uncompressed-image row column channel)
+                   (- (aref uncompressed-image row (- column 2) channel)
+                      (the fixnum pixel-delta-maybe)))
+             and do (incf try-start (1- key-length))
+             and return nil
+             finally (error
+                      "Decoder out of step at row ~S, column ~S.  Giving up."
+                      row column))
+          finally
+          (setf compressed-picture-index (1+ try-start))))
+    (when reversep (setf uncompressed-image-vector (reverse uncompressed-image-vector)))
+    uncompressed-image))
 
-(defun fetch-picture (stream start-position length height width color-type
+(defun fetch-picture (stream start-position length height width channels
                       &key reversep)
-  "Return the Bayer pattern taken from stream in a zpng:png image,
+  "Return the Bayer pattern taken from stream in an (array (unsigned-byte l8) (height width channels)),
 everything in color channel 0.  Start at start-position or, if that is
 nil, at stream's file position."
   (when start-position (file-position stream start-position))
-  (let* ((samples-per-pixel
-          (zpng:samples-per-pixel (make-instance 'zpng:png
-                                                 :color-type color-type
-                                                 :width 1 :height 1)))
-         (image-data
-          (make-array (list (* height width samples-per-pixel))
+  (let* ((image
+          (make-array (list height width channels)
                       :element-type '(unsigned-byte 8)))
+         (image-vector
+          (make-array (list (* height width channels))
+                      :element-type '(unsigned-byte 8)
+                      :displaced-to image))
          (raw-image
           (make-array (list length) :element-type 'unsigned-byte)))
-    (ecase color-type
-      (:grayscale
-       (read-sequence image-data stream))
-      (:truecolor
+    (ecase channels
+      (1
+       (read-sequence image-vector stream))
+      (3
        (error "Not implemented: fetch-picture for (uncompressed) truecolor images")
        ;; (read-sequence raw-image stream)
        ;; (loop
        ;;    for pixel across raw-image and red from 0 by 3 do
        ;;      (setf (svref png-image-data red) pixel))
        ))
-    (make-instance 'zpng:png
-                   :color-type color-type
-                   :width width :height height
-                   :image-data (if reversep
-                                   (reverse image-data)
-                                   image-data))))
+    (when reversep (setf image-vector (reverse image-vector)))
+    image))
 
-(defun complete-horizontally (png row column color)
+(defun complete-horizontally (image row column color)
   "Fake a color component of a pixel based its neighbors."
-  (let ((data-array (zpng:data-array png)))
-    (setf (aref data-array row column color)
-          (round (+ (aref data-array row (1- column) color)
-                    (aref data-array row (1+ column) color))
-                 2))))
+  (declare (optimize (safety 0))
+           (optimize speed)
+           (type image image)
+           (type image-dimension row column))
+  (setf (aref image row column color)
+        (round (+ (aref image row (1- column) color)
+                  (aref image row (1+ column) color))
+               2)))
   
-(defun complete-vertically (png row column color)
+(defun complete-vertically (image row column color)
   "Fake a color component of a pixel based its neighbors."
-  (let ((data-array (zpng:data-array png)))
-    (setf (aref data-array row column color)
-          (round (+ (aref data-array (1- row) column color)
-                    (aref data-array (1+ row) column color))
-                 2))))
+  (declare (optimize (safety 0))
+           (optimize speed)
+           (type image image)
+           (type image-dimension row column))
+  (setf (aref image row column color)
+        (round (+ (aref image (1- row) column color)
+                  (aref image (1+ row) column color))
+               2)))
 
-(defun complete-squarely (png row column color)
+(defun complete-squarely (image row column color)
   "Fake a color component of a pixel based its neighbors."
-  (let ((data-array (zpng:data-array png)))
-    (setf (aref data-array row column color)
-          (round (+ (aref data-array row (1- column) color)
-                    (aref data-array row (1+ column) color)
-                    (aref data-array (1- row) column color)
-                    (aref data-array (1+ row) column color))
-                 4))))
+  (declare (optimize (safety 0))
+           (optimize speed)
+           (type image image)
+           (type image-dimension row column))
+  (setf (aref image row column color)
+        (round (+ (aref image row (1- column) color)
+                  (aref image row (1+ column) color)
+                  (aref image (1- row) column color)
+                  (aref image (1+ row) column color))
+               4)))
 
-(defun complete-diagonally (png row column color)
+(defun complete-diagonally (image row column color)
   "Fake a color component of a pixel based its neighbors."
-  (let ((data-array (zpng:data-array png)))
-    (setf (aref data-array row column color)
-          (round (+ (aref data-array (1- row) (1- column) color)
-                    (aref data-array (1- row) (1+ column) color)
-                    (aref data-array (1+ row) (1- column) color)
-                    (aref data-array (1+ row) (1+ column) color))
-                 4))))
+  (declare (optimize (safety 0))
+           (optimize speed)
+           (type image image)
+           (type image-dimension row column))
+  (setf (aref image row column color)
+        (round (+ (aref image (1- row) (1- column) color)
+                  (aref image (1- row) (1+ column) color)
+                  (aref image (1+ row) (1- column) color)
+                  (aref image (1+ row) (1+ column) color))
+               4)))
 
-(defun demosaic-png (png bayer-pattern color-raiser brightenp)
-  "Demosaic color png in-place whose color channel 0 is supposed to be
+(deftype image-dimension () '(unsigned-byte 16))
+(deftype image () '(simple-array (unsigned-byte 8) 3))
+
+(defun height (image) (array-dimension image 0))
+(defun width (image) (array-dimension image 1))
+(defun channels (image) (array-dimension image 2))
+
+(defun demosaic-png (png bayer-pattern color-raiser brightenp) ;TODO: s/png/image
+  "Demosaic color png whose color channel 0 is supposed to be
 filled with a Bayer color pattern.  Return demosaiced png.
 bayer-pattern is an array of 24-bit RGB values (red occupying the
 least significant byte), describing the upper left corner of the
@@ -271,16 +284,19 @@ image.  Currently, only pixels 0, 1 on row 0 are taken into account.
 And, it's currently not even an array but a vector due to limitations
 in postmodern.  For a grayscale image do nothing.  Then, if brightenp
 is t and the image is too dark, make it brighter."
-  (when (eq (zpng:color-type png) :truecolor)
-    (let ((lowest-row (- (zpng:height png) 2))
-          (rightmost-column (- (zpng:width png) 2))
+  (declare (optimize (safety 0))
+           (optimize speed)
+           (type image png))
+  (when (= 3 (channels png))
+    (let ((lowest-row (- (height png) 2))
+          (rightmost-column (- (width png) 2))
           (bayer-pattern-red #x0000ff)
           (bayer-pattern-green #x00ff00)
           (bayer-pattern-blue #xff0000)
           (red 0) (green 1) (blue 2)    ;color coordinate in PNG array
-          (color-raiser-red (elt color-raiser 0))
-          (color-raiser-green (elt color-raiser 1))
-          (color-raiser-blue (elt color-raiser 2))
+          (color-raiser-red (coerce (elt color-raiser 0) '(single-float -10.0s0 10.0s0)))
+          (color-raiser-green (coerce (elt color-raiser 1) '(single-float -10.0s0 10.0s0)))
+          (color-raiser-blue (coerce (elt color-raiser 2) '(single-float -10.0s0 10.0s0)))
           (pix-depth 255)     ;may some day become a function argument
           complete-even-row-even-column
           complete-even-row-odd-column
@@ -290,6 +306,8 @@ is t and the image is too dark, make it brighter."
           colorize-even-row-odd-column
           colorize-odd-row-even-column
           colorize-odd-row-odd-column)
+      (declare (type image-dimension lowest-row rightmost-column)
+               )
       (flet ((complete-green-on-red-row (row column)
                (complete-horizontally png row column red)
                (complete-vertically png row column blue))
@@ -303,22 +321,22 @@ is t and the image is too dark, make it brighter."
                (complete-squarely png row column green)
                (complete-diagonally png row column red))
              (colorize-red (row column)
-               (setf (aref (zpng:data-array png) row column red)
+               (setf (aref png row column red)
                      (min pix-depth
                           (round (* color-raiser-red
-                                    (aref (zpng:data-array png)
+                                    (aref png
                                           row column red))))))
              (colorize-green (row column)
-               (setf (aref (zpng:data-array png) row column green)
+               (setf (aref png row column green)
                      (min pix-depth
                           (round (* color-raiser-green
-                                    (aref (zpng:data-array png)
+                                    (aref png
                                           row column red))))))
              (colorize-blue (row column)
-               (setf (aref (zpng:data-array png) row column blue)
+               (setf (aref png row column blue)
                      (min pix-depth
                           (round (* color-raiser-blue
-                                    (aref (zpng:data-array png)
+                                    (aref png
                                           row column red)))))))
         (cond
           ((= (aref bayer-pattern 0) bayer-pattern-red)
@@ -364,16 +382,16 @@ is t and the image is too dark, make it brighter."
           (t (error "Don't know how to deal with a bayer-pattern of ~A"
                     bayer-pattern)))
         ;; Recover colors (so far everything is in channel 0)
-        (loop for row from 0 below (zpng:height png) by 2
-           do (loop for column from 0 below (zpng:width png) by 2
+        (loop for row from 0 below (the image-dimension (height png)) by 2
+           do (loop for column from 0 below (the image-dimension (width png)) by 2
                  do (funcall colorize-even-row-even-column row column))
-           (loop for column from 1 below (zpng:width png) by 2
+           (loop for column from 1 below (the image-dimension (width png)) by 2
               do (funcall colorize-even-row-odd-column row column)))
-        (loop for row from 1 below (zpng:height png) by 2
-           do (loop for column from 0 below (zpng:width png) by 2
+        (loop for row from 1 below (the image-dimension (height png)) by 2
+           do (loop for column from 0 below (the image-dimension (width png)) by 2
                  do (funcall colorize-odd-row-even-column row column))
-           (loop for column from 1 below (zpng:width png) by 2
-              do (funcall colorize-odd-row-odd-column row column)))             
+             (loop for column from 1 below (the image-dimension (width png)) by 2
+                do (funcall colorize-odd-row-odd-column row column)))             
         ;; Demosaic
         (loop
            for row from 2 to lowest-row by 2 do
@@ -387,19 +405,19 @@ is t and the image is too dark, make it brighter."
            for row from 1 to lowest-row by 2 do
            (loop
               for column from 2 to rightmost-column by 2 do
-                (funcall complete-odd-row-even-column row column))
+              (funcall complete-odd-row-even-column row column))
            (loop
               for column from 1 to rightmost-column by 2 do
               (funcall complete-odd-row-odd-column row column))))))
   (when brightenp (brighten-maybe png))
   png)
 
-(defun brighten-maybe (png)
+(defun brighten-maybe (png)             ;TODO s/png/image-or-something/
   "Make png brighter if it is too dark."
   (multiple-value-bind (brightest-value darkest-value)
       (brightness png)
     (when (< brightest-value 200)
-      (let ((image (zpng:image-data png)))
+      (let ((image (make-array (list (* (height png) (width png) (channels png))) :element-type '(unsigned-byte 8) :displaced-to png)))
         (loop
            for i from 0 below (length image)
            do (setf (aref image i)
@@ -407,13 +425,16 @@ is t and the image is too dark, make it brighter."
                               (/ 255 (- brightest-value darkest-value))))))))))
 
 (defun brightness (png)
-  "Return brightest value and darkest value of png."
-  (loop
-     for brightness across (zpng:image-data png)
-     maximize brightness into brightest-value
-     minimize brightness into darkest-value
-     finally (return (values brightest-value
-                             darkest-value))))
+  "Return brightest value and darkest value of png." ;TODO: s/png/image/
+  (let ((image (make-array (list (* (height png) (width png) (channels png)))
+                           :element-type '(unsigned-byte 8)
+                           :displaced-to png)))
+    (loop
+       for brightness across image
+       maximize brightness into brightest-value
+       minimize brightness into darkest-value
+       finally (return (values brightest-value
+                               darkest-value)))))
 
 (defun* send-png (output-stream path start
                                 &key (color-raiser #(1 1 1))
@@ -431,30 +452,41 @@ is a wart."
         (image-height (find-keyword-value path "height=" start))
         (image-width (find-keyword-value path "width=" start))
         (compression-mode (find-keyword-value path "compressed=" start))
-        (color-type (ecase (find-keyword-value path "channels=" start)
-                      (1 :grayscale)
-                      (3 :truecolor)))
+        (channels (find-keyword-value path "channels=" start))
         (trigger-time (find-keyword-value path "timeTrigger=" start)))
+    (assert (member channels '(1 3)) ()
+            "Don't know how to deal with ~D-channel pixels." channels)
     (with-open-file (input-stream path :element-type 'unsigned-byte)
-      (zpng:write-png-stream
-       (demosaic-png
-        (ecase compression-mode
-          ((2 1)   ;compressed with individual/pre-built huffman table
-           (uncompress-picture (read-huffman-table input-stream blob-start)
-                               (read-compressed-picture
-                                input-stream
-                                (+ blob-start huffman-table-size)
-                                (- blob-size huffman-table-size))
-                               image-height image-width color-type
-                               :reversep reversep))
-          (0                            ;uncompressed
-           (fetch-picture input-stream blob-start blob-size
-                          image-height image-width color-type
-                          :reversep reversep)))
-        bayer-pattern
-        color-raiser
-        brightenp)
-       output-stream))
+      (let* ((image (demosaic-png
+                     (ecase compression-mode
+                       ((2 1) ;compressed with individual/pre-built huffman table
+                        (uncompress-picture (read-huffman-table input-stream blob-start)
+                                            (read-compressed-picture
+                                             input-stream
+                                             (+ blob-start huffman-table-size)
+                                             (- blob-size huffman-table-size))
+                                            image-height image-width channels
+                                            :reversep reversep))
+                       (0               ;uncompressed
+                        (fetch-picture input-stream blob-start blob-size
+                                       image-height image-width channels
+                                       :reversep reversep)))
+                     bayer-pattern
+                     color-raiser
+                     brightenp)))
+        (zpng:write-png-stream            ;TODO: generalize
+         (zpng:copy-png
+          (make-instance 'zpng:png
+                         :height (height image)
+                         :width (width image)
+                         :color-type (getf '(1 :grayscale 3 :truecolor)
+                                           (channels image))
+                         :image-data (make-array
+                                      (list (* (height image) (width image)
+                                               (channels image)))
+                                      :element-type '(unsigned-byte 8)
+                                      :displaced-to image)))
+         output-stream)))
     trigger-time))
 
 (defun find-nth-picture (n path)

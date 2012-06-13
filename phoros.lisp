@@ -1503,7 +1503,7 @@ table."
                      :type (second file-name-and-type)))))
                  (result
                   (flex:with-output-to-sequence (stream)
-                    (send-png
+                    (img:send-png
                      stream path-to-file byte-position
                      :bayer-pattern
                      (apply #'vector (mapcar
