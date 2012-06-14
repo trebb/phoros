@@ -41,7 +41,8 @@ keyargs is missing."
                              after-key-position))
                     (when after-key-position
                       (subseq lambda-list after-key-position))))))
-  `(defun ,name ,lambda-list ,@body))
+  `(defun ,name ,(delete (intern (string '&mandatory-key)) lambda-list)
+     ,@body))
 
 (defmacro logged-query (message-tag &rest args)
   "Act like postmodern:query; additionally log some debug information
