@@ -21,7 +21,7 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.8.1"
+  "13.8.2"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister
@@ -55,7 +55,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                (:file "blurb")
                (:file "db-tables")
                (:file "stuff-db")
-               (:file "pictures-file"))
+               (:file "image-reader"))
 
   :depends-on (:phoml
                :sb-daemon
@@ -67,7 +67,20 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :cl-json
                :postmodern
                :simple-date
-               :zpng
+
+               ;; There are two alternative means of image creation:
+               ;; zpng and cl-png.
+               ;; zpng is faster and has no dependencies, but it makes
+               ;; images twice as big as cl-png.
+               ;; cl-png depends on libpng.so.  It puts :png into
+               ;; *features* and there are a few #+png/#-png forms
+               ;; here and there.
+               ;; 
+               ;; Choose one:
+               ;; 
+               ;; :zpng
+               :png
+
                :drakma
                :com.dvlsoft.clon
                :cl-utilities
