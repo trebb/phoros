@@ -18,6 +18,11 @@
 
 (in-package :phoros)
 
+(defun unqualified-symbol (symbol)
+  (cond ((keywordp symbol) symbol)
+        ((atom symbol) (intern (string symbol)))
+        (t symbol)))
+
 (defmacro defun* (name lambda-list &body body)
   "Like defun, define a function, but with an additional lambda list
 keyword &mandatory-key which goes after the &key section or in place
@@ -41,7 +46,7 @@ keyargs is missing."
                              after-key-position))
                     (when after-key-position
                       (subseq lambda-list after-key-position))))))
-  `(defun ,name ,(delete (intern (string '&mandatory-key)) lambda-list)
+  `(defun ,name ,(delete (unqualified-symbol '&mandatory-key) lambda-list)
      ,@body))
 
 (defmacro logged-query (message-tag &rest args)
@@ -78,10 +83,13 @@ tagged by the short string message-tag."
           (/ ,query-milliseconds 1000)
           ,query-result)))))
 
-(defmacro cli:with-options ((&key log database aux-database tolerate-missing)
-                            (&rest options)
-                            &body body
-                            &aux postgresql-credentials)
+
+(in-package :cli)
+
+(defmacro with-options ((&key log database aux-database tolerate-missing)
+                        (&rest options)
+                        &body body
+                        &aux postgresql-credentials)
   "Evaluate body with options bound to the values of the respective
 command line arguments.  Signal error if tolerate-missing is nil and a
 command line argument doesn't have a value.  Elements of options may
@@ -101,16 +109,27 @@ aux-use-ssl."
     (setf options
           (append options '(host port database user password use-ssl)))
     (setf postgresql-credentials
-          '(list database user password host :port port
-            :use-ssl (s-sql:from-sql-name use-ssl))))
+          `(list ,(unqualified-symbol 'database)
+                 ,(unqualified-symbol 'user)
+                 ,(unqualified-symbol 'password)
+                 ,(unqualified-symbol 'host)
+                 :port ,(unqualified-symbol 'port)
+                 :use-ssl (s-sql:from-sql-name
+                           ,(unqualified-symbol 'use-ssl)))))
   (when aux-database
     (setf options
           (append options '(aux-host aux-port aux-database
                             aux-user aux-password aux-use-ssl)))
     (setf postgresql-credentials
-          '(list aux-database aux-user aux-password aux-host :port aux-port
-            :use-ssl (s-sql:from-sql-name aux-use-ssl))))
+          `(list ,(unqualified-symbol 'aux-database)
+                 ,(unqualified-symbol 'aux-user)
+                 ,(unqualified-symbol ' aux-password)
+                 ,(unqualified-symbol 'aux-host)
+                 :port ,(unqualified-symbol 'aux-port)
+                 :use-ssl (s-sql:from-sql-name
+                           ,(unqualified-symbol 'aux-use-ssl)))))
   (when log (setf options (append options '(log-dir))))
+  (setf options (mapcar #'unqualified-symbol options))
   (let* ((db-connected-body
           (if (or database aux-database)
               `((with-connection ,postgresql-credentials
@@ -119,26 +138,26 @@ aux-use-ssl."
               body))
          (logged-body
           (if log
-              `((launch-logger log-dir)
+              `((launch-logger ,(unqualified-symbol 'log-dir))
                 ,@db-connected-body)
               db-connected-body)))
-    `(cli:with-context (cli:make-context)
+    `(with-context (make-context)
        (let (,@(loop
                   for option in (remove-duplicates options)
                   if (symbolp option) collect
-                    (list option
-                          (if tolerate-missing
-                              `(cli:getopt :long-name ,(string-downcase option))
-                              `(cli:getopt-mandatory ,(string-downcase option))))
+                  (list option
+                        (if tolerate-missing
+                            `(getopt :long-name ,(string-downcase option))
+                            `(getopt-mandatory ,(string-downcase option))))
                   else collect
                   `(,(car option)
                      (loop
                         for i = ,(if tolerate-missing
-                                     `(cli:getopt :long-name ,(string-downcase
-                                                               (car option)))
-                                     `(cli:getopt-mandatory ,(string-downcase
-                                                            (car option))))
-                        then (cli:getopt :long-name ,(string-downcase
-                                                      (car option)))
+                                     `(getopt :long-name ,(string-downcase
+                                                           (car option)))
+                                     `(getopt-mandatory ,(string-downcase
+                                                          (car option))))
+                        then (getopt :long-name ,(string-downcase
+                                                  (car option)))
                         while i collect i))))
          ,@logged-body))))

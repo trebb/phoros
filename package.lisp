@@ -29,13 +29,68 @@
         :phoros-photogrammetry
         :parenscript
         :postmodern)
-  (:export :defun*))
+  (:export :defun*
+           :unqualified-symbol
+           :phoml
+           :launch-logger
+           :muffle-postgresql-warnings
+           :*number-of-images*
+           :*aux-numeric-labels*
+           :*aux-text-labels*
+           :*login-intro*
+           :*postgresql-credentials*
+           :*postgresql-aux-credentials*
+           :phoros-version
+           :check-db
+           :check-dependencies
+           :nuke-all-tables
+           :create-sys-tables
+           :create-acquisition-project
+           :assert-acquisition-project
+           :delete-acquisition-project
+           :delete-measurement
+           :store-images-and-points
+           :delete-imageless-points
+           :insert-footprints
+           :store-camera-hardware
+           :store-lens
+           :store-generic-device
+           :store-device-stage-of-life
+           :store-device-stage-of-life-end
+           :store-camera-calibration
+           :timestring
+           :create-presentation-project
+           :assert-presentation-project
+           :user-point-table-name
+           :user-line-table-name
+           :delete-presentation-project
+           :add-to-presentation-project
+           :remove-from-presentation-project
+           :create-image-attribute
+           :delete-image-attribute
+           :create-presentation-project-trigger-function
+           :fire-presentation-project-trigger-function
+           :aux-view-exists-p
+           :aux-point-view-name
+           :delete-aux-view
+           :create-aux-view
+           :add-spherical-mercator-ref
+           :store-user-points
+           :get-user-points
+           :create-user
+           :delete-user
+           :insert-all-footprints
+           :delete-all-imageless-points
+           :start-server
+           :utc-from-unix
+           :thread-aux-points-function-name))
 
 (defpackage :phoros-image-reader
   (:documentation "The part of Phoros that makes servable images from
   raw files of measuring data.")
   (:nicknames :img)
-  (:use :cl :phoros)
+  (:use :cl
+        :phoros)
   (:export :send-png
            :send-nth-png))
 
@@ -43,7 +98,9 @@
   (:documentation "The part of Phoros that provides its UNIX command
   line interface.")
   (:nicknames :cli)
-  (:use :cl)
+  (:use :cl
+        :phoros
+        :postmodern)
   (:import-from :com.dvlsoft.clon
                 :defsynopsis
                 :make-stropt
@@ -56,65 +113,8 @@
                 :getopt
                 :do-cmdline-options
                 :help)
-  (:export ;; re-export from com.dvlsoft.clon
-           :defsynopsis
-           :make-stropt
-           :make-path
-           :make-lispobj
-           :make-switch
-           :make-context
-           :with-context
-           :cmdline
-           :getopt
-           :do-cmdline-options
-           :help
-           ;; Phoros stuff
-           :set-.phoros-options
-           :getopt-mandatory
-           :with-options
-           :first-action-option
-           :string-or-null
-           :help-action
-           :version-action
-           :licence-action
-           :license-action
-           :main
-           :check-db-action
-           :check-dependencies-action
-           :nuke-all-tables-action
-           :create-sys-tables-action
-           :create-acquisition-project-action
-           :delete-acquisition-project-action
-           :delete-measurement-action
-           :list-acquisition-project-action
-           :store-images-and-points-action
-           :insert-footprints-action
-           :canonicalize-bayer-pattern
-           :canonicalize-color-raiser
-           :store-camera-hardware-action
-           :store-lens-action
-           :store-generic-device-action
-           :store-device-stage-of-life-action
-           :store-device-stage-of-life-end-action
-           :store-camera-calibration-action
-           :get-image-action
-           :create-presentation-project-action
-           :delete-presentation-project-action
-           :add-to-presentation-project-action
-           :create-image-attribute-action
-           :delete-image-attribute-action
-           :list-image-attribute-action
-           :remove-from-presentation-project-action
-           :redefine-trigger-function-action
-           :create-aux-view-action
-           :store-user-points-action
-           :get-user-points-action
-           :create-user-action
-           :delete-user-action
-           :list-user-action
-           :list-presentation-project-action
-           :format-table
-           :split-last-row
-           :server-action
+  (:export :help ;re-export from com.dvlsoft.clon
+           :with-options ;Phoros CLI stuff
            :verbosity-level
+           :main
            :set-umask))

@@ -18,11 +18,33 @@
 
 ;;;; The UNIX command line interface
 
-(in-package :phoros)
+(in-package :cli)
+
+(defparameter *phoros-description*
+  (asdf:system-description (asdf:find-system :phoros))
+  "Phoros description as defined in system definition.")
+
+(defparameter *phoros-long-description*
+  (substitute #\Space #\Newline
+              (asdf:system-long-description (asdf:find-system :phoros)))
+  "Phoros long-description as defined in system definition.")
+
+(defparameter *phoros-licence*
+  (asdf:system-licence (asdf:find-system :phoros))
+  "Phoros licence as defined in system definition.")
+
+(defvar *verbosity* nil
+  "List of strings like \"topic:7\".")
+
+(defvar *umask* "002"
+  "String containing octal representation of Phoros' umask") 
+
+(defvar *unix-exit-code* 0
+  "UNIX exit code.")
 
 (let (serial-number description try-overwrite device-stage-of-life-id
                     c common-root bayer-pattern unmounting-date)
-  (cli:defsynopsis ()
+  (defsynopsis ()
     (text :contents *phoros-long-description*)
     (text
      :contents    
@@ -171,7 +193,7 @@
             ;; The way it should be had we two-dimensional arrays in postmodern:
             ;;("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :description "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
             (setf bayer-pattern
-                  (cli:make-stropt
+                  (make-stropt
                    :long-name "bayer-pattern"
                    :default-value "#ff0000,#00ff00"
                    :description "The first pixels of the first row.  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green."))))
@@ -206,17 +228,17 @@
              ;;("bayer-pattern" :type string :list t :optional t :action :raw-bayer-pattern :description "The first pixels of the first row.  Repeat this option to describe following row(s).  Each pixel is to be interpreted as RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in topmost row are red, green.")
              bayer-pattern
              (setf serial-number
-                   (cli:make-stropt
+                   (make-stropt
                     :long-name "serial-number"
                     :default-value " "
                     :description "Serial number."))
              (setf description
-                   (cli:make-stropt
+                   (make-stropt
                     :long-name "description"
                     :default-value " "
                     :description "Description of camera."))
              (setf try-overwrite
-                   (cli:make-switch
+                   (make-switch
                     :long-name "try-overwrite"
                     :default-value t
                     :argument-type :required
@@ -228,7 +250,7 @@
             :description "Put new lens data into the database; print lens-id to stdout.")
       (group ()
              (setf c
-                   (cli:make-lispobj
+                   (make-lispobj
                     :long-name "c"
                     :typespec 'real :argument-name "NUM"
                     :description "Focal length."))
@@ -281,7 +303,7 @@
              (stropt :long-name "mounting-date"
                      :description "Time this device constellation became effective.  Format: \"2010-11-19T13:49+01\".")
              (setf unmounting-date
-                   (cli:make-stropt
+                   (make-stropt
                     :long-name "unmounting-date"
                     :default-value ":null"
                     :description "Time this device constellation ceased to be effective.  Format: \"2010-11-19T17:02+01\"."))))
@@ -292,7 +314,7 @@
             :description "Put an end date to a device-stage-of-life in the database; print device-stage-of-life-id to stdout.")
       (group ()
              (setf device-stage-of-life-id
-                   (cli:make-lispobj
+                   (make-lispobj
                     :long-name "device-stage-of-life-id"
                     :typespec 'integer :argument-name "ID"
                     :description "ID of the device-stage-of-life."))
@@ -452,7 +474,7 @@
                   :type :directory
                   :description "Directory containing one set of measuring data.")
             (setf common-root
-                  (cli:make-path
+                  (make-path
                    :long-name "common-root" :short-name "r"
                    :env-var "PHOROS_COMMON_ROOT"
                    :type :directory
@@ -624,20 +646,20 @@
              :fallback-value "*"
              :description "List the specified user with their presentation projects, or all users if no user is given."))))
 
-(defun cli:first-action-option (&rest options)
+(defun first-action-option (&rest options)
   "Run action called <option>-action for the first non-nil option;
 return its value."
-  (cli:with-context (cli:make-context)
-     (loop
-        for option in options
-        when (cli:getopt :long-name (string-downcase option))
-        return (funcall (symbol-function (intern (concatenate 'string
-                                                              (string option)
-                                                              "-ACTION")
-                                                 :cli)))
-        finally (cli:help :theme "etc/one-line.cth"))))
+  (with-context (make-context)
+    (loop
+       for option in options
+       when (getopt :long-name (string-downcase option))
+       return (funcall (symbol-function (intern (concatenate 'string
+                                                             (string option)
+                                                             "-ACTION")
+                                                :cli)))
+       finally (help :theme "etc/one-line.cth"))))
 
-(defun cli:main ()
+(defun main ()
   "The UNIX command line entry point."
   (handler-bind
       ((sb-sys:interactive-interrupt
@@ -651,62 +673,63 @@ return its value."
           (cl-log:log-message
            :error "~A ~:[~;[Backtrace follows]~&~A~]~&"
            c
-           (cli:verbosity-level :log-error-backtraces)
+           (verbosity-level :log-error-backtraces)
            (trivial-backtrace:print-backtrace c :output nil))
           (format *error-output* "~A~&" c)
           (sb-ext:exit :code 1 :abort t)))
        (warning
         (lambda (c) (cl-log:log-message :warning "~A" c))))
     (cffi:use-foreign-library phoml)
-    (cli:set-.phoros-options)
-    (cli:with-options (:tolerate-missing t)
-        ((verbose) umask images (aux-numeric-label) (aux-text-label) (login-intro))
+    (set-.phoros-options)
+    (with-options (:tolerate-missing t)
+        ((verbose) umask images
+         (aux-numeric-label) (aux-text-label) (login-intro))
       (setf *verbosity* verbose)
       (setf *umask* umask)
       (setf *number-of-images* images)
       (setf *aux-numeric-labels* aux-numeric-label)
       (setf *aux-text-labels* aux-text-label)
       (setf *login-intro* login-intro))
-    (cli:first-action-option 'help
-                             'licence
-                             'license
-                             'version
-                             'check-db
-                             'check-dependencies
-                             'nuke-all-tables
-                             'create-sys-tables
-                             'get-image
-                             'store-camera-hardware
-                             'store-lens
-                             'store-generic-device
-                             'store-device-stage-of-life
-                             'store-device-stage-of-life-end
-                             'store-camera-calibration
-                             'create-acquisition-project
-                             'delete-acquisition-project
-                             'delete-measurement
-                             'list-acquisition-project
-                             'store-images-and-points
-                             'insert-footprints
-                             'server
-                             'create-presentation-project
-                             'delete-presentation-project
-                             'list-presentation-project
-                             'add-to-presentation-project
-                             'remove-from-presentation-project
-                             'redefine-trigger-function
-                             'create-image-attribute
-                             'delete-image-attribute
-                             'list-image-attribute
-                             'create-aux-view
-                             'get-user-points
-                             'store-user-points
-                             'create-user
-                             'delete-user
-                             'list-user)
+    (first-action-option 'help
+                         'licence
+                         'license
+                         'version
+                         'check-db
+                         'check-dependencies
+                         'nuke-all-tables
+                         'create-sys-tables
+                         'get-image
+                         'store-camera-hardware
+                         'store-lens
+                         'store-generic-device
+                         'store-device-stage-of-life
+                         'store-device-stage-of-life-end
+                         'store-camera-calibration
+                         'create-acquisition-project
+                         'delete-acquisition-project
+                         'delete-measurement
+                         'list-acquisition-project
+                         'store-images-and-points
+                         'insert-footprints
+                         'server
+                         'create-presentation-project
+                         'delete-presentation-project
+                         'list-presentation-project
+                         'add-to-presentation-project
+                         'remove-from-presentation-project
+                         'redefine-trigger-function
+                         'create-image-attribute
+                         'delete-image-attribute
+                         'list-image-attribute
+                         'create-aux-view
+                         'get-user-points
+                         'store-user-points
+                         'create-user
+                         'delete-user
+                         'list-user)
     (sb-ext:exit :code *unix-exit-code*)))
 
-(defun cli:set-.phoros-options ()
+(defun set-.phoros-options ()
   "Set previously non-existent environment variables, whose names must
 start with PHOROS_, according to the most relevant .phoros file."
   (let ((.phoros-path (or (probe-file
@@ -734,24 +757,24 @@ start with PHOROS_, according to the most relevant .phoros file."
       #-sbcl
       (warn "Ignoring settings from ~A" .phoros-path))))
 
-(defun cli:verbosity-level (topic)
+(defun verbosity-level (topic)
   "Return the number associated with verbose topic, or nil if the
 number is 0 or doesn't exist."
   (let* ((digested-verbosity
           (loop
              for entry in *verbosity*
              collect
-               (destructuring-bind (topic &optional level)
-                   (cl-utilities:split-sequence
-                    #\: entry :count 2 :remove-empty-subseqs t)
-                 (cons (intern (string-upcase topic) 'keyword)
-                       (ignore-errors
-                         (parse-integer level :junk-allowed t))))))
+             (destructuring-bind (topic &optional level)
+                 (cl-utilities:split-sequence
+                  #\: entry :count 2 :remove-empty-subseqs t)
+               (cons (intern (string-upcase topic) 'keyword)
+                     (ignore-errors
+                       (parse-integer level :junk-allowed t))))))
          (level (cdr (assoc topic digested-verbosity))))
     (unless (or (null level) (zerop level))
       level)))
 
-(defun cli:set-umask ()
+(defun set-umask ()
   "Set umask to the value from its octal representation stored in
 *umask*"
   (let ((umask (ignore-errors (parse-integer *umask* :radix 8))))
@@ -761,22 +784,22 @@ number is 0 or doesn't exist."
     #+sbcl(sb-posix:umask umask)
     #-sbcl(warn "Ignoring umask.")))
 
-(defun cli:getopt-mandatory (long-name)
+(defun getopt-mandatory (long-name)
   "Return value of command line option long-name if any. Otherwise
 signal error."
-  (multiple-value-bind (value supplied-p) (cli:getopt :long-name long-name)
+  (multiple-value-bind (value supplied-p) (getopt :long-name long-name)
     (assert supplied-p () "Missing option --~A." long-name)
     value))
 
-(defun cli:help-action ()
-  (cli:with-options () (help)
+(defun help-action ()
+  (with-options () (help)
     (ecase help
-      (:long (cli:help :theme "etc/phoros.cth"))
-      (:short (cli:help :theme "etc/short.cth")))))
+      (:long (help :theme "etc/phoros.cth"))
+      (:short (help :theme "etc/short.cth")))))
 
-(defun cli:version-action ()
+(defun version-action ()
   "Print --version message. TODO: OpenLayers, Proj4js version."
-  (cli:with-options () (version)
+  (with-options () (version)
     (ecase version
       (:all
        (format
@@ -791,16 +814,16 @@ signal error."
       (:minimal
        (format *standard-output* "~&~A~&" (phoros-version))))))
 
-(defun cli:licence-action ()
+(defun licence-action ()
   "Print --licence boilerplate."
   (format *standard-output* "~&~A~&" *phoros-licence*))
 
-(defun cli:license-action ()
-  (cli:licence-action))
+(defun license-action ()
+  (licence-action))
 
-(defun cli:check-db-action ()
+(defun check-db-action ()
   "Tell us if databases are accessible."
-  (cli:with-options ()
+  (with-options ()
       (host port database user use-ssl
             aux-host aux-port
             aux-database aux-user aux-password password aux-use-ssl)
@@ -822,13 +845,13 @@ signal error."
           (setf *unix-exit-code* 0))
         (setf *unix-exit-code* 32))))
 
-(defun cli:check-dependencies-action ()
+(defun check-dependencies-action ()
   "Say OK if the necessary external dependencies are available."
   (check-dependencies))
 
-(defun cli:nuke-all-tables-action ()
+(defun nuke-all-tables-action ()
   "Drop the bomb.  Ask for confirmation first."
-  (cli:with-options (:database t :log t) ()
+  (with-options (:database t :log t) ()
     (when (yes-or-no-p
            "You asked me to delete anything in database ~A at ~A:~D.  ~
            Proceed?"
@@ -838,9 +861,9 @@ signal error."
      :db-sys "Nuked database ~A at ~A:~D.  Back to square one!"
      database host port)))
 
-(defun cli:create-sys-tables-action ()
+(defun create-sys-tables-action ()
   "Make a set of sys-* tables.  Ask for confirmation first."
-  (cli:with-options (:database t :log t) ()
+  (with-options (:database t :log t) ()
     (when (yes-or-no-p
            "You asked me to create a set of sys-* tables ~
            in database ~A at ~A:~D.  ~
@@ -851,9 +874,9 @@ signal error."
      :db-sys "Created a fresh set of system tables in database ~A at ~A:~D."
      database host port)))
 
-(defun cli:create-acquisition-project-action ()
+(defun create-acquisition-project-action ()
   "Make a set of data tables."
-  (cli:with-options (:database t :log t) (create-acquisition-project)
+  (with-options (:database t :log t) (create-acquisition-project)
     (let ((common-table-name create-acquisition-project))
       (create-acquisition-project common-table-name)
       (cl-log:log-message
@@ -862,9 +885,9 @@ signal error."
        in database ~A at ~A:~D."
        common-table-name database host port))))
 
-(defun cli:delete-acquisition-project-action ()
+(defun delete-acquisition-project-action ()
   "Delete an acquisition project."
-  (cli:with-options (:database t :log t) (delete-acquisition-project)
+  (with-options (:database t :log t) (delete-acquisition-project)
     (let ((common-table-name delete-acquisition-project))
       (assert-acquisition-project common-table-name)
       (when (yes-or-no-p
@@ -873,16 +896,16 @@ signal error."
              from database ~A at ~A:~D.  Proceed?"
              common-table-name database host port)
         (let ((project-did-exist-p
-                 (delete-acquisition-project common-table-name)))
-            (cl-log:log-message
-             :db-dat
-             "~:[Tried to delete nonexistent~;Deleted~] ~
+               (delete-acquisition-project common-table-name)))
+          (cl-log:log-message
+           :db-dat
+           "~:[Tried to delete nonexistent~;Deleted~] ~
              acquisition project ~A from database ~A at ~A:~D."
-             project-did-exist-p common-table-name database host port))))))
+           project-did-exist-p common-table-name database host port))))))
 
-(defun cli:delete-measurement-action ()
+(defun delete-measurement-action ()
   "Delete a measurement by its measurement-id."
-  (cli:with-options (:database t :log t) (delete-measurement)
+  (with-options (:database t :log t) (delete-measurement)
     (let* ((measurement-id delete-measurement)
            (measurement-did-exist-p (delete-measurement measurement-id)))
       (cl-log:log-message
@@ -891,9 +914,9 @@ signal error."
        measurement with ID ~A from database ~A at ~A:~D."
        measurement-did-exist-p measurement-id database host port))))
 
-(defun cli:list-acquisition-project-action ()
+(defun list-acquisition-project-action ()
   "List content of acquisition projects."
-  (cli:with-options (:database t) (list-acquisition-project)
+  (with-options (:database t) (list-acquisition-project)
     (let* ((common-table-name  (if (string= list-acquisition-project "*")
                                    'common-table-name
                                    list-acquisition-project))
@@ -910,13 +933,13 @@ signal error."
                'sys-acquisition-project :natural :left-join 'sys-measurement
                :where (:= 'common-table-name common-table-name))
               'measurement-id))))
-      (cli:format-table *standard-output* content
-                        '("Acquisition Project" "ID" "Meas. ID"
-                          "Directory" "Cartesian CS")))))
+      (format-table *standard-output* content
+                    '("Acquisition Project" "ID" "Meas. ID"
+                      "Directory" "Cartesian CS")))))
 
-(defun cli:store-images-and-points-action ()
+(defun store-images-and-points-action ()
   "Put data into the data tables."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       (directory epsilon common-root aggregate-events store-images-and-points)
     (let ((common-table-name store-images-and-points))
       (assert-acquisition-project common-table-name)
@@ -943,11 +966,11 @@ signal error."
          common-table-name database host port
          points-deleted)))))
 
-(defun cli:insert-footprints-action ()
+(defun insert-footprints-action ()
   "Update image footprints."
-  (cli:with-options (:database t :log t) (host port database user password use-ssl
-                          log-dir
-                          insert-footprints)
+  (with-options (:database t :log t) (host port database user password use-ssl
+                                           log-dir
+                                           insert-footprints)
     (let ((common-table-name insert-footprints))
       (assert-acquisition-project common-table-name)
       (cl-log:log-message
@@ -967,7 +990,7 @@ signal error."
          common-table-name database host port)))))
 
 ;;; We don't seem to have two-dimensional arrays in postmodern
-;;(defun cli:canonicalize-bayer-pattern (raw &optional sql-string-p)
+;;(defun canonicalize-bayer-pattern (raw &optional sql-string-p)
 ;;  "Convert list of strings of comma-separated hex color strings (ex: #ff0000 for red) into an array of integers.  If sql-string-p is t, convert it into a string in SQL syntax."
 ;;  (when raw
 ;;    (let* ((array
@@ -991,7 +1014,7 @@ signal error."
 ;;          (format nil "{~{{~{~A~#^,~}}~}}" array)
 ;;          (make-array (list rows columns) :initial-contents array)))))
 
-(defun cli:canonicalize-bayer-pattern (raw &optional sql-string-p)
+(defun canonicalize-bayer-pattern (raw &optional sql-string-p)
   "Convert a string of comma-separated hex color strings (ex: #ff0000
 for red) into a vector of integers.  If sql-string-p is t, convert it
 into a string in SQL syntax."
@@ -1000,21 +1023,21 @@ into a string in SQL syntax."
             (loop
                for hex-color in (cl-utilities:split-sequence #\, raw)
                collect
-                 (let ((*read-base* 16))
-                   (assert (eql (elt hex-color 0) #\#)
-                           () "~A is not a valid color" hex-color)
-                   (read-from-string
-                    (concatenate 'string
-                                 (subseq hex-color 5 7)
-                                 (subseq hex-color 3 5)
-                                 (subseq hex-color 1 3))
-                    nil))))
+               (let ((*read-base* 16))
+                 (assert (eql (elt hex-color 0) #\#)
+                         () "~A is not a valid color" hex-color)
+                 (read-from-string
+                  (concatenate 'string
+                               (subseq hex-color 5 7)
+                               (subseq hex-color 3 5)
+                               (subseq hex-color 1 3))
+                  nil))))
            (columns (length vector)))
       (if sql-string-p
           (format nil "{~{~A~#^,~}}" vector)
           (make-array (list columns) :initial-contents vector)))))
 
-(defun cli:canonicalize-color-raiser (raw &optional sql-string-p)
+(defun canonicalize-color-raiser (raw &optional sql-string-p)
   "Convert string of comma-separated numbers into a vector.  If
 sql-string-p is t, convert it into a string in SQL syntax."
   (when raw
@@ -1022,13 +1045,13 @@ sql-string-p is t, convert it into a string in SQL syntax."
             (loop
                for multiplier in (cl-utilities:split-sequence #\, raw :count 3)
                collect
-                 (read-from-string multiplier nil))))
+               (read-from-string multiplier nil))))
       (if sql-string-p
           (format nil "{~{~A~#^,~}}" vector)
           (make-array '(3) :initial-contents vector)))))
 
-(defun cli:store-camera-hardware-action ()
-  (cli:with-options (:database t :log t)
+(defun store-camera-hardware-action ()
+  (with-options (:database t :log t)
       (try-overwrite
        sensor-width-pix
        sensor-height-pix
@@ -1047,13 +1070,13 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :pix-size pix-size
              :channels channels
              :pix-depth pix-depth
-             :color-raiser (cli:canonicalize-color-raiser color-raiser)
-             :bayer-pattern (cli:canonicalize-bayer-pattern bayer-pattern)
+             :color-raiser (canonicalize-color-raiser color-raiser)
+             :bayer-pattern (canonicalize-bayer-pattern bayer-pattern)
              :serial-number (string-trim " " serial-number)
              :description (string-trim " " description)))))
 
-(defun cli:store-lens-action ()
-  (cli:with-options (:database t :log t)
+(defun store-lens-action ()
+  (with-options (:database t :log t)
       (try-overwrite
        c
        serial-number
@@ -1065,8 +1088,8 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :serial-number (string-trim " " serial-number)
              :description (string-trim " " description)))))
 
-(defun cli:store-generic-device-action ()
-  (cli:with-options (:database t :log t)
+(defun store-generic-device-action ()
+  (with-options (:database t :log t)
       (camera-hardware-id
        lens-id
        scanner-id)
@@ -1076,12 +1099,12 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :lens-id lens-id
              :scanner-id scanner-id))))
     
-(defun cli:string-or-null (string)
+(defun string-or-null (string)
   "If string is \":null\", return :null; otherwise return string."
   (if (string-equal string ":null") :null string))
 
-(defun cli:store-device-stage-of-life-action ()
-  (cli:with-options (:database t :log t)
+(defun store-device-stage-of-life-action ()
+  (with-options (:database t :log t)
       (unmounting-date
        try-overwrite
        recorded-device-id
@@ -1094,7 +1117,7 @@ sql-string-p is t, convert it into a string in SQL syntax."
        mounting-date)
     (format *standard-output* "~D~%"
             (store-device-stage-of-life
-             :unmounting-date (cli:string-or-null unmounting-date)
+             :unmounting-date (string-or-null unmounting-date)
              :try-overwrite try-overwrite
              :recorded-device-id recorded-device-id
              :event-number event-number
@@ -1105,8 +1128,8 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :computer-interface-name computer-interface-name
              :mounting-date mounting-date))))
 
-(defun cli:store-device-stage-of-life-end-action ()
-  (cli:with-options (:database t :log t)
+(defun store-device-stage-of-life-end-action ()
+  (with-options (:database t :log t)
       (device-stage-of-life-id
        unmounting-date)
     (format *standard-output* "~D~%"
@@ -1114,8 +1137,8 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :device-stage-of-life-id device-stage-of-life-id
              :unmounting-date unmounting-date))))
 
-(defun cli:store-camera-calibration-action ()
-  (cli:with-options (:database t :log t)
+(defun store-camera-calibration-action ()
+  (with-options (:database t :log t)
       (usable
        device-stage-of-life-id
        date
@@ -1170,7 +1193,9 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :debug debug
              :photogrammetry-version photogrammetry-version
              :mounting-angle mounting-angle
-             :inner-orientation-description (string-trim " " inner-orientation-description)
+             :inner-orientation-description (string-trim
+                                             " "
+                                             inner-orientation-description)
              :c c
              :xh xh
              :yh yh
@@ -1182,7 +1207,9 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :c1 c1
              :c2 c2
              :r0 r0
-             :outer-orientation-description (string-trim " " outer-orientation-description)
+             :outer-orientation-description (string-trim
+                                             " "
+                                             outer-orientation-description)
              :dx dx
              :dy dy
              :dz dz
@@ -1207,34 +1234,34 @@ sql-string-p is t, convert it into a string in SQL syntax."
              :nz nz
              :d d))))
 
-(defun cli:get-image-action ()
+(defun get-image-action ()
   "Output a PNG file extracted from a .pictures file; print its
 trigger-time to stdout."
-  (cli:with-options () (in out bayer-pattern color-raiser)
-    (cli:with-options (:tolerate-missing t) (count byte-position)
+  (with-options () (in out bayer-pattern color-raiser)
+    (with-options (:tolerate-missing t) (count byte-position)
       (with-open-file (out-stream out :direction :output
                                   :element-type 'unsigned-byte
                                   :if-exists :supersede)
         (let ((trigger-time
                (if byte-position
                    (img:send-png out-stream in byte-position
-                             :bayer-pattern
-                             (cli:canonicalize-bayer-pattern bayer-pattern)
-                             :color-raiser
-                             (cli:canonicalize-color-raiser color-raiser))
-                   (img:send-nth-png count out-stream in
                                  :bayer-pattern
-                                 (cli:canonicalize-bayer-pattern
-                                  bayer-pattern)
+                                 (canonicalize-bayer-pattern bayer-pattern)
                                  :color-raiser
-                                 (cli:canonicalize-color-raiser
-                                  color-raiser)))))
+                                 (canonicalize-color-raiser color-raiser))
+                   (img:send-nth-png count out-stream in
+                                     :bayer-pattern
+                                     (canonicalize-bayer-pattern
+                                      bayer-pattern)
+                                     :color-raiser
+                                     (canonicalize-color-raiser
+                                      color-raiser)))))
           (format *standard-output*
                   "~&~A~%" (timestring (utc-from-unix trigger-time))))))))
 
-(defun cli:create-presentation-project-action ()
+(defun create-presentation-project-action ()
   "Make a presentation project."
-  (cli:with-options (:database t :log t) (create-presentation-project)
+  (with-options (:database t :log t) (create-presentation-project)
     (let* ((presentation-project-name create-presentation-project)
            (fresh-project-p
             (create-presentation-project presentation-project-name)))
@@ -1244,9 +1271,9 @@ trigger-time to stdout."
        presentation project by the name of ~A in database ~A at ~A:~D."
        fresh-project-p presentation-project-name database host port))))
 
-(defun cli:delete-presentation-project-action ()
+(defun delete-presentation-project-action ()
   "Delete a presentation project."
-  (cli:with-options (:database t :log t) (delete-presentation-project)
+  (with-options (:database t :log t) (delete-presentation-project)
     (let ((presentation-project-name delete-presentation-project))
       (assert-presentation-project presentation-project-name)
       (when (yes-or-no-p
@@ -1266,11 +1293,11 @@ trigger-time to stdout."
            project-did-exist-p presentation-project-name
            database host port))))))
 
-(defun cli:add-to-presentation-project-action ()
+(defun add-to-presentation-project-action ()
   "Add measurements to a presentation project."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       (add-to-presentation-project)
-    (cli:with-options (:tolerate-missing t)
+    (with-options (:tolerate-missing t)
         (measurement-id acquisition-project)
       (let ((presentation-project-name add-to-presentation-project))
         (assert-presentation-project presentation-project-name)
@@ -1285,16 +1312,16 @@ trigger-time to stdout."
          measurement-id acquisition-project
          presentation-project-name database host port)))))
 
-(defun cli:remove-from-presentation-project-action ()
+(defun remove-from-presentation-project-action ()
   "Add measurements to a presentation project."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       (measurement-id acquisition-project remove-from-presentation-project)
     (let ((presentation-project-name remove-from-presentation-project))
       (assert-presentation-project presentation-project-name)
       (remove-from-presentation-project
-         presentation-project-name
-         :measurement-ids measurement-id
-         :acquisition-project acquisition-project)
+       presentation-project-name
+       :measurement-ids measurement-id
+       :acquisition-project acquisition-project)
       (cl-log:log-message
        :db-dat
        "Removed ~@[measurement-ids ~{~D~#^, ~}~]~
@@ -1303,9 +1330,9 @@ trigger-time to stdout."
        measurement-id acquisition-project
        presentation-project-name database host port))))
 
-(defun cli:create-image-attribute-action ()
+(defun create-image-attribute-action ()
   "Store a boolean SQL expression."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       (tag sql-clause create-image-attribute)
     (let ((presentation-project-name create-image-attribute))
       (assert-presentation-project presentation-project-name)
@@ -1327,9 +1354,9 @@ trigger-time to stdout."
          database host port
          number-of-selected-images total-number-of-images)))))
 
-(defun cli:delete-image-attribute-action ()
+(defun delete-image-attribute-action ()
   "Remove SQL expression specified by presentation-project-name and tag."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       (tag delete-image-attribute)
     (let ((presentation-project-name delete-image-attribute))
       (assert-presentation-project presentation-project-name)
@@ -1344,9 +1371,9 @@ trigger-time to stdout."
          replaced-sql-clause tag presentation-project-name
          database host port)))))
 
-(defun cli:list-image-attribute-action ()
+(defun list-image-attribute-action ()
   "List boolean SQL expressions."
-  (cli:with-options (:database t) (tag list-image-attribute)
+  (with-options (:database t) (tag list-image-attribute)
     (let* ((presentation-project-name (if (string= list-image-attribute "*")
                                           'presentation-project-name
                                           list-image-attribute))
@@ -1365,14 +1392,14 @@ trigger-time to stdout."
                                     (:= restriction-id
                                         'restriction-id)))
               'presentation-project-name 'restriction-id))))
-      (cli:format-table *standard-output* content
-                        '("Presentation Project" "ID" "Tag" "SQL-clause")
-                        :column-widths '(nil nil nil 60)))))
+      (format-table *standard-output* content
+                    '("Presentation Project" "ID" "Tag" "SQL-clause")
+                    :column-widths '(nil nil nil 60)))))
 
-(defun cli:redefine-trigger-function-action ()
+(defun redefine-trigger-function-action ()
   "Recreate an SQL trigger function that is fired on changes to the
 user point table, and fire it once."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       (plpgsql-body redefine-trigger-function)
     (let ((presentation-project-name redefine-trigger-function)
           (body-text (make-array '(1) :adjustable t :fill-pointer 0
@@ -1403,12 +1430,12 @@ user point table, and fire it once."
        presentation-project-name database host port
        plpgsql-body body-text))))
 
-(defun cli:create-aux-view-action ()
+(defun create-aux-view-action ()
   "Connect presentation project to an auxiliary data table by means of
 a view."
-  (cli:with-options (:database t :log t) (create-aux-view)
+  (with-options (:database t :log t) (create-aux-view)
     (assert-presentation-project create-aux-view))
-  (cli:with-options (:aux-database t :log t)
+  (with-options (:aux-database t :log t)
       (host port database user password use-ssl 
             coordinates-column (numeric-column) (text-column) aux-table
             create-aux-view)
@@ -1455,9 +1482,9 @@ a view."
          numeric-columns text-columns
          (thread-aux-points-function-name presentation-project-name))))))
 
-(defun cli:store-user-points-action ()
+(defun store-user-points-action ()
   "Store user points from a GeoJSON file into database."
-  (cli:with-options (:database t :log t) (json-file store-user-points)
+  (with-options (:database t :log t) (json-file store-user-points)
     (let ((presentation-project store-user-points))
       (assert-presentation-project presentation-project)
       (multiple-value-bind
@@ -1488,9 +1515,9 @@ a view."
          (length zombie-users)          ;arg 14
          zombie-users)))))              ;arg 15
 
-(defun cli:get-user-points-action ()
+(defun get-user-points-action ()
   "Save user points of presentation project into a GeoJSON file."
-  (cli:with-options (:database t :log t) (json-file get-user-points)
+  (with-options (:database t :log t) (json-file get-user-points)
     (let ((presentation-project get-user-points))
       (assert-presentation-project presentation-project)
       (multiple-value-bind (user-points user-point-count)
@@ -1513,9 +1540,9 @@ a view."
          presentation-project database host port
          (ignore-errors (truename json-file)))))))
     
-(defun cli:create-user-action ()
+(defun create-user-action ()
   "Define a new user."
-  (cli:with-options (:database t :log t)
+  (with-options (:database t :log t)
       ((presentation-project)
        user-full-name user-role user-password
        create-user)
@@ -1537,9 +1564,9 @@ a view."
        user-full-name user-role
        presentation-project database host port))))
 
-(defun cli:delete-user-action ()
+(defun delete-user-action ()
   "Delete a presentation project user."
-  (cli:with-options (:database t :log t) (delete-user)
+  (with-options (:database t :log t) (delete-user)
     (let* ((presentation-project-user delete-user)
            (user-did-exist-p (delete-user presentation-project-user)))
       (cl-log:log-message
@@ -1548,10 +1575,10 @@ a view."
        presentation project user ~A from database ~A at ~A:~D."
        user-did-exist-p presentation-project-user database host port))))
 
-(defun cli:list-user-action ()
+(defun list-user-action ()
   "List presentation project users together with their presentation
 projects."
-  (cli:with-options (:database t) (list-user)
+  (with-options (:database t) (list-user)
     (let* ((presentation-project-user (if (string= list-user "*")
                                           'user-name
                                           list-user))
@@ -1568,13 +1595,13 @@ projects."
                             (:= 'sys-user.user-id 'sys-user-role.user-id)
                             (:= 'user-name presentation-project-user)))
               'user-name))))
-      (cli:format-table *standard-output* content
-                        '("User" "ID" "Password" "Full Name"
-                          "Presentation Project" "ID" "Role")))))
+      (format-table *standard-output* content
+                    '("User" "ID" "Password" "Full Name"
+                      "Presentation Project" "ID" "Role")))))
 
-(defun cli:list-presentation-project-action ()
+(defun list-presentation-project-action ()
   "List content of presentation projects."
-  (cli:with-options (:database t) (list-presentation-project)
+  (with-options (:database t) (list-presentation-project)
     (let* ((presentation-project (if (string= list-presentation-project "*")
                                      'presentation-project-name
                                      list-presentation-project))
@@ -1601,15 +1628,15 @@ projects."
                          presentation-project)))
               'presentation-project-name
               'sys-presentation.measurement-id))))
-      (cli:format-table *standard-output* content
-                        '("Presentation Project" "ID" "Meas. ID"
-                          "Acquisition Project" "ID")))))
+      (format-table *standard-output* content
+                    '("Presentation Project" "ID" "Meas. ID"
+                      "Acquisition Project" "ID")))))
 
-(defun cli:format-table (destination content column-headers &key
-                         (column-separator " | ")
-                         (header-separator #\-)
-                         (column-widths (mapcar (constantly nil)
-                                                column-headers)))
+(defun format-table (destination content column-headers &key
+                     (column-separator " | ")
+                     (header-separator #\-)
+                     (column-widths (mapcar (constantly nil)
+                                            column-headers)))
   "Print content (a list of lists) to destination."
   (let* ((rows (append (list column-headers)
                        (list (mapcar (constantly "") column-headers))
@@ -1621,7 +1648,8 @@ projects."
              collect (or (nth column column-widths)
                          (loop
                             for row in rows
-                            maximize (length (format nil "~A" (nth column row))))))))
+                            maximize (length (format nil "~A"
+                                                     (nth column row))))))))
     (setf (second rows)
           (loop
              for width in widths collect
@@ -1630,7 +1658,7 @@ projects."
           (loop
              for row in rows
              for i from 0
-             nconc (cli:split-last-row (list row) widths)))
+             nconc (split-last-row (list row) widths)))
     (loop 
        for row in rows do
        (format destination "~&~{~VA~1,#^~A~}~%"
@@ -1638,7 +1666,7 @@ projects."
                   for width in widths and field in row
                   collect width collect field collect column-separator)))))
 
-(defun cli:split-last-row (rows column-widths)
+(defun split-last-row (rows column-widths)
   "If necessary, split fields of the last element of rows whose width
 exceeds the respective column-width over multiple rows."
   (let ((last-row (mapcar #'(lambda (x) (format nil "~A" x))
@@ -1656,15 +1684,15 @@ exceeds the respective column-width over multiple rows."
            into lowest-row
            finally (return (nconc (butlast rows)
                                   (list penultimate-row)
-                                  (cli:split-last-row (list lowest-row)
+                                  (split-last-row (list lowest-row)
                                                   column-widths)))))))
 
-(defun cli:server-action ()
+(defun server-action ()
   "Start the HTTP server."
-  (cli:with-options (:log t)
+  (with-options (:log t)
       (host port database user password use-ssl
             proxy-root http-port address common-root pid-file)
-    (cli:with-options (:tolerate-missing t)
+    (with-options (:tolerate-missing t)
         (aux-host aux-port aux-database aux-user aux-password aux-use-ssl)
       (setf address (unless (string= address "*") address))
       (setf *postgresql-credentials*
@@ -1676,7 +1704,7 @@ exceeds the respective column-width over multiple rows."
                       :port aux-port
                       :use-ssl (s-sql:from-sql-name aux-use-ssl))
                 *postgresql-credentials*))
-      #+sbcl(unless (cli:verbosity-level :no-daemon)
+      #+sbcl(unless (verbosity-level :no-daemon)
               (assert
                (not (with-open-file (s pid-file :if-does-not-exist nil)
                       (when s
@@ -1691,11 +1719,11 @@ exceeds the respective column-width over multiple rows."
       (insert-all-footprints *postgresql-credentials*)
       (delete-all-imageless-points *postgresql-credentials*)
       (setf hunchentoot:*log-lisp-backtraces-p*
-            (cli:verbosity-level :log-error-backtraces))
+            (verbosity-level :log-error-backtraces))
       (setf hunchentoot:*show-lisp-errors-p*
-            (cli:verbosity-level :show-server-errors))
-      (setf *ps-print-pretty*
-            (cli:verbosity-level :pretty-javascript))
+            (verbosity-level :show-server-errors))
+      (setf ps:*ps-print-pretty*
+            (verbosity-level :pretty-javascript))
       (start-server :proxy-root proxy-root
                     :http-port http-port
                     :address address

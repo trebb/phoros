@@ -28,20 +28,11 @@
               "./phoml/lib/libphoml.so"))
   (t (:default "libphoml")))
 
-(defvar *unix-exit-code* 0
-  "UNIX exit code.")
-
 (defparameter *standard-coordinates* 4326
   "EPSG code of the coordinate system that we use for communication.")
 
 (defparameter *spherical-mercator* 900913
   "EPSG code of the coordinate system used for some distance calculations.")
-
-(defvar *verbosity* nil
-  "List of strings like \"topic:7\".")
-
-(defvar *umask* "002"
-  "String containing octal representation of Phoros' umask") 
 
 (defvar *postgresql-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
@@ -89,19 +80,6 @@ proxy configuration if Phoros is hidden behind a proxy.")
 (defparameter *phoros-version*
   (asdf:component-version (asdf:find-system :phoros))
   "Phoros version as defined in system definition.")
-
-(defparameter *phoros-description*
-  (asdf:system-description (asdf:find-system :phoros))
-  "Phoros description as defined in system definition.")
-
-(defparameter *phoros-long-description*
-  (substitute #\Space #\Newline
-              (asdf:system-long-description (asdf:find-system :phoros)))
-  "Phoros long-description as defined in system definition.")
-
-(defparameter *phoros-licence*
-  (asdf:system-licence (asdf:find-system :phoros))
-  "Phoros licence as defined in system definition.")
 
 (defparameter *aggregate-view-columns*
   (list 'usable
