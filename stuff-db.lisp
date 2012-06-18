@@ -23,39 +23,39 @@
 picture-headers of the .pictures file in path."
   (let ((estimated-header-length
          (ignore-errors
-           (- (find-keyword path "PICTUREHEADER_END")
-              (find-keyword path "PICTUREHEADER_BEGIN")
-              *picture-header-length-tolerance*)))) ; allow for variation in dataSize and a few other parameters
+           (- (img:find-keyword path "PICTUREHEADER_END")
+              (img:find-keyword path "PICTUREHEADER_BEGIN")
+              img:*picture-header-length-tolerance*)))) ; allow for variation in dataSize and a few other parameters
     (if estimated-header-length ;otherwise we don't have a decent header
         (with-open-file (stream path :element-type 'unsigned-byte)
           (cl-log:log-message :db-dat "Digesting ~A." path)
           (loop
              with pictures-data = (make-array '(600) :fill-pointer 0)
              for picture-start =
-             (find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
-             (find-keyword-in-stream stream "PICTUREHEADER_BEGIN"
-                                     (+ picture-start picture-length
-                                        estimated-header-length))
-             for picture-length = (find-keyword-value
+             (img:find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
+             (img:find-keyword-in-stream stream "PICTUREHEADER_BEGIN"
+                                         (+ picture-start picture-length
+                                            estimated-header-length))
+             for picture-length = (img:find-keyword-value
                                    path "dataSize=" picture-start
                                    estimated-header-length)
              and time-trigger = (utc-from-unix
                                  (or
-                                  (find-keyword-value
+                                  (img:find-keyword-value
                                    path "timeTrigger=" picture-start
                                    estimated-header-length)
                                   -1))
-             and timestamp = (find-keyword-value
+             and timestamp = (img:find-keyword-value
                               path "cameraTimestamp=" picture-start
                               estimated-header-length)
              and recorded-device-id = (format
                                        nil "~S"
-                                       (find-keyword-value
+                                       (img:find-keyword-value
                                         path "cam=" picture-start
                                         estimated-header-length))
-             and gain = (find-keyword-value
+             and gain = (img:find-keyword-value
                          path "gain=" picture-start estimated-header-length)
-             and shutter = (find-keyword-value
+             and shutter = (img:find-keyword-value
                             path "shutter=" picture-start
                             estimated-header-length)
              while picture-start

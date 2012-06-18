@@ -92,7 +92,11 @@
   (:use :cl
         :phoros)
   (:export :send-png
-           :send-nth-png))
+           :send-nth-png
+           :find-keyword
+           :find-keyword-value
+           :find-keyword-in-stream
+           :*picture-header-length-tolerance*))
 
 (defpackage :phoros-command-line-interface
   (:documentation "The part of Phoros that provides its UNIX command

@@ -42,25 +42,25 @@ keyword."
   (unless start-position (setf start-position 0))
   (let ((end-position (if search-range
                           (+ start-position search-range)
-                          most-positive-fixnum)))
-    (handler-case
-        (progn
-          (file-position stream start-position)
-          (let ((chunk-size (length keyword)))
-            (cl:loop
-             for next-chunk = (let ((result (make-array
-                                             (list chunk-size)
-                                             :element-type 'unsigned-byte)))
-                                (read-sequence result stream)
-                                (coerce (map 'vector #'code-char result)
-                                        'string))
-             if (string/= next-chunk keyword) do
-             (let ((next-position (- (file-position stream) chunk-size -1)))
-               (if (< next-position end-position)
-                   (file-position stream next-position)
-                   (return-from find-keyword-in-stream)))
-             else return (file-position stream))))
-      (end-of-file () nil))))
+                          most-positive-fixnum))
+        (chunk-size (length keyword))
+        read-size)
+    (file-position stream start-position)
+    (loop
+       for next-chunk = (let ((result (make-array
+                                       (list chunk-size)
+                                       :element-type 'unsigned-byte)))
+                          (setf read-size (read-sequence result stream))
+                          (coerce (map 'vector #'code-char result)
+                                  'string))
+       if (string/= next-chunk keyword)
+       do
+       (let ((next-position (- (file-position stream) chunk-size -1)))
+         (if (and (< next-position end-position)
+                  (= read-size chunk-size))
+             (file-position stream next-position)
+             (return-from find-keyword-in-stream)))
+       else return (file-position stream))))
 
 (defun find-keyword-value (path keyword &optional start-position search-range)
   "Return value associated with keyword."
