@@ -25,17 +25,21 @@ picture-headers of the .pictures file in path."
          (ignore-errors
            (- (img:find-keyword path "PICTUREHEADER_END")
               (img:find-keyword path "PICTUREHEADER_BEGIN")
-              img:*picture-header-length-tolerance*)))) ; allow for variation in dataSize and a few other parameters
-    (if estimated-header-length ;otherwise we don't have a decent header
+              ;; allow for variation in dataSize and a few other parameters:
+              img:*picture-header-length-tolerance*))))
+    (if estimated-header-length ;otherwise we don't have a decent header.
+        ;; TODO: find-keyword-value causes a lot of open.  Try opening
+        ;; the file twice and file-positioning around using
+        ;; find-keyword-value-in-stream which is yet to be written.
         (with-open-file (stream path :element-type 'unsigned-byte)
           (cl-log:log-message :db-dat "Digesting ~A." path)
           (loop
              with pictures-data = (make-array '(600) :fill-pointer 0)
              for picture-start =
-             (img:find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
-             (img:find-keyword-in-stream stream "PICTUREHEADER_BEGIN"
-                                         (+ picture-start picture-length
-                                            estimated-header-length))
+               (img:find-keyword-in-stream stream "PICTUREHEADER_BEGIN" 0) then
+               (img:find-keyword-in-stream stream "PICTUREHEADER_BEGIN"
+                                           (+ picture-start picture-length
+                                              estimated-header-length))
              for picture-length = (img:find-keyword-value
                                    path "dataSize=" picture-start
                                    estimated-header-length)
@@ -200,9 +204,9 @@ number."
                      (with-input-from-string (line-content line)
                        (setf event-number gps-event-number
                              gps-time
-                             (utc-from-gps estimated-utc ; From GPS week time.
+                             (utc-from-gps estimated-utc ;From GPS week time.
                                            (read line-content nil)))
-                       (read line-content nil) ; Discard distance.
+                       (read line-content nil) ;Discard distance.
                        (setf easting (read line-content nil)
                              northing (read line-content nil)
                              cartesian-height (read line-content nil)
@@ -339,13 +343,6 @@ decode-universal-time."
   "Convert UNIX UTC to Lisp time."
   (when unix-time (+ unix-time *unix-epoch*)))
 
-;;(defun event-number (recorded-device-id)
-;;  "Return the GPS event number corresponding to recorded-device-id of camera (etc.)"
-;;  (let ((event-table (pairlis '(21 22 11 12 1 2)
-;;                              '("1" "1" "2" "2" "1" "1"))))
-;;    (cdr (assoc recorded-device-id event-table)))) ; TODO: make a saner version
-
-
 (let (event-number-storage)
   (defun device-event-number (recorded-device-id utc)
     "Return the GPS event number (a string) corresponding to
@@ -367,7 +364,10 @@ recorded-device-id (a string) of camera (etc.)"
                           (:= 'recorded-device-id recorded-device-id))))))
             (assert device-stage-of-life
                     ()
-                    "Can't figure out what event-number belongs to recorded-device-id ~S of (approx.) ~A.  There should be some entry in table sys-device-stage-of-life to this end."
+                    "Can't figure out what event-number belongs to ~
+                    recorded-device-id ~S of (approx.) ~A.  ~
+                    There should be some entry in table ~
+                    sys-device-stage-of-life to this end."
                     recorded-device-id (timestring (round utc)))
             (push (cons recorded-device-id (event-number device-stage-of-life))
                   event-number-storage)
@@ -380,7 +380,8 @@ recorded-device-id (a string) of camera (etc.)"
   "Return UTM utm-zone representation of geographic coordinates."
   (let ((utm-coordinate-system
          (format nil "+proj=utm +ellps=WGS84 +zone=~D" utm-zone)))
-    (proj:cs2cs (list (proj:degrees-to-radians longitude) (proj:degrees-to-radians latitude) height)
+    (proj:cs2cs (list (proj:degrees-to-radians longitude)
+                      (proj:degrees-to-radians latitude) height)
                 :destination-cs utm-coordinate-system)))
 
 (defun utm-zone (longitude)
@@ -507,7 +508,7 @@ all pojects."
                                                          estimated-time))
        for image-time = (trigger-time i)
        for matching-point =
-         (when image-time               ; otherwise this image is junk
+         (when image-time               ;otherwise this image is junk
            (let ((gps-start-pointer
                   (cdr (assoc image-event-number gps-start-pointers
                               :test #'equal))))
@@ -528,7 +529,7 @@ all pojects."
                 when (almost= (gps-time gps-point) image-time epsilon)
                 do (setf (cdr (assoc image-event-number
                                      gps-start-pointers :test #'equal))
-                         gps-pointer) ; remember index of last matching point
+                         gps-pointer) ;remember index of last matching point
                 and return gps-point)))
        if matching-point
        do (let ((point-id               ; TODO: consider using transaction
@@ -574,7 +575,8 @@ all pojects."
 (defun assert-user-points-version (user-points-version)
   "Check if user-points-version is compatible with the current
 user-point table definition."
-  (multiple-value-bind (major minor revision) (version-number-parts user-points-version)
+  (multiple-value-bind (major minor revision)
+      (version-number-parts user-points-version)
     (declare (ignore minor revision))
     (cond              ;insert more interesting clauses when necessary
       ((null user-points-version)
@@ -972,7 +974,8 @@ altered record."
     (let ((new-row-p (save-dao record)))
       (cl-log:log-message
        :db-sys
-       "sys-device-stage-of-life: ~:[Updated~;Stored new~] device-stage-of-life-id ~A"
+       "sys-device-stage-of-life: ~:[Updated~;Stored new~] ~
+       device-stage-of-life-id ~A"
        new-row-p (device-stage-of-life-id record)))
     (device-stage-of-life-id record)))
 
@@ -1143,14 +1146,3 @@ device-stage-of-life-id and date of the altered record."
        new-row-p (date record) (device-stage-of-life-id record)))
     (values (device-stage-of-life-id record)
             (date record))))
-
-#|
-(with-connection '("phoros-dev" "postgres" "passwd" "host")
-  (nuke-all-tables)
-  (create-acquisition-project "yyyy")
-  (store-camera-hardware :sensor-width-pix 7000 :sensor-height-pix 800 :pix-size .003 :channels 3 :pix-depth 17 :color-raiser #(1 2 3) :bayer-pattern #(4 5 6) :serial-number "18" :description "yyy" :try-overwrite t)
-  (store-lens :c 10.5 :serial-number "17.8.8" :description "blahBlah3" :try-overwrite nil)
-  (store-generic-device :camera-hardware-id 1 :lens-id 1)
-  (store-device-stage-of-life :recorded-device-id "1" :event-number "777" :generic-device-id 1 :vehicle-name "Auto" :casing-name "Vorn links" :computer-name "ccdheck" :computer-interface-name "eth0" :mounting-date "2010-01-30T07:00-1")
-  (store-images-and-points "yyyy" "/home/bertb/phoros-testdata/mitsa-small/"))
-|#

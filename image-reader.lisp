@@ -36,31 +36,38 @@
   "Amount of leeway for the length of a picture header in a .pictures
   file.")
 
-(defun find-keyword-in-stream (stream keyword &optional start-position search-range)
+(defun find-keyword-in-stream (stream keyword &optional
+                               (start-position 0 start-position-p)
+                               search-range)
   "Return file-position in binary stream after first occurence of
-keyword."
-  (unless start-position (setf start-position 0))
-  (let ((end-position (if search-range
-                          (+ start-position search-range)
-                          most-positive-fixnum))
-        (chunk-size (length keyword))
-        read-size)
-    (file-position stream start-position)
-    (loop
-       for next-chunk = (let ((result (make-array
-                                       (list chunk-size)
-                                       :element-type 'unsigned-byte)))
-                          (setf read-size (read-sequence result stream))
-                          (coerce (map 'vector #'code-char result)
-                                  'string))
-       if (string/= next-chunk keyword)
-       do
-       (let ((next-position (- (file-position stream) chunk-size -1)))
-         (if (and (< next-position end-position)
-                  (= read-size chunk-size))
-             (file-position stream next-position)
-             (return-from find-keyword-in-stream)))
-       else return (file-position stream))))
+keyword, or nil if the search is unsuccessful.  Return nil if
+start-position is explicitly nil."
+  (unless (and start-position-p
+               (null start-position))
+    (unless start-position-p (setf start-position 0))
+    (let* ((keyword-size (length keyword))
+           (keyword-bytes (map 'vector #'char-code keyword))
+           (chunk-max-size 300)
+           (chunk (make-array (list (+ chunk-max-size (1- keyword-size)))
+                              :element-type '(unsigned-byte 8)))
+           (end-position-in-stream (if search-range
+                                       (+ start-position search-range)
+                                       most-positive-fixnum)))
+      (loop
+         for chunk-start-in-stream from start-position to end-position-in-stream by chunk-max-size
+         for chunk-size = (progn (file-position stream chunk-start-in-stream)
+                                 (read-sequence chunk stream))
+         for end-in-chunk = (min chunk-size (- end-position-in-stream
+                                               chunk-start-in-stream))
+         while (plusp chunk-size)
+         do (loop
+               for i from 0 to end-in-chunk
+               for correct-characters = (mismatch keyword-bytes chunk
+                                                  :start2 i
+                                                  :end2 end-in-chunk)
+               do (when (= correct-characters keyword-size)
+                    (return-from find-keyword-in-stream
+                      (+ chunk-start-in-stream i keyword-size))))))))
 
 (defun find-keyword-value (path keyword &optional start-position search-range)
   "Return value associated with keyword."
@@ -71,7 +78,7 @@ keyword."
         (file-position stream start-of-value)
         (car (read-delimited-list #\; stream))))))
 
-(defun find-keyword (path keyword &optional start-position search-range)
+(defun find-keyword (path keyword &optional (start-position 0) search-range)
   "Return file-position after keyword."
   (with-open-file (stream path :element-type 'unsigned-byte)
     (find-keyword-in-stream stream keyword start-position search-range)))
