@@ -65,7 +65,8 @@ start-position is explicitly nil."
                for correct-characters = (mismatch keyword-bytes chunk
                                                   :start2 i
                                                   :end2 end-in-chunk)
-               do (when (= correct-characters keyword-size)
+               do (when (or (null correct-characters)
+                            (= correct-characters keyword-size))
                     (return-from find-keyword-in-stream
                       (+ chunk-start-in-stream i keyword-size))))))))
 
