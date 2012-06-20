@@ -27,7 +27,7 @@
 
 (deftype channels () '(unsigned-byte 8))
 
-#-png
+#-phoros-uses-cl-png
 (deftype image ()
   "We are using zpng."
   '(simple-array color 3))
@@ -148,7 +148,7 @@ start-position or, if that is nil, at stream's file position."
      then (dpb (sbit bit-array bit-array-index) (byte 1 result-index) result)
      finally (return result)))
 
-#+png
+#+phoros-uses-cl-png
 (defun uncompress-picture (huffman-table compressed-picture
                            height width channels &key reversep)
   "Return the Bayer pattern extracted from compressed-picture, turned
@@ -210,17 +210,17 @@ width channels)), everything in channel 0."
                       row column))
           finally
           (setf compressed-picture-index (1+ try-start))))
-    (when reversep (setf uncompressed-image-vector
-                         (reverse uncompressed-image-vector)))
+    (when reversep (reverse-displaced-vector uncompressed-image-vector))
     uncompressed-image))
 
-#-png
+#-phoros-uses-cl-png
 (defun uncompress-picture (huffman-table compressed-picture
                            height width channels &key reversep)
   "Return the Bayer pattern extracted from compressed-picture, turned
 upside-down if reversep is t, in an (array color (height
 width channels)), everything in channel 0."
-  (declare (optimize (safety 0))
+  (declare (optimize speed)
+           (optimize (safety 0))
            (type (unsigned-byte 16) height width)
            (type vector compressed-picture))
   (let* ((uncompressed-image
@@ -279,8 +279,7 @@ width channels)), everything in channel 0."
                       row column))
           finally
           (setf compressed-picture-index (1+ try-start))))
-    (when reversep (setf uncompressed-image-vector
-                         (reverse uncompressed-image-vector)))
+    (when reversep (reverse-displaced-vector uncompressed-image-vector))
     uncompressed-image))
 
 (defun fetch-picture (stream start-position length height width channels
@@ -310,14 +309,21 @@ file position."
        ;;    for pixel across raw-image and red from 0 by 3 do
        ;;      (setf (svref png-image-data red) pixel))
        ))
-    (when reversep (setf image-vector (reverse image-vector)))
+    (when reversep (reverse-displaced-vector image-vector))
     image))
+
+(defun reverse-displaced-vector (vector)
+  "Reverse elements of vector of unsigned-byte in-place."
+  (loop
+     for cell across (reverse vector)
+     for i from 0
+     do (setf (aref vector i) cell)))
 
 (defun complete-horizontally (image row column color)
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
            (optimize speed)
-           #-png(type image image)
+           #-phoros-uses-cl-png(type image image)
            (type image-dimension row column))
   (setf (aref image row column color)
         (round (+ (the color (aref image row (1- column) color))
@@ -328,7 +334,7 @@ file position."
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
            (optimize speed)
-           #-png(type image image)
+           #-phoros-uses-cl-png(type image image)
            (type image-dimension row column))
   (setf (aref image row column color)
         (round (+ (the color (aref image (1- row) column color))
@@ -339,7 +345,7 @@ file position."
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
            (optimize speed)
-           #-png(type image image)
+           #-phoros-uses-cl-png(type image image)
            (type image-dimension row column))
   (setf (aref image row column color)
         (round (+ (the color (aref image row (1- column) color))
@@ -352,7 +358,7 @@ file position."
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
            (optimize speed)
-           #-png(type image image)
+           #-phoros-uses-cl-png(type image image)
            (type image-dimension row column))
   (setf (aref image row column color)
         (round (+ (the color (aref image (1- row) (1- column) color))
@@ -365,7 +371,7 @@ file position."
 (defun width (image) (array-dimension image 1))
 (defun channels (image) (array-dimension image 2))
 
-#-png
+#-phoros-uses-cl-png
 (defun demosaic-image (image bayer-pattern color-raiser brightenp)
   "Demosaic color image whose color channel 0 is supposed to be
 filled with a Bayer color pattern.  Return demosaiced image.
@@ -517,7 +523,7 @@ We are using zpng."
   (when brightenp (brighten-maybe image))
   image)
 
-#+png
+#+phoros-uses-cl-png
 (defun demosaic-image (image bayer-pattern color-raiser brightenp)
   "Demosaic color image whose color channel 0 is supposed to be
 filled with a Bayer color pattern.  Return demosaiced image.
@@ -655,7 +661,7 @@ We are using cl-png."
   (when brightenp (brighten-maybe image))
   image)
 
-#-png
+#-phoros-uses-cl-png
 (defun brighten-maybe (image)
   "Make image brighter if it is too dark.
 We are using zpng."
@@ -675,7 +681,7 @@ We are using zpng."
                             255)
                          (- brightest-value darkest-value)))))))))
 
-#+png
+#+phoros-uses-cl-png
 (defun brighten-maybe (image)
   "Make image brighter if it is too dark.
 We are using cl-png."
@@ -698,7 +704,7 @@ We are using cl-png."
                               255)
                            (- brightest-value darkest-value))))))))
 
-#-png
+#-phoros-uses-cl-png
 (defun brightness (image)
   "Return brightest value and darkest value of image.
 We are using zpng."
@@ -716,7 +722,7 @@ We are using zpng."
             (setf darkest-value (min intensity darkest-value))))))
     (values brightest-value darkest-value)))
         
-#+png
+#+phoros-uses-cl-png
 (defun brightness (image)
   "Return brightest value and darkest value of image.  We are using
 cl-png."
@@ -775,7 +781,7 @@ is a wart."
         (write-image image output-stream)))
     trigger-time))
 
-#-png
+#-phoros-uses-cl-png
 (defun write-image (image stream)
   "Write image array (height, width, channel) to stream."
   (zpng:write-png-stream
@@ -792,7 +798,7 @@ is a wart."
                                 :displaced-to image)))
    stream))
 
-#+png
+#+phoros-uses-cl-png
 (defun write-image (image stream)
   "Write image array (height, width, channel) to stream."
   (png:encode image stream))

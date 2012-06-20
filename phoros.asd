@@ -1,3 +1,13 @@
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  ;; There are two alternative means of image creation:
+  ;; zpng and cl-png.
+  ;; zpng is faster and has no dependencies, but it makes images twice
+  ;; as big as cl-png.  cl-png depends on libpng.so.
+  ;; 
+  ;; To choose zpng, leave *features* alone.  To choose cl-png, do:
+  ;; (pushnew :phoros-uses-cl-png *features*)
+  )
+
 (defsystem :phoros
 
   :description                 ;goes with --version --verbose=1 output
@@ -67,20 +77,8 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :cl-json
                :postmodern
                :simple-date
-
-               ;; There are two alternative means of image creation:
-               ;; zpng and cl-png.
-               ;; zpng is faster and has no dependencies, but it makes
-               ;; images twice as big as cl-png.
-               ;; cl-png depends on libpng.so.  It puts :png into
-               ;; *features* and there are a few #+png/#-png forms
-               ;; here and there.
-               ;; 
-               ;; Choose one:
-               ;; 
-               ;; :zpng
-               :png
-
+               #-phoros-uses-cl-png :zpng
+               #+phoros-uses-cl-png :png
                :drakma
                :com.dvlsoft.clon
                :cl-utilities
