@@ -6,4 +6,5 @@
   :serial t
   :components ((:file "test"))
   :depends-on (:phoros
-               :rt))                  ;TODO: use sb-rt where available
+               #+sbcl :sb-rt
+               #-sbcl :sb))
