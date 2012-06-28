@@ -53,6 +53,16 @@ phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		--disable-debugger \
 		--load make.lisp
 
+fasttrack : $(SOURCE) photogrammetry_lib \
+		$(BACKGROUND_IMAGE) $(LOGO) $(CURSOR_IMAGE)
+	CC=gcc \
+	$(LISP) --lose-on-corruption \
+		--disable-ldb \
+		--dynamic-space-size 4096 \
+		--end-runtime-options \
+		--disable-debugger \
+		--load make-fasttrack.lisp
+
 $(OPENLAYERS_TARBALL) :
 	wget http://openlayers.org/download/$@
 
