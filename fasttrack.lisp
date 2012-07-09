@@ -14,44 +14,98 @@
 (defun main ()
 
   (with-tk ((make-instance 'ffi-tk))
-    (let ((c ".c"))
-      (tcl "package" "require" "Img")
-      (tcl "option" "add" "*tearOff" 0)
-      (tcl "wm" "title" "." "Conway's life")
-      (tcl "menu" ".menubar")
-      (tcl "." "configure" :menu ".menubar")
-      (tcl "menu" ".menubar.file")
-      (tcl ".menubar" "add" "cascade" :label "File" :menu ".menubar.file" :underline 0)
-      (tcl ".menubar.file" "add" "command" :label "Kaputt" :command (tcl{ "destroy" "."))
-      (tcl ".menubar.file" "add" "command" :label "Do Stuff" :command (event-handler* (print "doing stuff") (print "doing more stuff") (tcl "set" "feet" 500)))
+    (tcl "package" "require" "Img")
+    (tcl "option" "add" "*tearOff" 0)
+    (tcl "wm" "title" "." "Phoros Fasttrack")
+    (tcl "menu" ".menubar")
+    (tcl "." "configure" :menu ".menubar")
+    (tcl "menu" ".menubar.file")
+    (tcl ".menubar" "add" "cascade" :label "File" :menu ".menubar.file" :underline 0)
+    (tcl ".menubar.file" "add" "command" :label "Kaputt" :command (tcl{ "destroy" "."))
+    (tcl ".menubar.file" "add" "command" :label "Do Stuff" :command (event-handler* (print "doing stuff") (print "doing more stuff") (tcl "set" "feet" 500)))
 
-      (bind-event ".menubar.file" "<<check.blah>>" ((ddd #\d)) (print (list "ddd" ddd)))
-      (tcl ".menubar.file" "add" "checkbutton" :label "Check" :variable "check" :onvalue 1 :offvalue 0 :command (tcl{ "event" "generate" ".menubar.file" "<<check.blah>>" :data (lit "$check")))
+    (bind-event ".menubar.file" "<<check.blah>>" ((ddd #\d)) (print (list "ddd" ddd)))
+    (tcl ".menubar.file" "add" "checkbutton" :label "Check" :variable "check" :onvalue 1 :offvalue 0 :command (tcl{ "event" "generate" ".menubar.file" "<<check.blah>>" :data (lit "$check")))
 
-      (tcl "grid" (tcl[ "ttk::frame" ".c" :padding "3 3 12 12") :column 0 :row 0 :sticky "nwes")
-      ;;       (tcl "grid" "columnconfigure" "." 0 :weight 1)
-      ;;       (tcl "grid" "rowconfigure" "." 0 :weight 1)
-;      (tcl "event" "generate" "." "<<boom>>" :data "Blahbla")
-      (tcl "grid" (tcl[ "canvas" ".c.c" :bg "grey") :column 4 :row 1 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::frame" ".f" :padding "3 3 12 12") :column 0 :row 0 :sticky "nwes")
+    
+    ;; (tcl "event" "generate" "." "<<boom>>" :data "Blahbla")
+    
+    (tcl "set" "chart1" (tcl[ "canvas" ".f.chart1" :bg "yellow" :scrollregion "0 0 2500 400" :xscrollcommand ".f.h set"))
 
-      (tcl "image" "create" "photo" "imgobj" :file "270970851.png")
-      (tcl "grid" (tcl[ "label" ".c.l" :bg "grey") :column 1 :row 4 :sticky "we")
-      ;; (tcl ".c.l" "configure" :image "imgobj")
-      (tcl ".c.c" "create" "image" 100 100 :image "imgobj")
+    (tcl "grid" (tcl[ "canvas" ".f.image1" :bg "black" :width 800 :height 800) :column 0 :row 0 :sticky "nwes")
+    (tcl "grid" (tcl[ "canvas" ".f.image2" :bg "black" :width 800 :height 800) :column 1 :row 0 :sticky "nwes")
+    (tcl "grid" (lit "$chart1") :column 0 :row 1 :sticky "nwes" :columnspan 2)
+    (tcl "grid" (tcl[ "tk::scrollbar" ".f.h" :orient "horizontal" :command ".f.chart1 xview") :column 0 :row 3 :sticky "we" :columnspan 2)
+    (tcl "grid" (tcl[ "ttk::label" ".f.l1" :background "grey") :column 0 :row 2 :sticky "nwes")
+    (tcl "grid" (tcl[ "ttk::label" ".f.l2" :textvariable "meters" :background "red") :column 1 :row 2 :sticky "nwes")
 
 
-      (tcl "grid" (tcl[ "ttk::entry" ".c.feet" :width 7 :textvariable "feet") :column 2 :row 1 :sticky "we")
-;;       (tcl "grid" (tcl[ "ttk::label" ".c.meters" :textvariable "meters") :column 2 :row 2 :sticky "we")
-;;       (tcl "grid" (tcl[ "ttk::button" ".c.calc" :text "Calculate" :command "calculate") :column 3 :row 3 :sticky "w")
-;;       (tcl "grid" (tcl[ "ttk::label" ".c.flbl" :text "feet") :column 3 :row 1 :sticky "w")
-;;       (tcl "grid" (tcl[ "ttk::label" ".c.islbl" :text "is equivalent to") :column 1 :row 2 :sticky "e")
-;;       (tcl "grid" (tcl[ "ttk::label" ".c.mlbl" :text "meters") :column 3 :row 2 :sticky "w")
-;;       (tcl "foreach w [ winfo children .c ] {grid configure $w -padx 5 -pady 5}")
-;;       (tcl "focus" ".c.feet")
-;;       (tcl "bind" "." "<Return>" "{calculate}")
-;;       (tcl "proc calculate {} {  
-      (mainloop)
-      )))
+    (tcl ".f.chart1" "create" "line" '(30 30 40 40 50 30 600 40) :fill "red" :tags "lll")
+    (tcl ".f.chart1" "scale" "lll" 0 0 .1 1)
+ 
+    (tcl "image" "create" "photo" "rear-view")
+    (tcl "image" "create" "photo" "front-view")
+
+    (tcl ".f.image1" "create" "image" 0 0 :image "rear-view")
+    (tcl ".f.image2" "create" "image" 0 0 :image "front-view")
+
+    (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
+                          (loop
+                             for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
+                             for i from 0
+                             when coordinates collect i and collect (format nil "~F" (* (- (coordinates-longitude coordinates) 14) 500)))
+                          :fill "green" :width 10))
+    (loop
+       for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
+       for i from 0
+       when coordinates do (tcl ".f.chart1" "create" "oval" i (format nil "~F" (coordinates-longitude coordinates)) i (format nil "~F" (coordinates-longitude coordinates))))
+
+    (tcl ".f.chart1" "create" "line" 100 100 100 100 :capstyle "round" :width 5) ;a point
+
+    (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 10 0 10 100))
+
+    (tcl ".f.chart1" "bind" (lit "$ppp") "<ButtonPress-1>"
+         ;; Some canvasx voodoo required, possibly involving virtual events
+         (event-handler
+          #'(lambda (xx)
+              (progn (tcl "set" "meters" xx)
+                     (tcl ".f.chart1" "delete" (lit "$cursor"))
+                     (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" xx 0 xx 100))
+                     (tcl "rear-view" "configure" :file (or (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 t)
+                                                                                  (parse-integer xx)
+                                                                                  100)
+                                                            "public_html/phoros-logo-plain.png"))
+                     (tcl "front-view" "configure" :file (or (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
+                                                                                   (parse-integer xx)
+                                                                                   100)
+                                                             "public_html/phoros-logo-background.png"))))
+          '(#\x)))
+
+    ;; (bind-event ".f.chart1" "<ButtonPress-1>" ((xx #\x))
+    ;;   (progn (tcl "set" "meters" xx)
+    ;;          (tcl ".f.chart1" "delete" (lit "$cursor"))
+    ;;          (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" xx 0 xx 100))
+    ;;          (tcl "rear-view" "configure" :file (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100)
+    ;;                                                                 (parse-integer xx)
+    ;;                                                                 100))
+    ;;          (tcl "front-view" "configure" :file (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100)
+    ;;                                                                 (parse-integer xx)
+    ;;                                                                 100))))
+
+
+    ;; (tcl "grid" (tcl[ "ttk::entry" ".f.feet" :width 7 :textvariable "feet") :column 2 :row 1 :sticky "we")
+    ;; (tcl "grid" (tcl[ "ttk::label" ".f.meters" :textvariable "meters") :column 2 :row 2 :sticky "we")
+    ;; (tcl "grid" (tcl[ "ttk::button" ".f.calc" :text "Calculate" :command "calculate") :column 3 :row 3 :sticky "w")
+    ;; (tcl "grid" (tcl[ "ttk::label" ".f.flbl" :text "feet") :column 3 :row 1 :sticky "w")
+    ;; (tcl "grid" (tcl[ "ttk::label" ".f.islbl" :text "is equivalent to") :column 1 :row 2 :sticky "e")
+    ;; (tcl "grid" (tcl[ "ttk::label" ".f.mlbl" :text "meters") :column 3 :row 2 :sticky "w")
+    ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
+    ;; (tcl "focus" ".f.feet")
+    
+    (mainloop)))
+
+
 
 (defun sections (table &key (start 0) (end most-positive-fixnum))
   "Return list of distinct pairs of vnk, nnk found in table in
@@ -62,51 +116,86 @@ current database."
                             'vnk 'nnk)
                  (- end start) start)))
 
-(defun stations (table vnk nnk step)
-  "Return a list of plists of :longitude, :latitude, :station of
-stations step metres apart between vnk and nnk."
-  (query (:order-by (:select (:as (:st_x 'the-geom) 'longitude)
-                             (:as (:st_y 'the-geom) 'latitude)
-                             (:as 'nk-station 'station)
-                             :from table
-                             :where (:and (:= 'vnk vnk)
-                                          (:= 'nnk nnk)
-                                          (:= 0 (:% 'nk-station step))))
-                    'nk-station)
-         :plists))
+(defun stations (table vnk nnk &optional (step 1))
+  "Return a list of plists of :longitude, :latitude, :station,
+:azimuth of stations step metres apart between vnk and nnk."
+  (query
+   (:order-by
+    (:select (:as (:st_x 't1.the-geom) 'longitude)
+             (:as (:st_y 't1.the-geom) 'latitude)
+             (:as 't1.nk-station 'station)
+             (:as (:st_azimuth 't1.the-geom 't2.the-geom) 'azimuth)
+             :from (:as table 't1)
+             :left-join (:as table 't2)
+             :on (:and (:= 't1.nk-station (:- 't2.nk-station 1))
+                       (:= 't2.vnk vnk)
+                       (:= 't2.nnk nnk))
+             :where (:and (:= 't1.vnk vnk)
+                          (:= 't1.nnk nnk)
+                          (:= 0 (:% 't1.nk-station step))))
+    't1.nk-station)
+   :plists))
 
-(defun image-data (table vnk nnk step)
+(defun all-stations (table vnk nnk)
+  "Return a vector of coordinates of all points between vnk and nnk,
+station (in metres) being the vector index."
+  (let* ((stations (stations table vnk nnk))
+         (result (make-array (list (1+ (getf (first (last stations)) :station)))
+                             :initial-element nil)))
+    (loop
+       for i in stations
+       do (destructuring-bind (&key longitude latitude station azimuth) i
+              (setf (svref result station)
+                    (make-coordinates :longitude longitude
+                                      :latitude latitude
+                                      :azimuth azimuth))))
+    result))
+
+(defun road-section-image-data (table vnk nnk step rear-view-p)
   "Return a list of instances of image data corresponding to stations,
 which are step metres apart, found in table in current database."
-  (let ((cache-file-name (image-data-pathname vnk nnk step)))
+  (let ((cache-file-name (road-section-image-data-pathname vnk nnk step rear-view-p)))
     (ensure-directories-exist cache-file-name)
-    (with-open-file (stream cache-file-name
+    (with-open-file (input-stream cache-file-name
                             :direction :input
                             :if-does-not-exist nil)
-      (if stream
-          (read stream)
-          (with-open-file (stream cache-file-name
+      (if input-stream
+          (read input-stream)
+          (with-open-file (output-stream cache-file-name
                                   :direction :output)
             (prin1 (remove nil (mapcar #'(lambda (x)
-                                           (apply #'image-data-point x))
+                                           (apply #'image-data :rear-view-p rear-view-p x))
                                        (stations table vnk nnk step)))
-                   stream))))))
+                   output-stream))))))
 
-(defun cache-images (image-data)
+(defun cache-images (road-section-image-data)
   "Download images described in image data into their canonical places."
   (loop
-     for i in image-data
+     for i in road-section-image-data
      for (url path) = (multiple-value-list (image-url i))
      do (download-file url path)))
 
-(defun image-data-point (&key longitude latitude station)
+(defun get-image-namestring (road-section-image-data station step)
+  "Return path to image near station.  Download it if necessary."
+  (let ((image-data (find (* step (round station step)) road-section-image-data
+                          :key #'image-data-station
+                          :test #'=)))
+    (when image-data
+      (multiple-value-bind (url path)
+          (image-url image-data)
+        (download-file url path)
+        (namestring path)))))
+
+(defun image-data (&key longitude latitude station azimuth rear-view-p)
   "Get from Phoros server image data for location near longitude,
 latitude."
-  (let ((image-data (phoros-nearest-image-data longitude latitude)))
+  (let* ((coordinates (make-coordinates :longitude longitude
+                                        :latitude latitude
+                                        :azimuth azimuth))
+         (image-data (phoros-nearest-image-data coordinates rear-view-p)))
     (when (image-data-p image-data)
       (setf (image-data-station image-data) station)
-      (setf (image-data-station-longitude image-data) longitude)
-      (setf (image-data-station-latitude image-data) latitude)
+      (setf (image-data-station-coordinates image-data) coordinates)
       image-data)))
 
 (define-condition phoros-server-error (error)
@@ -160,19 +249,26 @@ first."
     (assert (= status-code 200) ()
             'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)))
 
+(defun heading (azimuth rear-view-p)
+  "Return as a string the one of east, west, north, south which best
+describes azimuth."
+  (cond ((<= (* 1/4 pi) azimuth (* 3/4 pi)) (if rear-view-p "west" "east"))
+        ((<= (* 3/4 pi) azimuth (* 5/4 pi)) (if rear-view-p "north" "south"))
+        ((<= (* 5/4 pi) azimuth (* 7/4 pi)) (if rear-view-p "east" "west"))
+        ((or (<= (* 5/4 pi) azimuth pi) (<= 0 (* 1/4 pi))) (if rear-view-p "north" "south"))))
 
-(defun phoros-nearest-image-data (longitude latitude)
+(defun phoros-nearest-image-data (coordinates rear-view-p)
   "Return a set of image-data."
   (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
       (drakma:http-request (phoros-lib-url *phoros-url* "nearest-image-data")
                            :cookie-jar *phoros-cookies*
                            :method :post
                            :content-type "text/plain; charset=UTF-8"
-                           :content (json:encode-json-plist-to-string (list :longitude longitude
-                                                                        :latitude latitude
-                                                                        :zoom 20
-                                                                        :count 1
-                                                                        :selected-restriction-ids #())))
+                           :content (json:encode-json-plist-to-string (list :longitude (coordinates-longitude coordinates)
+                                                                            :latitude (coordinates-latitude coordinates)
+                                                                            :zoom 20
+                                                                            :count 1
+                                                                            :selected-restriction-ids (vector "Device_21" (heading (coordinates-azimuth coordinates) rear-view-p))))) ;TODO: document requirement for restrictions tagged north, east, south, west, and front_cam; actually use the latter
     (declare (ignore stream must-close))
     (assert (= status-code 200) ()
             'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
@@ -180,6 +276,8 @@ first."
       (apply #'make-image-data :allow-other-keys t
              (plist-from-alist
               (car (json:decode-json-from-string body)))))))
+
+
 
 (defun download-file (url path)
   "Unless already there, store content from url under path.  Return
@@ -200,13 +298,16 @@ nil if nothing needed storing."
         (write-sequence body file-stream)
         reason-phrase))))
     
-    
+(defstruct coordinates
+  longitude
+  latitude
+  azimuth)
 
 (defstruct image-data
   ;; fasttrack auxiliary slots
   station
-  station-longitude
-  station-latitude
+  station-coordinates
+  (rear-view-p nil) 
   ;; original Phoros image data slots
   usable
   recorded-device-id
@@ -303,9 +404,10 @@ the corresponding cache path."
                            :name cache-name
                            :type cache-type))))
 
-(defun image-data-pathname (vnk nnk step)
+(defun road-section-image-data-pathname (vnk nnk step rear-view-p)
   "Return pathname of a cached set of image data between vnk and nnk,
 step metres apart."
   (make-pathname :directory *cache-dir*
-                 :name (format nil "~A_~A_~D" vnk nnk step)
+                 :name (format nil "~A_~A_~D_~:[f~;r~]"
+                               vnk nnk step rear-view-p)
                  :type "image-data"))
