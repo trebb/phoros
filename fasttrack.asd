@@ -48,6 +48,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
   :depends-on (:phoml
                :sb-daemon
                :cl-tk
+               :lisp-magick
                :trivial-shell           ;for proj4-sh
                :cl-ppcre
                :hunchentoot

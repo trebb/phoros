@@ -1,4 +1,35 @@
+;;; PHOROS -- Photogrammetric Road Survey
+;;; Copyright (C) 2012 Bert Burgemeister
+;;;
+;;; This program is free software; you can redistribute it and/or modify
+;;; it under the terms of the GNU General Public License as published by
+;;; the Free Software Foundation; either version 2 of the License, or
+;;; (at your option) any later version.
+;;;
+;;; This program is distributed in the hope that it will be useful,
+;;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;;; GNU General Public License for more details.
+;;;
+;;; You should have received a copy of the GNU General Public License along
+;;; with this program; if not, write to the Free Software Foundation, Inc.,
+;;; 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+
 (in-package #:phoros-fasttrack)
+
+;;; Debug helpers.  TODO: remove them.
+(defparameter *t* nil)
+(defparameter *tt* nil)
+
+(cffi:define-foreign-library phoml
+  (:unix (:or "./libphoml.so"
+              "./phoml/lib/libphoml.so"))
+  (t (:default "libphoml")))
+
+(defparameter *fasttrack-version*
+  (asdf:component-version (asdf:find-system :fasttrack))
+  "Fasttrack version as defined in system definition.  TODO: enforce equality with *phoros-version*")
 
 (defvar *postgresql-aux-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
@@ -10,6 +41,10 @@
   "URL of the Phoros project currently in use.")
 
 (defvar *cache-dir* '(:absolute "home" "bertb" "lisphack" "phoros" "cache"))
+;; TODO: invent cache validity checks
+
+(defparameter *image-size* '(800 800)
+  "Image size in pixels in a list (width height).")
 
 (defun main ()
 
@@ -33,8 +68,8 @@
     
     (tcl "set" "chart1" (tcl[ "canvas" ".f.chart1" :bg "yellow" :scrollregion "0 0 2500 400" :xscrollcommand ".f.h set"))
 
-    (tcl "grid" (tcl[ "canvas" ".f.image1" :bg "black" :width 800 :height 800) :column 0 :row 0 :sticky "nwes")
-    (tcl "grid" (tcl[ "canvas" ".f.image2" :bg "black" :width 800 :height 800) :column 1 :row 0 :sticky "nwes")
+    (tcl "grid" (tcl[ "canvas" ".f.image1" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 0 :row 0 :sticky "nwes")
+    (tcl "grid" (tcl[ "canvas" ".f.image2" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 1 :row 0 :sticky "nwes")
     (tcl "grid" (lit "$chart1") :column 0 :row 1 :sticky "nwes" :columnspan 2)
     (tcl "grid" (tcl[ "tk::scrollbar" ".f.h" :orient "horizontal" :command ".f.chart1 xview") :column 0 :row 3 :sticky "we" :columnspan 2)
     (tcl "grid" (tcl[ "ttk::label" ".f.l1" :background "grey") :column 0 :row 2 :sticky "nwes")
@@ -47,8 +82,8 @@
     (tcl "image" "create" "photo" "rear-view")
     (tcl "image" "create" "photo" "front-view")
 
-    (tcl ".f.image1" "create" "image" 0 0 :image "rear-view")
-    (tcl ".f.image2" "create" "image" 0 0 :image "front-view")
+    (tcl ".f.image1" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "rear-view")
+    (tcl ".f.image2" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "front-view")
 
     (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
                           (loop
@@ -172,19 +207,14 @@ which are step metres apart, found in table in current database."
   "Download images described in image data into their canonical places."
   (loop
      for i in road-section-image-data
-     for (url path) = (multiple-value-list (image-url i))
-     do (download-file url path)))
+     do (download-image i)))
 
 (defun get-image-namestring (road-section-image-data station step)
   "Return path to image near station.  Download it if necessary."
   (let ((image-data (find (* step (round station step)) road-section-image-data
                           :key #'image-data-station
                           :test #'=)))
-    (when image-data
-      (multiple-value-bind (url path)
-          (image-url image-data)
-        (download-file url path)
-        (namestring path)))))
+    (when image-data (namestring (download-image image-data)))))
 
 (defun image-data (&key longitude latitude station azimuth rear-view-p)
   "Get from Phoros server image data for location near longitude,
@@ -277,8 +307,6 @@ describes azimuth."
              (plist-from-alist
               (car (json:decode-json-from-string body)))))))
 
-
-
 (defun download-file (url path)
   "Unless already there, store content from url under path.  Return
 nil if nothing needed storing."
@@ -297,6 +325,17 @@ nil if nothing needed storing."
                 'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
         (write-sequence body file-stream)
         reason-phrase))))
+
+(defun download-image (image-data)
+  "If not already there, download a png image, shrink it, convert it
+into jpg, and store it under the cache path.  Return that path."
+  (multiple-value-bind (url origin-path destination-path)
+      (image-url image-data)
+    (unless (probe-file destination-path)
+      (download-file url origin-path)
+      (apply #'convert-image-file origin-path destination-path *image-size*)
+      (delete-file origin-path))
+    destination-path))
     
 (defstruct coordinates
   longitude
@@ -376,8 +415,9 @@ nil if nothing needed storing."
      collect value))
 
 (defun image-url (image-data)
-  "Return an image URL made from ingredients found in image-data, and
-the corresponding cache path."
+  "Return an image URL made from ingredients found in image-data, the
+corresponding cache path, and the corresponding cache path for the
+shrunk image."
   (let* ((path
           (format nil "~A/~A~A/~D.png"
                   (puri:uri-path (phoros-lib-url *phoros-url* "photo"))
@@ -402,12 +442,27 @@ the corresponding cache path."
     (values url
             (make-pathname :directory cache-directory
                            :name cache-name
-                           :type cache-type))))
+                           :type cache-type)
+            (make-pathname :directory cache-directory
+                           :name cache-name
+                           :type "jpg"))))
 
 (defun road-section-image-data-pathname (vnk nnk step rear-view-p)
   "Return pathname of a cached set of image data between vnk and nnk,
 step metres apart."
   (make-pathname :directory *cache-dir*
-                 :name (format nil "~A_~A_~D_~:[f~;r~]"
-                               vnk nnk step rear-view-p)
+                 :name (format nil "~A_~A_~D_~:[f~;r~]_~A"
+                               vnk nnk step rear-view-p
+                               *fasttrack-version*)
                  :type "image-data"))
+
+(defun convert-image-file (origin-file destination-file width height)
+  "Convert origin-file into destination-file of a maximum size of
+width x height."
+  (lisp-magick:with-magick-wand (wand :load (namestring origin-file))
+    (let ((a (/ (lisp-magick:magick-get-image-width wand)
+                (lisp-magick:magick-get-image-height wand))))
+      (if (> a (/ width height))
+          (lisp-magick:magick-scale-image wand width (truncate (/ width a)))
+          (lisp-magick:magick-scale-image wand (truncate (* a height)) height)))
+    (lisp-magick:magick-write-image wand (namestring destination-file))))
