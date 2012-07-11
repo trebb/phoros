@@ -42,8 +42,10 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
   :serial t
 
-  :components ((:file "package-fasttrack")
-               (:file "fasttrack"))
+  :components ((:file "package")
+               (:file "proj4-sh")
+               (:file "fasttrack")
+               (:file "photogrammetry"))
 
   :depends-on (:phoml
                :sb-daemon

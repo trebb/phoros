@@ -27,12 +27,42 @@
               "./phoml/lib/libphoml.so"))
   (t (:default "libphoml")))
 
+(setf *read-default-float-format* 'double-float)
+
+(defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
+
 (defparameter *fasttrack-version*
   (asdf:component-version (asdf:find-system :fasttrack))
   "Fasttrack version as defined in system definition.  TODO: enforce equality with *phoros-version*")
 
 (defvar *postgresql-aux-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
+
+(defparameter *aggregate-view-columns*
+  (list 'usable
+        'recorded-device-id                ;debug
+        'device-stage-of-life-id           ;debug
+        'generic-device-id                 ;debug
+        'directory
+        'measurement-id
+        'filename 'byte-position 'point-id
+        'trigger-time
+        ;;'coordinates   ;the search target
+        'longitude 'latitude 'ellipsoid-height
+        'cartesian-system
+        'east-sd 'north-sd 'height-sd
+        'roll 'pitch 'heading
+        'roll-sd 'pitch-sd 'heading-sd
+        'sensor-width-pix 'sensor-height-pix
+        'pix-size
+        'bayer-pattern 'color-raiser
+        'mounting-angle
+        'dx 'dy 'dz 'omega 'phi 'kappa
+        'c 'xh 'yh 'a1 'a2 'a3 'b1 'b2 'c1 'c2 'r0
+        'b-dx 'b-dy 'b-dz 'b-rotx 'b-roty 'b-rotz
+        'b-ddx 'b-ddy 'b-ddz
+        'b-drotx 'b-droty 'b-drotz)
+  "Most of the column names of aggregate-view.")
 
 (defvar *phoros-cookies* nil
   "Container for cookies sent by Phoros server")
@@ -45,6 +75,42 @@
 
 (defparameter *image-size* '(800 800)
   "Image size in pixels in a list (width height).")
+
+(defun ensure-hyphen-before-digit (symbol)
+  "Return symbol with hyphens inserted after each letter that is
+followed by a digit. "
+  (intern
+   (coerce
+    (loop
+       with need-hyphen-before-next-digit-p
+       for c across (string symbol)
+       if (and need-hyphen-before-next-digit-p (digit-char-p c))
+       collect #\- and collect c and do (setf need-hyphen-before-next-digit-p nil)
+       else collect c and do (setf need-hyphen-before-next-digit-p nil)
+       end
+       if (alpha-char-p c) do (setf need-hyphen-before-next-digit-p t) end)
+    'string)))
+
+(defmacro defun-cached (name (&rest args) &body body &aux (doc ""))
+  "Define a function whose return value must be readibly printable, is
+  being read from a chache if possible, and is being cached if
+  necessary."
+  (when (stringp (car body))
+    (setf doc (car body))
+    (setf body (cdr body)))
+  (cl-utilities:with-unique-names (input-stream output-stream)
+    `(defun ,name (,@args)
+       ,doc
+       (ensure-directories-exist (cache-file-name ',name ,@args))
+       (with-open-file (,input-stream (cache-file-name ',name ,@args)
+                                      :direction :input
+                                      :if-does-not-exist nil)
+         (if ,input-stream
+             (read ,input-stream)
+             (with-open-file (,output-stream (cache-file-name ',name ,@args)
+                                            :direction :output)
+               (prin1 (progn ,@body)
+                      ,output-stream)))))))
 
 (defun main ()
 
@@ -111,10 +177,44 @@
                                                                                   (parse-integer xx)
                                                                                   100)
                                                             "public_html/phoros-logo-plain.png"))
+                     (print xx)
+                     (print (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx)))
+                     (print (ignore-errors
+                              (photogrammetry :reprojection
+                                              (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 t)
+                                                                    (parse-integer xx)
+                                                                    100)
+                                              (pairlis '(:x-global :y-global :z-global)
+                                                       (proj:cs2cs
+                                                        (list
+                                                         (proj:degrees-to-radians
+                                                          (coordinates-longitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
+                                                         (proj:degrees-to-radians
+                                                          (coordinates-latitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
+                                                         (coordinates-ellipsoid-height (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
+                                                        :destination-cs (cdr (assoc :cartesian-system (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 t)
+                                                                                                                            (parse-integer xx)
+                                                                                                                            100))))))))
                      (tcl "front-view" "configure" :file (or (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
                                                                                    (parse-integer xx)
                                                                                    100)
-                                                             "public_html/phoros-logo-background.png"))))
+                                                             "public_html/phoros-logo-background.png"))
+                     (print (ignore-errors
+                              (photogrammetry :reprojection
+                                              (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
+                                                                    (parse-integer xx)
+                                                                    100)
+                                              (pairlis '(:x-global :y-global :z-global)
+                                                       (proj:cs2cs
+                                                        (list
+                                                         (proj:degrees-to-radians
+                                                          (coordinates-longitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
+                                                         (proj:degrees-to-radians
+                                                          (coordinates-latitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
+                                                         (coordinates-ellipsoid-height (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
+                                                        :destination-cs (cdr (assoc :cartesian-system (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
+                                                                                                                            (parse-integer xx)
+                                                                                                                            100))))))))))
           '(#\x)))
 
     ;; (bind-event ".f.chart1" "<ButtonPress-1>" ((xx #\x))
@@ -152,12 +252,14 @@ current database."
                  (- end start) start)))
 
 (defun stations (table vnk nnk &optional (step 1))
-  "Return a list of plists of :longitude, :latitude, :station,
-:azimuth of stations step metres apart between vnk and nnk."
+  "Return a list of plists of :longitude, :latitude,
+:ellipsoid-height, :station, :azimuth of stations step metres apart
+between vnk and nnk."
   (query
    (:order-by
     (:select (:as (:st_x 't1.the-geom) 'longitude)
              (:as (:st_y 't1.the-geom) 'latitude)
+             (:as (:st_z 't1.the-geom) 'ellipsoid-height)
              (:as 't1.nk-station 'station)
              (:as (:st_azimuth 't1.the-geom 't2.the-geom) 'azimuth)
              :from (:as table 't1)
@@ -171,7 +273,7 @@ current database."
     't1.nk-station)
    :plists))
 
-(defun all-stations (table vnk nnk)
+(defun-cached all-stations (table vnk nnk)
   "Return a vector of coordinates of all points between vnk and nnk,
 station (in metres) being the vector index."
   (let* ((stations (stations table vnk nnk))
@@ -179,29 +281,38 @@ station (in metres) being the vector index."
                              :initial-element nil)))
     (loop
        for i in stations
-       do (destructuring-bind (&key longitude latitude station azimuth) i
-              (setf (svref result station)
-                    (make-coordinates :longitude longitude
-                                      :latitude latitude
-                                      :azimuth azimuth))))
+       do (destructuring-bind (&key longitude latitude ellipsoid-height station azimuth)
+              i
+            (setf (svref result station)
+                  (make-coordinates :longitude longitude
+                                    :latitude latitude
+                                    :ellipsoid-height ellipsoid-height
+                                    :azimuth azimuth))))
     result))
 
-(defun road-section-image-data (table vnk nnk step rear-view-p)
+(defun-cached road-section-image-data (table vnk nnk step rear-view-p)
   "Return a list of instances of image data corresponding to stations,
 which are step metres apart, found in table in current database."
-  (let ((cache-file-name (road-section-image-data-pathname vnk nnk step rear-view-p)))
-    (ensure-directories-exist cache-file-name)
-    (with-open-file (input-stream cache-file-name
-                            :direction :input
-                            :if-does-not-exist nil)
-      (if input-stream
-          (read input-stream)
-          (with-open-file (output-stream cache-file-name
-                                  :direction :output)
-            (prin1 (remove nil (mapcar #'(lambda (x)
-                                           (apply #'image-data :rear-view-p rear-view-p x))
-                                       (stations table vnk nnk step)))
-                   output-stream))))))
+  (remove nil (mapcar #'(lambda (x)
+                          (apply #'image-data :rear-view-p rear-view-p x))
+                      (stations table vnk nnk step))))
+
+(defun cache-file-name (kind &rest args)
+  "Return pathname for a cache file distinguishable by kind and args."
+  (make-pathname :directory *cache-dir*
+                 :name (format nil "~{~:[f~;~:*~(~A~)~]_~}~A"
+                               args
+                               *fasttrack-version*)
+                 :type (string-downcase kind)))
+
+;; (defun road-section-image-data-pathname (vnk nnk step rear-view-p)
+;;   "Return pathname of a cached set of image data between vnk and nnk,
+;; step metres apart."
+;;   (make-pathname :directory *cache-dir*
+;;                  :name (format nil "~A_~A_~D_~:[f~;r~]_~A"
+;;                                vnk nnk step rear-view-p
+;;                                *fasttrack-version*)
+;;                  :type "image-data"))
 
 (defun cache-images (road-section-image-data)
   "Download images described in image data into their canonical places."
@@ -209,18 +320,27 @@ which are step metres apart, found in table in current database."
      for i in road-section-image-data
      do (download-image i)))
 
+(defun get-image-data (road-section-image-data station step)
+  "Return image data for the image near station."
+  (find (* step (round station step)) road-section-image-data
+        :key #'image-data-station
+        :test #'=))
+
 (defun get-image-namestring (road-section-image-data station step)
   "Return path to image near station.  Download it if necessary."
-  (let ((image-data (find (* step (round station step)) road-section-image-data
-                          :key #'image-data-station
-                          :test #'=)))
+  (let ((image-data (get-image-data road-section-image-data station step)))
     (when image-data (namestring (download-image image-data)))))
 
-(defun image-data (&key longitude latitude station azimuth rear-view-p)
+(defun get-image-data-alist (road-section-image-data station step)
+  "Return as an alist data for the image near station."
+  (image-data-alist (get-image-data road-section-image-data station step)))
+
+(defun image-data (&key longitude latitude ellipsoid-height station azimuth rear-view-p)
   "Get from Phoros server image data for location near longitude,
 latitude."
   (let* ((coordinates (make-coordinates :longitude longitude
                                         :latitude latitude
+                                        :ellipsoid-height ellipsoid-height
                                         :azimuth azimuth))
          (image-data (phoros-nearest-image-data coordinates rear-view-p)))
     (when (image-data-p image-data)
@@ -305,7 +425,7 @@ describes azimuth."
     (unless (string-equal body "null")
       (apply #'make-image-data :allow-other-keys t
              (plist-from-alist
-              (car (json:decode-json-from-string body)))))))
+              (print (car (json:decode-json-from-string body))))))))
 
 (defun download-file (url path)
   "Unless already there, store content from url under path.  Return
@@ -340,73 +460,28 @@ into jpg, and store it under the cache path.  Return that path."
 (defstruct coordinates
   longitude
   latitude
+  ellipsoid-height
   azimuth)
 
-(defstruct image-data
-  ;; fasttrack auxiliary slots
-  station
-  station-coordinates
-  (rear-view-p nil) 
-  ;; original Phoros image data slots
-  usable
-  recorded-device-id
-  device-stage-of-life-id
-  generic-device-id
-  directory
-  measurement-id
-  filename
-  byte-position
-  point-id
-  trigger-time
-  longitude
-  latitude
-  ellipsoid-height
-  cartesian-system
-  east-sd
-  north-sd
-  height-sd
-  roll
-  pitch
-  heading
-  roll-sd
-  pitch-sd
-  heading-sd
-  sensor-width-pix
-  sensor-height-pix
-  pix-size
-  bayer-pattern
-  color-raiser
-  mounting-angle
-  dx
-  dy
-  dz
-  omega
-  phi
-  kappa
-  c
-  xh
-  yh
-  a-1
-  a-2
-  a-3
-  b-1
-  b-2
-  c-1
-  c-2
-  r-0
-  b-dx
-  b-dy
-  b-dz
-  b-rotx
-  b-roty
-  b-rotz
-  b-ddx
-  b-ddy
-  b-ddz
-  b-drotx
-  b-droty
-  b-drotz
-  distance)
+(eval `(defstruct image-data
+         ;; fasttrack auxiliary slots
+         station
+         station-coordinates
+         (rear-view-p nil) 
+         ;; original Phoros image data slots
+         ,@(mapcar #'ensure-hyphen-before-digit *aggregate-view-columns*)))
+
+(defun image-data-alist (image-data)
+  "Return an alist representation of image-data."
+  (when image-data
+    (loop
+       for i in (append (mapcar #'ensure-hyphen-before-digit *aggregate-view-columns*) '(station station-coordinates))
+       collect (intern (string i) 'keyword) into keys
+       collect (funcall (intern (concatenate 'string (string 'image-data-)
+                                             (string i)))
+                        image-data)
+       into values
+       finally (return (pairlis keys values)))))
 
 (defun plist-from-alist (alist)
   (loop
@@ -446,15 +521,6 @@ shrunk image."
             (make-pathname :directory cache-directory
                            :name cache-name
                            :type "jpg"))))
-
-(defun road-section-image-data-pathname (vnk nnk step rear-view-p)
-  "Return pathname of a cached set of image data between vnk and nnk,
-step metres apart."
-  (make-pathname :directory *cache-dir*
-                 :name (format nil "~A_~A_~D_~:[f~;r~]_~A"
-                               vnk nnk step rear-view-p
-                               *fasttrack-version*)
-                 :type "image-data"))
 
 (defun convert-image-file (origin-file destination-file width height)
   "Convert origin-file into destination-file of a maximum size of
