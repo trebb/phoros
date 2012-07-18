@@ -235,6 +235,7 @@ session."
                  (with-connection *postgresql-aux-credentials*
                    (view-exists-p (aux-point-view-name
                                    presentation-project-name))))
+           (setf (hunchentoot:session-value 'number-of-threads) 0)
            (who:with-html-output-to-string (s nil :prologue t :indent t)
              (:body
               :style "font-family:sans-serif;"
