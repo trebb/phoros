@@ -575,8 +575,11 @@ wrapped in an array.  Wipe away any unfinished business first."
                       collect  
                       `(:select
                         ,@*aggregate-view-columns*
-                        (:as (:st_distance 'coordinates
-                                           ,nearest-footprint-centroid)
+                        (:as (:st_distance
+                              (:case
+                                  ((:is-null 'footprint) 'coordinates)
+                                (t (:st_centroid 'footprint)))
+                              ,nearest-footprint-centroid)
                              'distance)
                         (:as (:not (:is-null 'footprint))
                              'footprintp)
@@ -849,7 +852,7 @@ ingredients for the URLs of the 256 nearest images."
          (point-form
           (format nil "SRID=4326; POINT(~S ~S ~S)"
                   longitude latitude ellipsoid-height))
-         (aux-numeric-raw (setf *t* (cdr (assoc :aux-numeric data))))
+         (aux-numeric-raw (cdr (assoc :aux-numeric data)))
          (aux-text-raw (cdr (assoc :aux-text data)))
          (aux-numeric (if aux-numeric-raw
                           (nullify-nil (apply #'vector aux-numeric-raw))
