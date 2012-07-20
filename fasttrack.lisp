@@ -125,31 +125,31 @@ followed by a digit. "
     (tcl ".menubar.file" "add" "command" :label "Kaputt" :command (tcl{ "destroy" "."))
     (tcl ".menubar.file" "add" "command" :label "Do Stuff" :command (event-handler* (print "doing stuff") (print "doing more stuff") (tcl "set" "feet" 500)))
 
-    (bind-event ".menubar.file" "<<check.blah>>" ((ddd #\d)) (print (list "ddd" ddd)))
-    (tcl ".menubar.file" "add" "checkbutton" :label "Check" :variable "check" :onvalue 1 :offvalue 0 :command (tcl{ "event" "generate" ".menubar.file" "<<check.blah>>" :data (lit "$check")))
+    (bind-event "." "<<check.blah>>" ((ddd #\d)) (print (list "ddd" ddd)))
+    (tcl ".menubar.file" "add" "checkbutton" :label "Check" :variable "check" :onvalue 1 :offvalue 0 :command (tcl{ "event" "generate" "." "<<check.blah>>" :data (lit "$check")))
 
-    (tcl "grid" (tcl[ "ttk::frame" ".f" :padding "3 3 12 12") :column 0 :row 0 :sticky "nwes")
-    
-    ;; (tcl "event" "generate" "." "<<boom>>" :data "Blahbla")
+    (tcl "grid" (tcl[ "ttk::frame" ".f" :borderwidth 3 :relief "groove") :column 0 :row 0 :sticky "nwes")
     
     (tcl "set" "chart1" (tcl[ "canvas" ".f.chart1" :bg "yellow" :scrollregion "0 0 2500 400" :xscrollcommand ".f.h set"))
 
-    (tcl "grid" (tcl[ "canvas" ".f.image1" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 0 :row 0 :sticky "nwes")
-    (tcl "grid" (tcl[ "canvas" ".f.image2" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 1 :row 0 :sticky "nwes")
+    (tcl "grid" (tcl[ "canvas" ".f.rearview" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 0 :row 0 :sticky "nwes")
+    (tcl "grid" (tcl[ "canvas" ".f.frontview" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 1 :row 0 :sticky "nwes")
     (tcl "grid" (lit "$chart1") :column 0 :row 1 :sticky "nwes" :columnspan 2)
-    (tcl "grid" (tcl[ "tk::scrollbar" ".f.h" :orient "horizontal" :command ".f.chart1 xview") :column 0 :row 3 :sticky "we" :columnspan 2)
-    (tcl "grid" (tcl[ "ttk::label" ".f.l1" :background "grey") :column 0 :row 2 :sticky "nwes")
-    (tcl "grid" (tcl[ "ttk::label" ".f.l2" :textvariable "meters" :background "red") :column 1 :row 2 :sticky "nwes")
+    (tcl "grid" (tcl[ "tk::scrollbar" ".f.h" :orient "horizontal" :command ".f.chart1 xview") :column 0 :row 2 :sticky "we" :columnspan 2)
+    (tcl "grid" (tcl[ "ttk::label" ".f.l1" :background "grey") :column 0 :row 3 :sticky "nwes")
+    (tcl "grid" (tcl[ "ttk::label" ".f.l2" :textvariable "meters" :background "red") :column 1 :row 3 :sticky "nwes")
 
 
     (tcl ".f.chart1" "create" "line" '(30 30 40 40 50 30 600 40) :fill "red" :tags "lll")
-    (tcl ".f.chart1" "scale" "lll" 0 0 .1 1)
+    ;; (tcl ".f.chart1" "scale" "lll" 0 0 .1 1)
  
-    (tcl "image" "create" "photo" "rear-view")
-    (tcl "image" "create" "photo" "front-view")
+    (tcl "image" "create" "photo" "rearview")
+    (tcl "image" "create" "photo" "frontview")
 
-    (tcl ".f.image1" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "rear-view")
-    (tcl ".f.image2" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "front-view")
+    (tcl ".f.rearview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "rearview")
+    (tcl ".f.frontview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "frontview")
+
+    (tcl "set" "chart1ttt" (tcl[ ".f.chart1" "create" "rectangle" 0 0 2500 400 :width 0 :fill "green"))
 
     (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
                           (loop
@@ -166,81 +166,89 @@ followed by a digit. "
 
     (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 10 0 10 100))
 
-    (tcl ".f.chart1" "bind" (lit "$ppp") "<ButtonPress-1>"
-         ;; Some canvasx voodoo required, possibly involving virtual events
-         (event-handler
-          #'(lambda (xx)
-              (progn (tcl "set" "meters" xx)
-                     (tcl ".f.chart1" "delete" (lit "$cursor"))
-                     (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" xx 0 xx 100))
-                     (tcl "rear-view" "configure" :file (or (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 t)
-                                                                                  (parse-integer xx)
-                                                                                  100)
-                                                            "public_html/phoros-logo-plain.png"))
-                     (print xx)
-                     (print (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx)))
-                     (print (ignore-errors
-                              (photogrammetry :reprojection
-                                              (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 t)
-                                                                    (parse-integer xx)
-                                                                    100)
-                                              (pairlis '(:x-global :y-global :z-global)
-                                                       (proj:cs2cs
-                                                        (list
-                                                         (proj:degrees-to-radians
-                                                          (coordinates-longitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
-                                                         (proj:degrees-to-radians
-                                                          (coordinates-latitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
-                                                         (coordinates-ellipsoid-height (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
-                                                        :destination-cs (cdr (assoc :cartesian-system (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 t)
-                                                                                                                            (parse-integer xx)
-                                                                                                                            100))))))))
-                     (tcl "front-view" "configure" :file (or (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
-                                                                                   (parse-integer xx)
-                                                                                   100)
-                                                             "public_html/phoros-logo-background.png"))
-                     (print (ignore-errors
-                              (photogrammetry :reprojection
-                                              (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
-                                                                    (parse-integer xx)
-                                                                    100)
-                                              (pairlis '(:x-global :y-global :z-global)
-                                                       (proj:cs2cs
-                                                        (list
-                                                         (proj:degrees-to-radians
-                                                          (coordinates-longitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
-                                                         (proj:degrees-to-radians
-                                                          (coordinates-latitude (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
-                                                         (coordinates-ellipsoid-height (svref (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011") (parse-integer xx))))
-                                                        :destination-cs (cdr (assoc :cartesian-system (get-image-data-alist (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100 nil)
-                                                                                                                            (parse-integer xx)
-                                                                                                                            100))))))))))
-          '(#\x)))
+    (bind-event "." "<<jumptostation>>" ((xx #\d))
+      (print (list xx))
+      (tcl "set" "meters" xx)
+      (tcl ".f.chart1" "delete" (lit "$cursor"))
+      (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" xx 0 xx 100))
+      (put-image :table 'bew-landstr-kleinpunkte :vnk "4252017" :nnk "4252011" :station (round (parse-number:parse-number xx)) :step 10 :rear-view-p t)
+      (put-image :table 'bew-landstr-kleinpunkte :vnk "4252017" :nnk "4252011" :station (round (parse-number:parse-number xx)) :step 10 :rear-view-p nil))
 
-    ;; (bind-event ".f.chart1" "<ButtonPress-1>" ((xx #\x))
-    ;;   (progn (tcl "set" "meters" xx)
-    ;;          (tcl ".f.chart1" "delete" (lit "$cursor"))
-    ;;          (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" xx 0 xx 100))
-    ;;          (tcl "rear-view" "configure" :file (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100)
-    ;;                                                                 (parse-integer xx)
-    ;;                                                                 100))
-    ;;          (tcl "front-view" "configure" :file (get-image-namestring (road-section-image-data 'bew-landstr-kleinpunkte "4252017" "4252011" 100)
-    ;;                                                                 (parse-integer xx)
-    ;;                                                                 100))))
+    (tcl ".f.chart1" "bind" (lit "$chart1ttt") "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
 
-
-    ;; (tcl "grid" (tcl[ "ttk::entry" ".f.feet" :width 7 :textvariable "feet") :column 2 :row 1 :sticky "we")
-    ;; (tcl "grid" (tcl[ "ttk::label" ".f.meters" :textvariable "meters") :column 2 :row 2 :sticky "we")
-    ;; (tcl "grid" (tcl[ "ttk::button" ".f.calc" :text "Calculate" :command "calculate") :column 3 :row 3 :sticky "w")
-    ;; (tcl "grid" (tcl[ "ttk::label" ".f.flbl" :text "feet") :column 3 :row 1 :sticky "w")
-    ;; (tcl "grid" (tcl[ "ttk::label" ".f.islbl" :text "is equivalent to") :column 1 :row 2 :sticky "e")
-    ;; (tcl "grid" (tcl[ "ttk::label" ".f.mlbl" :text "meters") :column 3 :row 2 :sticky "w")
     ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
     ;; (tcl "focus" ".f.feet")
     
     (mainloop)))
 
+(defun put-image (&key table vnk nnk station step rear-view-p)
+  "Put an image along with a labelled station marker on screen."
+  (let* ((point-radius 5)
+         (line-width 2)
+         (photo (if rear-view-p "rearview" "frontview"))
+         (canvas (concatenate 'string ".f." photo))
+         (cursor-name (concatenate 'string photo "cursor"))
+         (label-name (concatenate 'string photo "label"))
+         (arrow-name (concatenate 'string photo "arrow"))
+         (global-point-coordinates 
+          (subseq (all-stations table vnk nnk)
+                  (min (length (all-stations table vnk nnk)) station)
+                  (min (length (all-stations table vnk nnk)) (+ station 4))))
+         (image-data-alist
+          (get-image-data-alist (road-section-image-data table vnk nnk step rear-view-p)
+                                station
+                                step))
+         (image-arrow-coordinates
+          (loop
+             for i across global-point-coordinates
+             append (image-point-coordinates image-data-alist i)))
+         (image-cursor-coordinates (ignore-errors
+                                     (list (- (first image-arrow-coordinates) point-radius)
+                                           (- (second image-arrow-coordinates) point-radius)
+                                           (+ (first image-arrow-coordinates) point-radius)
+                                           (+ (second image-arrow-coordinates) point-radius))))
+         (image-label-coordinates  (ignore-errors
+                                     (list (+ (first image-arrow-coordinates) point-radius line-width)
+                                           (second image-arrow-coordinates)))))
+    (tcl photo "configure" :file (or (get-image-namestring (road-section-image-data table vnk nnk step rear-view-p)
+                                                           station
+                                                           step)
+                                     "public_html/phoros-logo-plain.png"))
+    (tcl "if" (tcl[ "info" "exists" cursor-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" cursor-name))))
+    (tcl "if" (tcl[ "info" "exists" label-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" label-name))))
+    (tcl "if" (tcl[ "info" "exists" arrow-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" arrow-name))))
+    (when image-cursor-coordinates
+      (tcl "set" cursor-name (tcl[ canvas "create" "oval" image-cursor-coordinates :width line-width)))
+    (when image-label-coordinates
+      (tcl "set" label-name (tcl[ canvas "create" "text" image-label-coordinates :text station :anchor "w")))
+    (when (and image-arrow-coordinates
+               (loop
+                  for tail on image-arrow-coordinates by #'cddr
+                  always (in-image-p (first tail) (second tail))))
+      (tcl "set" arrow-name (tcl[ canvas "create" "line" image-arrow-coordinates :arrow "last" :width line-width)))))
 
+(defun image-point-coordinates (image-data-alist global-point-coordinates)
+  "Return a list (m n) of image coordinates representing
+global-point-coordinates in the image described in image-data-alist
+but scaled to fit into *image-size*."
+  (ignore-errors
+    (convert-image-coordinates
+     (photogrammetry :reprojection
+                     image-data-alist
+                     (pairlis '(:x-global :y-global :z-global)
+                              (proj:cs2cs
+                               (list
+                                (proj:degrees-to-radians
+                                 (coordinates-longitude global-point-coordinates))
+                                (proj:degrees-to-radians
+                                 (coordinates-latitude global-point-coordinates))
+                                (coordinates-ellipsoid-height global-point-coordinates))
+                               :destination-cs (cdr (assoc :cartesian-system image-data-alist)))))
+     image-data-alist)))
+
+(defun in-image-p (m n)
+  "Check if m, n lay inside *image-size*."
+  (and m n (<= 0 m (first *image-size*)) (<= 0 n (second *image-size*))))
 
 (defun sections (table &key (start 0) (end most-positive-fixnum))
   "Return list of distinct pairs of vnk, nnk found in table in
@@ -315,7 +323,8 @@ which are step metres apart, found in table in current database."
 ;;                  :type "image-data"))
 
 (defun cache-images (road-section-image-data)
-  "Download images described in image data into their canonical places."
+  "Download images described in road-section-image-data into their
+canonical places."
   (loop
      for i in road-section-image-data
      do (download-image i)))
@@ -405,7 +414,7 @@ describes azimuth."
   (cond ((<= (* 1/4 pi) azimuth (* 3/4 pi)) (if rear-view-p "west" "east"))
         ((<= (* 3/4 pi) azimuth (* 5/4 pi)) (if rear-view-p "north" "south"))
         ((<= (* 5/4 pi) azimuth (* 7/4 pi)) (if rear-view-p "east" "west"))
-        ((or (<= (* 5/4 pi) azimuth pi) (<= 0 (* 1/4 pi))) (if rear-view-p "north" "south"))))
+        ((or (<= (* 5/4 pi) azimuth pi) (<= 0 (* 1/4 pi))) (if rear-view-p "south" "north"))))
 
 (defun phoros-nearest-image-data (coordinates rear-view-p)
   "Return a set of image-data."
@@ -425,7 +434,7 @@ describes azimuth."
     (unless (string-equal body "null")
       (apply #'make-image-data :allow-other-keys t
              (plist-from-alist
-              (print (car (json:decode-json-from-string body))))))))
+              (car (json:decode-json-from-string body)))))))
 
 (defun download-file (url path)
   "Unless already there, store content from url under path.  Return
@@ -501,8 +510,8 @@ shrunk image."
                   (image-data-byte-position image-data)))
          (query
           (format nil "mounting-angle=~D~
-                     &bayer-pattern=~{~D~#^,~}~
-                     &color-raiser=~{~D~#^,~}"
+                       &bayer-pattern=~{~D~#^,~}~
+                       &color-raiser=~{~D~#^,~}"
                   (image-data-mounting-angle image-data)
                   (map 'list #'identity (image-data-bayer-pattern image-data))
                   (map 'list #'identity (image-data-color-raiser image-data))))
@@ -532,3 +541,21 @@ width x height."
           (lisp-magick:magick-scale-image wand width (truncate (/ width a)))
           (lisp-magick:magick-scale-image wand (truncate (* a height)) height)))
     (lisp-magick:magick-write-image wand (namestring destination-file))))
+
+(defun convert-image-coordinates (original-coordinates-alist image-data-alist)
+  "Convert image coordinates from original-coordinates-alist for the
+image in image-data-alist into a list of coordinates for that image
+scaled and centered to *image-size*."
+  (let* ((original-m (cdr (assoc :m original-coordinates-alist)))
+         (original-n (cdr (assoc :n original-coordinates-alist)))
+         (original-width (cdr (assoc :sensor-width-pix image-data-alist)))
+         (original-height (cdr (assoc :sensor-height-pix image-data-alist)))
+         (new-width (first *image-size*))
+         (new-height (second *image-size*))
+         (scaling-factor (min (/ new-width original-width) (/ new-height original-height)))
+         (new-m-offset (/ (- new-width (* original-width scaling-factor)) 2))
+         (new-n-offset (/ (- new-height (* original-height scaling-factor)) 2))
+         (new-m (+ (* original-m scaling-factor) new-m-offset))
+         (new-n (- new-height           ;flip n
+                   (+ (* original-n scaling-factor) new-n-offset))))
+    (list new-m new-n)))
