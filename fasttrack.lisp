@@ -76,6 +76,9 @@
 (defparameter *image-size* '(800 800)
   "Image size in pixels in a list (width height).")
 
+(defvar *jump-to-station-event* nil
+  "Remembering event id of chart click event jumptostation.")
+
 (defun ensure-hyphen-before-digit (symbol)
   "Return symbol with hyphens inserted after each letter that is
 followed by a digit. "
@@ -94,26 +97,29 @@ followed by a digit. "
 (defmacro defun-cached (name (&rest args) &body body &aux (doc ""))
   "Define a function whose return value must be readibly printable, is
   being read from a chache if possible, and is being cached if
-  necessary."
+  necessary.  The function defined has a secondary return value
+  cached-p.  If function is called with :from-cache-only t, let it
+  return nil and nil if there is nothing cached."
   (when (stringp (car body))
     (setf doc (car body))
     (setf body (cdr body)))
   (cl-utilities:with-unique-names (input-stream output-stream)
-    `(defun ,name (,@args)
+    `(defun ,name (,@args &key from-cache-only)
        ,doc
        (ensure-directories-exist (cache-file-name ',name ,@args))
        (with-open-file (,input-stream (cache-file-name ',name ,@args)
                                       :direction :input
                                       :if-does-not-exist nil)
          (if ,input-stream
-             (read ,input-stream)
-             (with-open-file (,output-stream (cache-file-name ',name ,@args)
-                                            :direction :output)
-               (prin1 (progn ,@body)
-                      ,output-stream)))))))
+             (values (read ,input-stream) t)
+             (values (unless from-cache-only
+                       (with-open-file (,output-stream (cache-file-name ',name ,@args)
+                                                       :direction :output)
+                         (prin1 (progn ,@body)
+                                ,output-stream)))
+                     nil))))))
 
 (defun main ()
-
   (with-tk ((make-instance 'ffi-tk))
     (tcl "package" "require" "Img")
     (tcl "option" "add" "*tearOff" 0)
@@ -130,7 +136,7 @@ followed by a digit. "
 
     (tcl "grid" (tcl[ "ttk::frame" ".f" :borderwidth 3 :relief "groove") :column 0 :row 0 :sticky "nwes")
     
-    (tcl "set" "chart1" (tcl[ "canvas" ".f.chart1" :bg "yellow" :scrollregion "0 0 2500 400" :xscrollcommand ".f.h set"))
+    (tcl "set" "chart1" (tcl[ "canvas" ".f.chart1" :xscrollcommand ".f.h set"))
 
     (tcl "grid" (tcl[ "canvas" ".f.rearview" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 0 :row 0 :sticky "nwes")
     (tcl "grid" (tcl[ "canvas" ".f.frontview" :bg "black" (mapcan #'list '(:width :height) *image-size*)) :column 1 :row 0 :sticky "nwes")
@@ -149,37 +155,67 @@ followed by a digit. "
     (tcl ".f.rearview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "rearview")
     (tcl ".f.frontview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "frontview")
 
-    (tcl "set" "chart1ttt" (tcl[ ".f.chart1" "create" "rectangle" 0 0 2500 400 :width 0 :fill "green"))
+    (tcl "set" "chartbackground" (tcl[ ".f.chart1" "create" "rectangle" 0 0 0 400 :width 0 :fill "green"))
 
-    (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
-                          (loop
-                             for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
-                             for i from 0
-                             when coordinates collect i and collect (format nil "~F" (* (- (coordinates-longitude coordinates) 14) 500)))
-                          :fill "green" :width 10))
-    (loop
-       for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
-       for i from 0
-       when coordinates do (tcl ".f.chart1" "create" "oval" i (format nil "~F" (coordinates-longitude coordinates)) i (format nil "~F" (coordinates-longitude coordinates))))
+    ;; (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
+    ;;                       (loop
+    ;;                          for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
+    ;;                          for i from 0
+    ;;                          when coordinates collect i and collect (format nil "~F" (* (- (coordinates-longitude coordinates) 14) 500)))
+    ;;                       :fill "green" :width 10))
+    ;; (loop
+    ;;    for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
+    ;;    for i from 0
+    ;;    when coordinates do (tcl ".f.chart1" "create" "oval" i (format nil "~F" (coordinates-longitude coordinates)) i (format nil "~F" (coordinates-longitude coordinates))))
 
-    (tcl ".f.chart1" "create" "line" 100 100 100 100 :capstyle "round" :width 5) ;a point
+    ;; (tcl ".f.chart1" "create" "line" 100 100 100 100 :capstyle "round" :width 5) ;a point
 
-    (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 10 0 10 100))
+    (tcl ".f.chart1" "bind" (lit "$chartbackground") "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
 
-    (bind-event "." "<<jumptostation>>" ((xx #\d))
-      (print (list xx))
-      (tcl "set" "meters" xx)
-      (tcl ".f.chart1" "delete" (lit "$cursor"))
-      (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" xx 0 xx 100))
-      (put-image :table 'bew-landstr-kleinpunkte :vnk "4252017" :nnk "4252011" :station (round (parse-number:parse-number xx)) :step 10 :rear-view-p t)
-      (put-image :table 'bew-landstr-kleinpunkte :vnk "4252017" :nnk "4252011" :station (round (parse-number:parse-number xx)) :step 10 :rear-view-p nil))
-
-    (tcl ".f.chart1" "bind" (lit "$chart1ttt") "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
+    ;; (prepare-chart 'bew-landstr-kleinpunkte "4252017" "4252011")
 
     ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
     ;; (tcl "focus" ".f.feet")
     
+    (tcl "tk::toplevel" ".choose-road-section")
+    (tcl "grid" (tcl[ "ttk::treeview" ".choose-road-section.tree" :columns "length number-of-images") :column 0 :row 0 :sticky "nwes")
+    (tcl ".choose-road-section.tree" "heading" "length" :text "m")
+    (tcl ".choose-road-section.tree" "column" "length" :width 50 :anchor "e")
+
+    (let ((sections (sections 'bew-landstr-kleinpunkte)))
+      (loop
+         for (vnk nnk length) in sections
+         do (multiple-value-bind (rearview-image-data rearview-cached-p)
+                (road-section-image-data 'bew-landstr-kleinpunkte vnk nnk 10 t :from-cache-only t)
+              (multiple-value-bind (frontview-image-data frontview-cached-p)
+                  (road-section-image-data 'bew-landstr-kleinpunkte vnk nnk 10 nil :from-cache-only t)
+                (add-vnk-nnk-leaf vnk nnk length (and rearview-cached-p frontview-cached-p (+ (length rearview-image-data) (length frontview-image-data))))))))
+    (bind-event ".choose-road-section.tree" "<ButtonPress-1>" ()
+      (let ((vnk-nnk-length (read-from-string (tcl ".choose-road-section.tree" "focus"))))
+        (apply #'prepare-chart 'bew-landstr-kleinpunkte vnk-nnk-length)))
     (mainloop)))
+
+(defun add-vnk-nnk-leaf (vnk nnk length number-of-images)
+  "Put a leaf labelled vnk-nnk into road-sections tree."
+  (tcl ".choose-road-section.tree" "insert" "" "end" :id (format nil "(~S ~S ~D)" vnk nnk length) :text (format nil "~A - ~A" vnk nnk) :values (tcl[ "list" length (or number-of-images "?"))))
+
+(defun prepare-chart (table vnk nnk road-section-length)
+  "Prepare chart for the road section between vnk and nnk in table in
+current database."
+  (when *jump-to-station-event* (unregister-event *jump-to-station-event*))
+  (tcl ".f.chart1" "configure" :scrollregion (format nil "~D ~D ~D ~D" 0 0 road-section-length 400))
+  (tcl ".f.chart1" "coords" (lit "$chartbackground") 0 0 road-section-length 400)
+  (tcl "if" (tcl[ "info" "exists" "cursor") (tcl{ ".f.chart1" "delete" (lit "$cursor")))
+  (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 0 0 0 400 :width 2))
+  (setf *jump-to-station-event*
+        (bind-event "." "<<jumptostation>>" ((station #\d))
+          (setf station (max 0   ;appearently necessary; not sure why.
+                             (round (parse-number:parse-number station))))
+          (tcl "set" "meters" station)
+          (tcl ".f.chart1" "coords" (lit "$cursor") station 0 station 400)
+          (put-image :table table :vnk vnk :nnk nnk :station station :step 10 :rear-view-p t)
+          (put-image :table table :vnk vnk :nnk nnk :station station :step 10 :rear-view-p nil)))
+  (tcl "event" "generate" "." "<<jumptostation>>" :data (tcl[ ".f.chart1" "canvasx" 0)))
 
 (defun put-image (&key table vnk nnk station step rear-view-p)
   "Put an image along with a labelled station marker on screen."
@@ -250,14 +286,14 @@ but scaled to fit into *image-size*."
   "Check if m, n lay inside *image-size*."
   (and m n (<= 0 m (first *image-size*)) (<= 0 n (second *image-size*))))
 
-(defun sections (table &key (start 0) (end most-positive-fixnum))
+(defun-cached sections (table)
   "Return list of distinct pairs of vnk, nnk found in table in
 current database."
-  (query (:limit (:order-by (:select 'vnk 'nnk
-                                     :from table
-                                     :group-by 'vnk 'nnk)
-                            'vnk 'nnk)
-                 (- end start) start)))
+  (query (:order-by (:select 'vnk 'nnk (:max 'nk-station)
+                             :from table
+                             :where (:and (:not-null 'vnk) (:not-null 'nnk))
+                             :group-by 'vnk 'nnk)
+                    'vnk 'nnk)))
 
 (defun stations (table vnk nnk &optional (step 1))
   "Return a list of plists of :longitude, :latitude,
@@ -558,4 +594,4 @@ scaled and centered to *image-size*."
          (new-m (+ (* original-m scaling-factor) new-m-offset))
          (new-n (- new-height           ;flip n
                    (+ (* original-n scaling-factor) new-n-offset))))
-    (list new-m new-n)))
+    (mapcar #'round (list new-m new-n))))
