@@ -35,8 +35,26 @@
   (asdf:component-version (asdf:find-system :fasttrack))
   "Fasttrack version as defined in system definition.  TODO: enforce equality with *phoros-version*")
 
-(defvar *postgresql-aux-credentials* nil
+(defvar *postgresql-road-network-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
+
+(defvar *postgresql-road-network-table* "phoros_project_aux_point"
+  "Name of table or view in database described by
+  *postgresql-road-network-credentials*")
+
+(defvar *postgresql-zeb-credentials* nil
+  "A list: (database user password host &key (port 5432) use-ssl).")
+
+(defvar *postgresql-zeb-table* "zeb"
+  "Name of table or view in database described by
+  *postgresql-zeb-credentials*")
+
+(defvar *postgresql-accidents-credentials* nil
+  "A list: (database user password host &key (port 5432) use-ssl).")
+
+(defvar *postgresql-accidents-table* "unfaelle"
+  "Name of table or view in database described by
+  *postgresql-accidents-credentials*")
 
 (defparameter *aggregate-view-columns*
   (list 'usable
@@ -70,6 +88,9 @@
 (defvar *phoros-url* nil
   "URL of the Phoros project currently in use.")
 
+(defvar *phoros-credentials* '("user" "password")
+  "List of (user password) used for login at *phoros-url*.")
+
 (defvar *cache-dir* '(:absolute "home" "bertb" "lisphack" "phoros" "cache"))
 ;; TODO: invent cache validity checks
 
@@ -78,6 +99,8 @@
 
 (defvar *jump-to-station-event* nil
   "Remembering event id of chart click event jumptostation.")
+
+(defvar *choose-road-section-event* nil)
 
 (defun ensure-hyphen-before-digit (symbol)
   "Return symbol with hyphens inserted after each letter that is
@@ -120,6 +143,8 @@ followed by a digit. "
                      nil))))))
 
 (defun main ()
+  (restore-credentials)
+  (apply #'phoros-login *phoros-url* *phoros-credentials*)
   (with-tk ((make-instance 'ffi-tk))
     (tcl "package" "require" "Img")
     (tcl "option" "add" "*tearOff" 0)
@@ -129,6 +154,8 @@ followed by a digit. "
     (tcl "menu" ".menubar.file")
     (tcl ".menubar" "add" "cascade" :label "File" :menu ".menubar.file" :underline 0)
     (tcl ".menubar.file" "add" "command" :label "Kaputt" :command (tcl{ "destroy" "."))
+    (tcl ".menubar.file" "add" "command" :label "choose road section ..." :command (event-handler* (road-section-dialog)))
+    (tcl ".menubar.file" "add" "command" :label "server credentials ..." :command (event-handler* (credentials-dialog)))
     (tcl ".menubar.file" "add" "command" :label "Do Stuff" :command (event-handler* (print "doing stuff") (print "doing more stuff") (tcl "set" "feet" 500)))
 
     (bind-event "." "<<check.blah>>" ((ddd #\d)) (print (list "ddd" ddd)))
@@ -176,24 +203,228 @@ followed by a digit. "
 
     ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
     ;; (tcl "focus" ".f.feet")
-    
-    (tcl "tk::toplevel" ".choose-road-section")
-    (tcl "grid" (tcl[ "ttk::treeview" ".choose-road-section.tree" :columns "length number-of-images") :column 0 :row 0 :sticky "nwes")
-    (tcl ".choose-road-section.tree" "heading" "length" :text "m")
-    (tcl ".choose-road-section.tree" "column" "length" :width 50 :anchor "e")
 
-    (let ((sections (sections 'bew-landstr-kleinpunkte)))
+    (mainloop)))
+
+(defun road-section-dialog ()
+  (tcl "tk::toplevel" ".choose-road-section")
+  (tcl "set" "chooseroadsectiontree" (tcl[ "ttk::treeview" ".choose-road-section.tree" :columns "length number-of-images" :yscrollcommand ".choose-road-section.v set" :height 20))
+  (tcl "grid" (lit "$chooseroadsectiontree") :column 0 :row 0 :sticky "nwes")
+  (tcl "grid" (tcl[ "tk::scrollbar" ".choose-road-section.v" :orient "vertical" :command ".choose-road-section.tree yview") :column 1 :row 0 :sticky "ns")
+  ;; (tcl "set" "chart1" (tcl[ "canvas" ".f.chart1" :xscrollcommand ".f.h set"))
+  (tcl "grid" (tcl[ "ttk::button" ".choose-road-section.close-button" :text "close" :command (event-handler* (print *choose-road-section-event*)
+                                                                                                             (unregister-event *choose-road-section-event*)
+                                                                                                             (tcl "destroy" ".choose-road-section")))
+       :column 0 :row 1)
+  (tcl ".choose-road-section.tree" "heading" "length" :text "m")
+  (tcl ".choose-road-section.tree" "column" "length" :width 50 :anchor "e")
+
+  (with-connection *postgresql-road-network-credentials*
+    (let ((sections (sections (make-symbol *postgresql-road-network-table*))))
       (loop
          for (vnk nnk length) in sections
          do (multiple-value-bind (rearview-image-data rearview-cached-p)
-                (road-section-image-data 'bew-landstr-kleinpunkte vnk nnk 10 t :from-cache-only t)
+                (road-section-image-data *postgresql-road-network-table* vnk nnk 10 t :from-cache-only t)
               (multiple-value-bind (frontview-image-data frontview-cached-p)
-                  (road-section-image-data 'bew-landstr-kleinpunkte vnk nnk 10 nil :from-cache-only t)
+                  (road-section-image-data *postgresql-road-network-table* vnk nnk 10 nil :from-cache-only t)
                 (add-vnk-nnk-leaf vnk nnk length (and rearview-cached-p frontview-cached-p (+ (length rearview-image-data) (length frontview-image-data))))))))
-    (bind-event ".choose-road-section.tree" "<ButtonPress-1>" ()
-      (let ((vnk-nnk-length (read-from-string (tcl ".choose-road-section.tree" "focus"))))
-        (apply #'prepare-chart 'bew-landstr-kleinpunkte vnk-nnk-length)))
+    (setf *choose-road-section-event*
+          (bind-event ".choose-road-section.tree" "<ButtonPress-1>" ()
+            (let ((vnk-nnk-length (read-from-string (tcl ".choose-road-section.tree" "focus"))))
+              (apply #'prepare-chart (make-symbol *postgresql-road-network-table*) vnk-nnk-length)))))
+  (mainloop))
+
+(defun credentials-dialog ()
+  (flet ((send-credentials (purpose)
+           (tcl{ "event" "generate" ".credentials-dialog" "<<credentials>>"
+                 :data (tcl[ "list"
+                             (string purpose)
+                             (lit "$roadnetworkdatabase") (lit "$roadnetworkhost") (lit "$roadnetworkport") (lit "$roadnetworkusessl") (lit "$roadnetworktable") (lit "$roadnetworkuser") (lit "$roadnetworkpassword")
+                             (lit "$zebdatabase") (lit "$zebhost") (lit "$zebport") (lit "$zebusessl") (lit "$zebtable") (lit "$zebuser") (lit "$zebpassword")
+                             (lit "$accidentsdatabase") (lit "$accidentshost") (lit "$accidentsport") (lit "$accidentsusessl") (lit "$accidentstable") (lit "$accidentsuser") (lit "$accidentspassword")
+                             (lit "$phorosurl") (lit "$phorosuser") (lit "$phorospassword")))))
+
+    (tcl "tk::toplevel" ".credentials-dialog")
+
+    (tcl "grid" (tcl[ "ttk::labelframe" ".credentials-dialog.db" :text "database credentials") :column 0 :row 0 :columnspan 5 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::labelframe" ".credentials-dialog.phoros" :text "phoros credentials") :column 0 :row 1 :sticky "w")
+
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.hosts" :text "host") :column 0 :row 1 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.ports" :text "port") :column 0 :row 2 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.use-ssls" :text "ssl") :column 0 :row 3 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.databases" :text "database") :column 0 :row 4 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.tables" :text "table") :column 0 :row 5 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.users" :text "user") :column 0 :row 6 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.passwords" :text "password") :column 0 :row 7 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.status" :text "status") :column 0 :row 8 :sticky "w")
+
+    (destructuring-bind (database user password host &key (port 5432) (use-ssl :no))
+        *postgresql-road-network-credentials*
+      (tcl "set" "roadnetworkhost" host)
+      (tcl "set" "roadnetworkport" port)
+      (tcl "set" "roadnetworkusessl" (string use-ssl))
+      (tcl "set" "roadnetworkdatabase" database)
+      (tcl "set" "roadnetworktable" *postgresql-road-network-table*)
+      (tcl "set" "roadnetworkuser" user)
+      (tcl "set" "roadnetworkpassword" password))
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.road-network-header" :text "road network" :width 30) :column 1 :row 0 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.road-network-host" :textvariable "roadnetworkhost") :column 1 :row 1 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.road-network-port" :textvariable "roadnetworkport") :column 1 :row 2 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::checkbutton" ".credentials-dialog.db.roadnetwork-use-ssl" :variable "roadnetworkusessl" :onvalue "yes" :offvalue "no") :column 1 :row 3 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.road-network-database" :textvariable "roadnetworkdatabase") :column 1 :row 4 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.road-network-table" :textvariable "roadnetworktable") :column 1 :row 5 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.road-network-user" :textvariable "roadnetworkuser") :column 1 :row 6 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.road-network-password" :textvariable "roadnetworkpassword") :column 1 :row 7 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.road-network-status" :text "?") :column 1 :row 8 :sticky "w")
+
+    (destructuring-bind (database user password host &key (port 5432) (use-ssl :no))
+        *postgresql-zeb-credentials*
+      (tcl "set" "zebhost" host)
+      (tcl "set" "zebport" port)
+      (tcl "set" "zebusessl" (string use-ssl))
+      (tcl "set" "zebdatabase" database)
+      (tcl "set" "zebtable" *postgresql-zeb-table*)
+      (tcl "set" "zebuser" user)
+      (tcl "set" "zebpassword" password))
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.zeb-header" :text "ZEB" :width 30) :column 2 :row 0 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.zeb-host" :textvariable "zebhost") :column 2 :row 1 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.zeb-port" :textvariable "zebport") :column 2 :row 2 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::checkbutton" ".credentials-dialog.db.zeb-use-ssl" :variable "zebusessl" :onvalue "yes" :offvalue "no") :column 2 :row 3 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.zeb-database" :textvariable "zebdatabase") :column 2 :row 4 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.zeb-table" :textvariable "zebtable") :column 2 :row 5 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.zeb-user" :textvariable "zebuser") :column 2 :row 6 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.zeb-password" :textvariable "zebpassword") :column 2 :row 7 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.zeb-status" :text "?") :column 2 :row 8 :sticky "w")
+
+    (destructuring-bind (database user password host &key (port 5432) (use-ssl :no))
+        *postgresql-accidents-credentials*
+      (tcl "set" "accidentshost" host)
+      (tcl "set" "accidentsport" port)
+      (tcl "set" "accidentsusessl" (string use-ssl))
+      (tcl "set" "accidentsdatabase" database)
+      (tcl "set" "accidentstable" *postgresql-accidents-table*)
+      (tcl "set" "accidentsuser" user)
+      (tcl "set" "accidentspassword" password))
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.accidents-header" :text "accidents" :width 30) :column 3 :row 0 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.accidents-host" :textvariable "accidentshost") :column 3 :row 1 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.accidents-port" :textvariable "accidentsport") :column 3 :row 2 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::checkbutton" ".credentials-dialog.db.accidents-use-ssl" :variable "accidentsusessl" :onvalue "yes" :offvalue "no") :column 3 :row 3 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.accidents-database" :textvariable "accidentsdatabase") :column 3 :row 4 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.accidents-table" :textvariable "accidentstable") :column 3 :row 5 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.accidents-user" :textvariable "accidentsuser") :column 3 :row 6 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.db.accidents-password" :textvariable "accidentspassword") :column 3 :row 7 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.db.accidents-status" :text "?") :column 3 :row 8 :sticky "w")
+
+    (destructuring-bind (user password) *phoros-credentials*
+      (tcl "set" "phorosurl" (with-output-to-string (s) (puri:render-uri *phoros-url* s)))
+      (tcl "set" "phorosuser" user)
+      (tcl "set" "phorospassword" password))
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.phoros.url" :text "URL") :column 0 :row 0 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.phoros.user" :text "user") :column 0 :row 1 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.phoros.password" :text "password") :column 0 :row 2 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.phoros.status" :text "status") :column 0 :row 3 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.phoros.phoros-url" :textvariable "phorosurl" :width 45) :column 1 :row 0)
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.phoros.phoros-user" :textvariable "phorosuser") :column 1 :row 1 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::entry" ".credentials-dialog.phoros.phoros-password" :textvariable "phorospassword") :column 1 :row 2 :sticky "we")
+    (tcl "grid" (tcl[ "ttk::label" ".credentials-dialog.phoros.phoros-status" :text "?") :column 1 :row 3 :sticky "w")
+
+    (bind-event ".credentials-dialog" "<<credentials>>" ((payload #\d))
+      (let ((purpose (first (cl-utilities:split-sequence #\Space payload))))
+        (cond ((string-equal purpose "ok")
+               (apply #'phoros-login *phoros-url* *phoros-credentials*)
+               (restore-credentials payload)
+               (tcl "destroy" ".credentials-dialog"))
+              ((string-equal purpose "save")
+               (save-credentials payload))
+              ((string-equal purpose "check")
+               (let (*postgresql-road-network-credentials*
+                     *postgresql-zeb-credentials*
+                     *postgresql-accidents-credentials*)
+                 (restore-credentials payload)
+                 (tcl ".credentials-dialog.db.road-network-status" "configure" :text (check-db *postgresql-road-network-credentials* *postgresql-road-network-table*))
+                 (tcl ".credentials-dialog.db.zeb-status" "configure" :text (check-db *postgresql-zeb-credentials* *postgresql-zeb-table*))
+                 (tcl ".credentials-dialog.db.accidents-status" "configure" :text (check-db *postgresql-accidents-credentials* *postgresql-accidents-table*))
+                 (tcl ".credentials-dialog.phoros.phoros-status" "configure" :text (apply #'check-phoros (with-output-to-string (s) (puri:render-uri *phoros-url* s)) *phoros-credentials*)))))))
+
+    (tcl "grid" (tcl[ "ttk::button" ".credentials-dialog.cancel-button" :text "cancel" :command (tcl{ "destroy" ".credentials-dialog"))
+         :column 1 :row 1 :sticky "s")
+    (tcl "grid" (tcl[ "ttk::button" ".credentials-dialog.save-button" :text "save" :command (send-credentials :save))
+         :column 2 :row 1 :sticky "s")
+    (tcl "grid" (tcl[ "ttk::button" ".credentials-dialog.check-button" :text "check" :command (send-credentials :check))
+         :column 3 :row 1 :sticky "s")
+    (tcl "grid" (tcl[ "ttk::button" ".credentials-dialog.ok-button" :text "ok" :command (send-credentials :ok))
+         :column 4 :row 1 :sticky "s")
+
+    (tcl ".credentials-dialog.check-button" "invoke")
+
+    ;; (setf *choose-road-section-event*
+    ;;       (bind-event ".choose-road-section.tree" "<ButtonPress-1>" ()
+    ;;         (let ((vnk-nnk-length (read-from-string (tcl ".choose-road-section.tree" "focus"))))
+    ;;           (apply #'prepare-chart 'bew-landstr-kleinpunkte vnk-nnk-length))))
     (mainloop)))
+
+(defun save-credentials (credentials-string)
+  "Save input from credentials-dialog into cache directory."
+  (let ((cache-file-name (cache-file-name 'credentials)))
+    (ensure-directories-exist cache-file-name)
+    (with-open-file (stream cache-file-name
+                            :direction :output
+                            :if-exists :supersede)
+      (prin1 credentials-string stream))))
+
+(defun restore-credentials (&optional credentials-string)
+  "Put credentials (from credentials-string if any, or previously
+saved by save-credentials if not) into their respective variables."
+  (let ((cache-file-name (cache-file-name 'credentials)))
+    (with-open-file (stream cache-file-name
+                            :direction :input
+                            :if-does-not-exist nil)
+      (when (and stream (not credentials-string))
+        (setf credentials-string (read stream)))
+      (when credentials-string
+        (destructuring-bind (purpose road-network-database road-network-host road-network-port road-network-use-ssl road-network-table road-network-user road-network-password
+                                     zeb-database zeb-host zeb-port zeb-use-ssl zeb-table zeb-user zeb-password
+                                     accidents-database accidents-host accidents-port accidents-use-ssl accidents-table accidents-user accidents-password
+                                     phoros-url phoros-user phoros-password)
+            (cl-utilities:split-sequence #\Space credentials-string)
+          (declare (ignore purpose))
+          (setf *postgresql-road-network-credentials*
+                (list road-network-database road-network-user road-network-password road-network-host :port (parse-integer road-network-port :junk-allowed t) :use-ssl (intern (string-upcase road-network-use-ssl) 'keyword)))
+          (setf *postgresql-road-network-table* road-network-table)
+          (setf *postgresql-zeb-credentials*
+                (list zeb-database zeb-user zeb-password zeb-host :port (parse-integer zeb-port :junk-allowed t) :use-ssl (intern (string-upcase zeb-use-ssl) 'keyword)))
+          (setf *postgresql-zeb-table* zeb-table)
+          (setf *postgresql-accidents-credentials*
+                (list accidents-database accidents-user accidents-password accidents-host :port (parse-integer accidents-port :junk-allowed t) :use-ssl (intern (string-upcase accidents-use-ssl) 'keyword)))
+          (setf *postgresql-accidents-table* accidents-table)
+          (setf *phoros-url* (puri:parse-uri phoros-url))
+          (setf *phoros-credentials* (list phoros-user phoros-password)))))))
+
+(defun check-db (db-credentials table-name &aux result)
+  "Check database connection and presence of table or view table-name.
+Return a string describing the outcome."
+  (unless
+      (ignore-errors
+        (with-connection db-credentials
+          (if (or (table-exists-p table-name)
+                  (view-exists-p table-name))
+              (setf result "ok")
+              (setf result "table or view missing"))))
+    (setf result "connection failure"))
+  result)
+
+(defun check-phoros (url user-name password)
+  "Check connection to phoros server.  Return a string describing the
+outcome."
+  (let ((*phoros-url* nil)
+        (*phoros-cookies* nil))
+    (unwind-protect
+         (handler-case (phoros-login url user-name password)
+           (usocket:ns-host-not-found-error () "host not found")
+           (usocket:connection-refused-error () "connection refused")
+           (error (c) (format nil "~A" c))
+           (:no-error (result) (if result "ok" "wrong user or password")))
+      (ignore-errors (phoros-logout)))))
 
 (defun add-vnk-nnk-leaf (vnk nnk length number-of-images)
   "Put a leaf labelled vnk-nnk into road-sections tree."
@@ -219,49 +450,50 @@ current database."
 
 (defun put-image (&key table vnk nnk station step rear-view-p)
   "Put an image along with a labelled station marker on screen."
-  (let* ((point-radius 5)
-         (line-width 2)
-         (photo (if rear-view-p "rearview" "frontview"))
-         (canvas (concatenate 'string ".f." photo))
-         (cursor-name (concatenate 'string photo "cursor"))
-         (label-name (concatenate 'string photo "label"))
-         (arrow-name (concatenate 'string photo "arrow"))
-         (global-point-coordinates 
-          (subseq (all-stations table vnk nnk)
-                  (min (length (all-stations table vnk nnk)) station)
-                  (min (length (all-stations table vnk nnk)) (+ station 4))))
-         (image-data-alist
-          (get-image-data-alist (road-section-image-data table vnk nnk step rear-view-p)
-                                station
-                                step))
-         (image-arrow-coordinates
-          (loop
-             for i across global-point-coordinates
-             append (image-point-coordinates image-data-alist i)))
-         (image-cursor-coordinates (ignore-errors
-                                     (list (- (first image-arrow-coordinates) point-radius)
-                                           (- (second image-arrow-coordinates) point-radius)
-                                           (+ (first image-arrow-coordinates) point-radius)
-                                           (+ (second image-arrow-coordinates) point-radius))))
-         (image-label-coordinates  (ignore-errors
-                                     (list (+ (first image-arrow-coordinates) point-radius line-width)
-                                           (second image-arrow-coordinates)))))
-    (tcl photo "configure" :file (or (get-image-namestring (road-section-image-data table vnk nnk step rear-view-p)
-                                                           station
-                                                           step)
-                                     "public_html/phoros-logo-plain.png"))
-    (tcl "if" (tcl[ "info" "exists" cursor-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" cursor-name))))
-    (tcl "if" (tcl[ "info" "exists" label-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" label-name))))
-    (tcl "if" (tcl[ "info" "exists" arrow-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" arrow-name))))
-    (when image-cursor-coordinates
-      (tcl "set" cursor-name (tcl[ canvas "create" "oval" image-cursor-coordinates :width line-width)))
-    (when image-label-coordinates
-      (tcl "set" label-name (tcl[ canvas "create" "text" image-label-coordinates :text station :anchor "w")))
-    (when (and image-arrow-coordinates
-               (loop
-                  for tail on image-arrow-coordinates by #'cddr
-                  always (in-image-p (first tail) (second tail))))
-      (tcl "set" arrow-name (tcl[ canvas "create" "line" image-arrow-coordinates :arrow "last" :width line-width)))))
+  (with-connection *postgresql-road-network-credentials*
+    (let* ((point-radius 5)
+           (line-width 2)
+           (photo (if rear-view-p "rearview" "frontview"))
+           (canvas (concatenate 'string ".f." photo))
+           (cursor-name (concatenate 'string photo "cursor"))
+           (label-name (concatenate 'string photo "label"))
+           (arrow-name (concatenate 'string photo "arrow"))
+           (global-point-coordinates 
+            (subseq (all-stations table vnk nnk)
+                    (min (length (all-stations table vnk nnk)) station)
+                    (min (length (all-stations table vnk nnk)) (+ station 4))))
+           (image-data-alist
+            (get-image-data-alist (road-section-image-data table vnk nnk step rear-view-p)
+                                  station
+                                  step))
+           (image-arrow-coordinates
+            (loop
+               for i across global-point-coordinates
+               append (image-point-coordinates image-data-alist i)))
+           (image-cursor-coordinates (ignore-errors
+                                       (list (- (first image-arrow-coordinates) point-radius)
+                                             (- (second image-arrow-coordinates) point-radius)
+                                             (+ (first image-arrow-coordinates) point-radius)
+                                             (+ (second image-arrow-coordinates) point-radius))))
+           (image-label-coordinates  (ignore-errors
+                                       (list (+ (first image-arrow-coordinates) point-radius line-width)
+                                             (second image-arrow-coordinates)))))
+      (tcl photo "configure" :file (or (get-image-namestring (road-section-image-data table vnk nnk step rear-view-p)
+                                                             station
+                                                             step)
+                                       "public_html/phoros-logo-plain.png"))
+      (tcl "if" (tcl[ "info" "exists" cursor-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" cursor-name))))
+      (tcl "if" (tcl[ "info" "exists" label-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" label-name))))
+      (tcl "if" (tcl[ "info" "exists" arrow-name) (tcl{ canvas "delete" (lit (concatenate 'string "$" arrow-name))))
+      (when image-cursor-coordinates
+        (tcl "set" cursor-name (tcl[ canvas "create" "oval" image-cursor-coordinates :width line-width)))
+      (when image-label-coordinates
+        (tcl "set" label-name (tcl[ canvas "create" "text" image-label-coordinates :text station :anchor "w")))
+      (when (and image-arrow-coordinates
+                 (loop
+                    for tail on image-arrow-coordinates by #'cddr
+                    always (in-image-p (first tail) (second tail))))
+        (tcl "set" arrow-name (tcl[ canvas "create" "line" image-arrow-coordinates :arrow "last" :width line-width))))))
 
 (defun image-point-coordinates (image-data-alist global-point-coordinates)
   "Return a list (m n) of image coordinates representing
@@ -416,7 +648,7 @@ latitude."
 first."
   (setf *phoros-url* (puri:parse-uri url))
   (setf drakma:*allow-dotless-cookie-domains-p* t)
-  (setf drakma:*text-content-types* (acons "application" "json" drakma:*text-content-types*))
+  (pushnew (cons "application" "json") drakma:*text-content-types* :test #'equal)
   (phoros-logout)
   (setf *phoros-cookies* (make-instance 'drakma:cookie-jar))
   (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
