@@ -167,14 +167,10 @@ followed by a digit. "
     (tcl "." "configure" :menu ".menubar")
     (tcl "menu" ".menubar.file")
     (tcl ".menubar" "add" "cascade" :label "File" :menu ".menubar.file" :underline 0)
+    (tcl ".menubar.file" "add" "command" :label "credentials..." :command (event-handler* (credentials-dialog)))
+    (tcl ".menubar.file" "add" "command" :label "road section..." :command (event-handler* (road-section-dialog)))
+    (tcl ".menubar.file" "add" "command" :label "chart configuration..." :command (event-handler* (chart-dialog)))
     (tcl ".menubar.file" "add" "command" :label "Kaputt" :command (tcl{ "destroy" "."))
-    (tcl ".menubar.file" "add" "command" :label "choose road section ..." :command (event-handler* (road-section-dialog)))
-    (tcl ".menubar.file" "add" "command" :label "server credentials ..." :command (event-handler* (credentials-dialog)))
-    (tcl ".menubar.file" "add" "command" :label "chart configuration ..." :command (event-handler* (chart-dialog)))
-    (tcl ".menubar.file" "add" "command" :label "Do Stuff" :command (event-handler* (print "doing stuff") (print "doing more stuff") (tcl "set" "feet" 500)))
-
-    (bind-event "." "<<check.blah>>" ((ddd #\d)) (print (list "ddd" ddd)))
-    (tcl ".menubar.file" "add" "checkbutton" :label "Check" :variable "check" :onvalue 1 :offvalue 0 :command (tcl{ "event" "generate" "." "<<check.blah>>" :data (lit "$check")))
 
     (tcl "grid" (tcl[ "ttk::frame" ".f" :borderwidth 3 :relief "groove") :column 0 :row 0 :sticky "nwes")
     
@@ -213,7 +209,6 @@ followed by a digit. "
 
     ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
     ;; (tcl "focus" ".f.feet")
-    (chart-dialog)
     (mainloop)))
 
 (defun zeb-data (column vnk nnk chart-height)
@@ -274,9 +269,9 @@ constant."
       (loop
          for (vnk nnk length) in sections
          do (multiple-value-bind (rearview-image-data rearview-cached-p)
-                (road-section-image-data *postgresql-road-network-table* vnk nnk 10 t :from-cache-only t)
+                (road-section-image-data (provenience-string *phoros-url*) *postgresql-road-network-table* vnk nnk 10 t :from-cache-only t)
               (multiple-value-bind (frontview-image-data frontview-cached-p)
-                  (road-section-image-data *postgresql-road-network-table* vnk nnk 10 nil :from-cache-only t)
+                  (road-section-image-data (provenience-string *phoros-url*) *postgresql-road-network-table* vnk nnk 10 nil :from-cache-only t)
                 (add-vnk-nnk-leaf vnk nnk length (and rearview-cached-p frontview-cached-p (+ (length rearview-image-data) (length frontview-image-data))))))))
     (setf *choose-road-section-event*
           (bind-event ".choose-road-section.tree" "<ButtonPress-1>" ()
@@ -684,7 +679,7 @@ existing graphs first."
                     (min (length (all-stations table vnk nnk)) station)
                     (min (length (all-stations table vnk nnk)) (+ station 4))))
            (image-data-alist
-            (get-image-data-alist (road-section-image-data table vnk nnk step rear-view-p)
+            (get-image-data-alist (road-section-image-data (provenience-string *phoros-url*) table vnk nnk step rear-view-p)
                                   station
                                   step))
            (image-arrow-coordinates
@@ -699,7 +694,7 @@ existing graphs first."
            (image-label-coordinates  (ignore-errors
                                        (list (+ (first image-arrow-coordinates) point-radius line-width)
                                              (second image-arrow-coordinates)))))
-      (tcl photo "configure" :file (or (get-image-namestring (road-section-image-data table vnk nnk step rear-view-p)
+      (tcl photo "configure" :file (or (get-image-namestring (road-section-image-data (provenience-string *phoros-url*) table vnk nnk step rear-view-p)
                                                              station
                                                              step)
                                        "public_html/phoros-logo-plain.png"))
@@ -787,12 +782,23 @@ station (in metres) being the vector index."
                                     :azimuth azimuth))))
     result))
 
-(defun-cached road-section-image-data (table vnk nnk step rear-view-p)
+(defun-cached road-section-image-data (provenience-string table vnk nnk step rear-view-p)
   "Return a list of instances of image data corresponding to stations,
-which are step metres apart, found in table in current database."
+which are step metres apart, found in table in current database.
+provenience-string only serves as a marker of the provenience of image
+data once cached."
   (remove nil (mapcar #'(lambda (x)
                           (apply #'image-data :rear-view-p rear-view-p x))
                       (stations table vnk nnk step))))
+
+(defun provenience-string (url)
+  "Turn url recognisibly into something suitable as part of a file
+name."
+  (format nil "~A_~A~{_~A~}"
+          (puri:uri-host url)
+          (puri:uri-port url)
+          (cl-utilities:split-sequence
+           #\/ (puri:uri-path url) :remove-empty-subseqs t)))
 
 (defun cache-file-name (kind &rest args)
   "Return pathname for a cache file distinguishable by kind and args."
@@ -939,6 +945,7 @@ nil if nothing needed storing."
                                :cookie-jar *phoros-cookies*
                                :method :get)
         (declare (ignore stream must-close))
+        (setf *t* url)
         (assert (= status-code 200) ()
                 'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
         (write-sequence body file-stream)
@@ -992,7 +999,7 @@ into jpg, and store it under the cache path.  Return that path."
 corresponding cache path, and the corresponding cache path for the
 shrunk image."
   (let* ((path
-          (format nil "~A/~A~A/~D.png"
+          (format nil "~A/~A/~A/~D.png"
                   (puri:uri-path (phoros-lib-url *phoros-url* "photo"))
                   (image-data-directory image-data)
                   (image-data-filename image-data)
