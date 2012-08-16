@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2012 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -16,21 +16,18 @@
 ;;; 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 
-;;;; Make an executable.
-;; TODO: don't expect quicklisp to be preloaded
+(defpackage :phoros-photogrammetry
+  (:documentation "Interface to the PhoML library.")
+  (:use :cl
+        :phoml)
+  (:export :photogrammetry
+           :*photogrammetry-mutex*
+           :del-all))
 
-(push (make-pathname :directory '(:relative "phoml"))
-      asdf:*central-registry*)
-
-(push (make-pathname :directory '(:relative "sb-daemon"))
-      asdf:*central-registry*)
-
-(push (make-pathname :directory '(:relative :up "phoros"))
-      asdf:*central-registry*)
-
-(ql:quickload "fasttrack")
-
-(in-package :phoros-fasttrack)
-
-(sb-ext:save-lisp-and-die
- "fasttrack" :save-runtime-options t :toplevel (function main) :executable t)
+(defpackage :phoros-fasttrack
+  (:documentation "TODO")
+  (:nicknames :ft)
+  (:use :cl
+        :phoros-photogrammetry
+        :postmodern
+        :cl-tk))

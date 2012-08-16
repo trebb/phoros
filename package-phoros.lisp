@@ -123,10 +123,3 @@
            :main
            :set-umask))
 
-(defpackage :phoros-fasttrack
-  (:documentation "TODO")
-  (:nicknames :ft)
-  (:use :cl
-        :phoros-photogrammetry
-        :postmodern
-        :cl-tk))

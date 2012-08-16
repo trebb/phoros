@@ -32,7 +32,7 @@
 (defparameter *photogrammetry-mutex* (bt:make-lock "photogrammetry"))
 
 (defparameter *fasttrack-version*
-  (asdf:component-version (asdf:find-system :fasttrack))
+  (asdf:component-version (asdf:find-system :phoros))
   "Fasttrack version as defined in system definition.  TODO: enforce equality with *phoros-version*")
 
 (defvar *postgresql-road-network-credentials* nil
@@ -155,7 +155,23 @@ followed by a digit. "
                                 ,output-stream)))
                      nil))))))
 
+(eval '(defstruct coordinates
+        longitude
+        latitude
+        ellipsoid-height
+        azimuth))
+
+(eval `(defstruct image-data
+         ;; fasttrack auxiliary slots
+         station
+         station-coordinates
+         (rear-view-p nil) 
+         ;; original Phoros image data slots
+         ,@(mapcar #'ensure-hyphen-before-digit *aggregate-view-columns*)))
+
 (defun main ()
+  (in-package #:phoros-fasttrack) ;for reading of cached #S(...) forms
+  (cffi:use-foreign-library phoml)
   (restore-credentials)
   (restore-column-selection)
   (apply #'phoros-login *phoros-url* *phoros-credentials*)
@@ -962,20 +978,6 @@ into jpg, and store it under the cache path.  Return that path."
       (delete-file origin-path))
     destination-path))
     
-(defstruct coordinates
-  longitude
-  latitude
-  ellipsoid-height
-  azimuth)
-
-(eval `(defstruct image-data
-         ;; fasttrack auxiliary slots
-         station
-         station-coordinates
-         (rear-view-p nil) 
-         ;; original Phoros image data slots
-         ,@(mapcar #'ensure-hyphen-before-digit *aggregate-view-columns*)))
-
 (defun image-data-alist (image-data)
   "Return an alist representation of image-data."
   (when image-data

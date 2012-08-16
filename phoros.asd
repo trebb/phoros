@@ -52,20 +52,22 @@ with this program; if not, write to the Free Software Foundation, Inc.,
 
   :serial t
 
-  :components ((:file "package")
-               (:file "util")
+  :components ((:file #+build-phoros "package-phoros"
+                      #+build-fasttrack "package-fasttrack")
+               #+build-phoros (:file "util")
                (:file "proj4-sh")
-               (:file "log")
+               #+build-phoros (:file "log")
                (:file "photogrammetry")
-               (:file "indent-json")
-               (:file "phoros")
-               (:file "css")
-               (:file "cli")
-               (:file "phoros-js")
-               (:file "blurb")
-               (:file "db-tables")
-               (:file "stuff-db")
-               (:file "image-reader"))
+               #+build-phoros (:file "indent-json")
+               #+build-phoros (:file "phoros")
+               #+build-phoros (:file "css")
+               #+build-phoros (:file "cli")
+               #+build-phoros (:file "phoros-js")
+               #+build-phoros (:file "blurb")
+               #+build-phoros (:file "db-tables")
+               #+build-phoros (:file "stuff-db")
+               #+build-phoros (:file "image-reader")
+               #+build-fasttrack (:file "fasttrack"))
 
   :depends-on (:phoml
                :sb-daemon
@@ -85,4 +87,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :parse-number
                :named-readtables
                :cl-log
-               :trivial-backtrace))
+               :trivial-backtrace
+               #+build-fasttrack :cl-tk
+               #+build-fasttrack :lisp-magick))
+

@@ -30,7 +30,16 @@
 
 (ql:quickload "phoros")
 
-(in-package :phoros)
+#+build-phoros (in-package :phoros)
+#+build-phoros (sb-ext:save-lisp-and-die
+                "phoros"
+                :save-runtime-options t
+                :toplevel (function cli:main)
+                :executable t)
 
-(sb-ext:save-lisp-and-die
- "phoros" :save-runtime-options t :toplevel (function cli:main) :executable t)
+#+build-fasttrack (in-package :phoros-fasttrack)
+#+build-fasttrack (sb-ext:save-lisp-and-die
+                   "fasttrack"
+                   :save-runtime-options t
+                   :toplevel (function main)
+                   :executable t)

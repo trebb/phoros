@@ -42,6 +42,8 @@ MACHINE_TYPE = $(shell uname -m)
 PHOROS_HELP_OUTPUT = phoros-help.txt
 SOURCE = *.lisp *.asd Makefile
 
+all : fasttrack phoros
+
 phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)
@@ -51,7 +53,7 @@ phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		--dynamic-space-size 4096 \
 		--end-runtime-options \
 		--disable-debugger \
-		--load make.lisp
+		--eval '(progn (pushnew :build-phoros *features*) (load "make.lisp"))'
 
 fasttrack : $(SOURCE) photogrammetry_lib \
 		$(BACKGROUND_IMAGE) $(LOGO) $(CURSOR_IMAGE)
@@ -61,7 +63,7 @@ fasttrack : $(SOURCE) photogrammetry_lib \
 		--dynamic-space-size 4096 \
 		--end-runtime-options \
 		--disable-debugger \
-		--load make-fasttrack.lisp
+		--eval '(progn (pushnew :build-fasttrack *features*) (load "make.lisp"))'
 
 $(OPENLAYERS_TARBALL) :
 	wget http://openlayers.org/download/$@
@@ -188,10 +190,12 @@ git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
 clean :
-	rm -f *.fasl *.log phoros phoros*.tar.gz			\
+	rm -rf *.fasl *.log						\
+		phoros phoros*.tar.gz					\
+		fasttrack						\
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)	\
 		$(PHOROS_HELP_OUTPUT)					\
-                $(INDEX_HTML) $(DEPLOYMENT_HTML) 			\
+                $(INDEX_HTML) $(DEPLOYMENT_HTML)			\
                 $(PUBLIC_CSS)
 	rm -rf $(OPENLAYERS_DIR) $(PRISTINE_OPENLAYERS_DIR)
 	cd phoml; $(MAKE) clean
