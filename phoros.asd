@@ -31,7 +31,7 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.8.2"
+  "13.9.0"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012 Bert Burgemeister
@@ -70,24 +70,25 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                #+build-fasttrack (:file "fasttrack"))
 
   :depends-on (:phoml
-               :sb-daemon
+               #+build-phoros :swank
+               #+build-phoros :sb-daemon
                :trivial-shell           ;for proj4-sh
-               :cl-ppcre
-               :hunchentoot
-               :cl-who
-               :parenscript
+               #+build-phoros :cl-ppcre
+               #+build-phoros :hunchentoot
+               #+build-phoros :cl-who
+               #+build-phoros :parenscript
                :cl-json
                :postmodern
-               :simple-date
-               #-phoros-uses-cl-png :zpng
-               #+phoros-uses-cl-png :png
+               #+build-phoros :simple-date
+               #+(and build-phoros (not phoros-uses-cl-png)) :zpng
+               #+(and build-phoros phoros-uses-cl-png) :png
                :drakma
-               :com.dvlsoft.clon
+               #+build-phoros :com.dvlsoft.clon
                :cl-utilities
                :parse-number
-               :named-readtables
-               :cl-log
-               :trivial-backtrace
+               #+build-phoros :named-readtables
+               #+build-phoros :cl-log
+               #+build-phoros :trivial-backtrace
                #+build-fasttrack :cl-tk
                #+build-fasttrack :lisp-magick))
 
