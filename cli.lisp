@@ -83,7 +83,8 @@
   use-multi-file-openlayers:1 - use multi-file version of OpenLayers;
   pretty-javascript:1 - send nicely formatted JavaScript;
   show-server-errors:1 - send HTTP server error messages to client;
-  no-daemon:1 - run HTTP server in foreground.")
+  no-daemon:1 - run HTTP server in foreground;
+  swank-port:<port> - start swank server listening on <port>, offering interactive debugging of the running Lisp process.  Use slime-connect from inside Emacs SLIME to connect locally to <port>; or establish an ssh tunnel on a remote client, \"ssh -L <local-port>:127.0.0.1:<port> user@phoros-host\", and slime-connect on the remote client to <local-port>.")
      ;; use-multi-file-openlayers:1 - Use OpenLayers uncompiled from
      ;; openlayers/*, which makes debugging easier and is necessary for
      ;; (ps; ... (debug-info ...)...) to work; doesn't work with
@@ -729,6 +730,19 @@ return its value."
                          'list-user)
     (sb-ext:exit :code *unix-exit-code*)))
 
+(defun start-swank-server-maybe ()
+  "If requested via --verbose setting, start the swank server.
+Otherwise do nothing."
+  (let ((swank-port (verbosity-level :swank-port))
+        result-swank-port)
+    (when swank-port
+      (setf swank:*use-dedicated-output-stream* nil)
+      (with-output-to-string (swank:*log-output*)
+        (setf result-swank-port
+              (swank:create-server :dont-close t :style :spawn :port swank-port)))
+      (cl-log:log-message
+       :debug "Swank server listening on port ~D of localhost." result-swank-port))))
+
 (defun set-.phoros-options ()
   "Set previously non-existent environment variables, whose names must
 start with PHOROS_, according to the most relevant .phoros file."
@@ -939,6 +953,7 @@ signal error."
 
 (defun store-images-and-points-action ()
   "Put data into the data tables."
+  (start-swank-server-maybe)
   (with-options (:database t :log t)
       (directory epsilon common-root aggregate-events store-images-and-points)
     (let ((common-table-name store-images-and-points))
@@ -968,6 +983,7 @@ signal error."
 
 (defun insert-footprints-action ()
   "Update image footprints."
+  (start-swank-server-maybe)
   (with-options (:database t :log t) (host port database user password use-ssl
                                            log-dir
                                            insert-footprints)
@@ -1484,6 +1500,7 @@ a view."
 
 (defun store-user-points-action ()
   "Store user points from a GeoJSON file into database."
+  (start-swank-server-maybe)
   (with-options (:database t :log t) (json-file store-user-points)
     (let ((presentation-project store-user-points))
       (assert-presentation-project presentation-project)
@@ -1716,6 +1733,7 @@ exceeds the respective column-width over multiple rows."
                so I won't put my own there.  Giving up."
                (truename pid-file))
               (sb-daemon:daemonize :pidfile pid-file :exit-parent t))
+      (start-swank-server-maybe)
       (insert-all-footprints *postgresql-credentials*)
       (delete-all-imageless-points *postgresql-credentials*)
       (setf hunchentoot:*log-lisp-backtraces-p*

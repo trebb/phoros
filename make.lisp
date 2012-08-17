@@ -30,6 +30,7 @@
 
 (ql:quickload "phoros")
 
+#+build-phoros (swank-loader:init :load-contribs t)
 #+build-phoros (in-package :phoros)
 #+build-phoros (sb-ext:save-lisp-and-die
                 "phoros"
