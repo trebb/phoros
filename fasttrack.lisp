@@ -49,11 +49,14 @@
   "Name of table or view in database described by
   *postgresql-zeb-credentials*")
 
-(defvar *zeb-column-selection* nil
+(defvar *road-network-chart-configuration* nil
   "Database columns selected for rendering.")
 
-(defvar *accidents-column-selection* nil
+(defvar *zeb-chart-configuration* nil
   "Database columns selected for rendering.")
+
+(defvar *accidents-chart-configuration* nil
+  "Accidents rendering parameters.")
 
 (defvar *postgresql-accidents-credentials* nil
   "A list: (database user password host &key (port 5432) use-ssl).")
@@ -173,7 +176,7 @@ followed by a digit. "
   (in-package #:phoros-fasttrack) ;for reading of cached #S(...) forms
   (cffi:use-foreign-library phoml)
   (restore-credentials)
-  (restore-column-selection)
+  (restore-chart-configuration)
   (apply #'phoros-login *phoros-url* *phoros-credentials*)
   (with-tk ((make-instance 'ffi-tk))
     (tcl "package" "require" "Img")
@@ -227,8 +230,48 @@ followed by a digit. "
     ;; (tcl "focus" ".f.feet")
     (mainloop)))
 
+(defun road-network-data (column vnk nnk chart-height)
+  "Return a list of lists of station and column values between vnk
+and nnk scaled into chart-height; the minimum column value; and the
+maximum column value.  Both minimum and maximum are nil if data is
+constant."
+  (with-connection *postgresql-road-network-credentials*
+    (setf column (intern (string-upcase column)))
+    (destructuring-bind (minimum maximum)
+        (mapcar #'(lambda (x) (if (numberp x)
+                                  (coerce x 'double-float)
+                                  x))
+                (query (:select (:min column)
+                                (:max column)
+                                :from (intern *postgresql-road-network-table*)
+                                :where (:and (:= 'vnk vnk)
+                                             (:= 'nnk nnk)))
+                       :list))
+      (if (and (numberp minimum) (numberp maximum))
+          (let* ((span (- maximum minimum))
+                 (m (if (zerop span)
+                        0
+                        (/ chart-height span)))
+                 (b (if (zerop span)
+                        (* chart-height 1/2)
+                        (+ chart-height (* m minimum)))))
+            (values
+             (mapcar #'(lambda (x) (if (numberp x)
+                                       (coerce x 'double-float)
+                                       x))
+                     (query (:order-by
+                             (:select 'nk-station
+                                      (:- b (:* m column))
+                                      :from (intern *postgresql-road-network-table*)
+                                      :where (:and (:= 'vnk vnk)
+                                                   (:= 'nnk nnk)))
+                             'nk-station)))
+             (unless (zerop span) minimum)
+             (unless (zerop span) maximum)))
+          (values nil nil nil)))))
+
 (defun zeb-data (column vnk nnk chart-height)
-  "Return a list of alternating station and column values between vnk
+  "Return a list of lists of station and column values between vnk
 and nnk scaled into chart-height; the minimum column value; and the
 maximum column value.  Both minimum and maximum are nil if data is
 constant."
@@ -256,17 +299,33 @@ constant."
              (mapcar #'(lambda (x) (if (numberp x)
                                        (coerce x 'double-float)
                                        x))
-                     (reduce #'nconc
-                             (query (:select 'vst
-                                             (:- b (:* m column))
-                                             'bst
-                                             (:- b (:* m column))
-                                             :from (intern *postgresql-zeb-table*)
-                                             :where (:and (:= 'vnk vnk)
-                                                          (:= 'nnk nnk))))))
+                     (query (:order-by
+                             (:select 'vst
+                                      (:- b (:* m column))
+                                      'bst
+                                      (:- b (:* m column))
+                                      :from (intern *postgresql-zeb-table*)
+                                      :where (:and (:= 'vnk vnk)
+                                                   (:= 'nnk nnk)))
+                             'vst)))
              (unless (zerop span) minimum)
              (unless (zerop span) maximum)))
           (values nil nil nil)))))
+
+(defun accidents-data (vnk nnk &key
+                       (year-min most-negative-fixnum)
+                       (year-max most-positive-fixnum))
+  "Return a list of plists containing accident data for the road
+section between vnk and nnk."
+  (with-connection *postgresql-accidents-credentials*
+    (query (:order-by
+            (:select 'nk-station 'unfalltyp 'unfallkategorie 'alkohol
+                     :from (intern *postgresql-accidents-table*)
+                     :where (:and (:= 'vnk vnk)
+                                  (:= 'nnk nnk)
+                                  (:between 'jahr year-min year-max)))
+            'nk-station 'jahr 'monat 'tag 'stunde 'minuten)
+           :plists)))
 
 (defun road-section-dialog ()
   (tcl "tk::toplevel" ".choose-road-section")
@@ -457,39 +516,42 @@ saved by save-credentials if not) into their respective variables."
           (setf *phoros-url* (puri:parse-uri phoros-url))
           (setf *phoros-credentials* (list phoros-user phoros-password)))))))
 
-(defun save-column-selection (column-selection-string)
+(defun save-chart-configuration (chart-configuration-string)
   "Save input from chart-dialog into cache directory."
-  (let ((cache-file-name (cache-file-name 'column-selection)))
+  (let ((cache-file-name (cache-file-name 'chart-configuration)))
     (ensure-directories-exist cache-file-name)
     (with-open-file (stream cache-file-name
                             :direction :output
                             :if-exists :supersede)
-      (prin1 column-selection-string stream))))
+      (prin1 chart-configuration-string stream))))
 
-(defun restore-column-selection (&optional column-selection-string)
+(defun restore-chart-configuration (&optional chart-configuration-string)
   "Put database columns selected for rendering (from
-column-selection-string if any, or previously saved by
-save-column-selection if not) into their respective variables."
-  (let ((cache-file-name (cache-file-name 'column-selection)))
+chart-configuration-string if any, or previously saved by
+save-chart-configuration if not) into their respective variables."
+  (let ((cache-file-name (cache-file-name 'chart-configuration)))
     (with-open-file (stream cache-file-name
                             :direction :input
                             :if-does-not-exist nil)
-      (when (and stream (not column-selection-string))
-        (setf column-selection-string (read stream)))
-      (when column-selection-string
+      (when (and stream (not chart-configuration-string))
+        (setf chart-configuration-string (read stream)))
+      (when chart-configuration-string
         (loop
-           for column-definition on (cdr (cl-utilities:split-sequence #\Space column-selection-string)) ;ignore purpose string
+           for column-definition on (cdr (cl-utilities:split-sequence #\Space chart-configuration-string)) ;ignore purpose string
            by #'(lambda (x) (nthcdr 6 x)) ;by number of values per column definition
            for (table-kind column-name selectedp color width dash) = column-definition
            when (and (string-equal selectedp "1")
-                     (string-equal table-kind "zeb"))
-           collect (list column-name color width dash) into zeb-column-selection
+                     (string-equal table-kind "roadnetwork"))
+           collect (list column-name color width dash) into road-network-chart-configuration
            when (and (string-equal selectedp "1")
-                     (string-equal table-kind "accidents"))
-           collect (list column-name color width dash) into accidents-column-selection
+                     (string-equal table-kind "zeb"))
+           collect (list column-name color width dash) into zeb-chart-configuration
+           when (string-equal table-kind "accidents")
+           collect (list column-name selectedp) into accidents-chart-configuration ;should be called value rather than selectedp
            finally
-             (setf *zeb-column-selection* zeb-column-selection)
-             (setf *accidents-column-selection* accidents-column-selection))))))
+             (setf *road-network-chart-configuration* road-network-chart-configuration)
+             (setf *zeb-chart-configuration* zeb-chart-configuration)
+             (setf *accidents-chart-configuration* accidents-chart-configuration))))))
 
 (defun check-db (db-credentials table-name &aux result)
   "Check database connection and presence of table or view table-name.
@@ -518,48 +580,66 @@ outcome."
       (ignore-errors (phoros-logout)))))
 
 (defun chart-dialog ()
-  (flet ((send-column-selection (purpose)
+  (flet ((send-chart-configuration (purpose)
            (tcl{ "event" "generate" ".chart-dialog" "<<columnselection>>"
                  :data (tcl[ "list"
                              (string purpose)
+                             (with-connection *postgresql-road-network-credentials*
+                               (loop
+                                  for (column-name) in (table-description *postgresql-road-network-table*)
+                                  collect (lit (concatenate 'string "roadnetwork " column-name " $roadnetwork_" column-name " $roadnetwork_" column-name "_color" " $roadnetwork_" column-name "_width" " $roadnetwork_" column-name "_dash"))))
                              (with-connection *postgresql-zeb-credentials*
                                (loop
                                   for (column-name) in (table-description *postgresql-zeb-table*)
                                   collect (lit (concatenate 'string "zeb " column-name " $zeb_" column-name " $zeb_" column-name "_color" " $zeb_" column-name "_width" " $zeb_" column-name "_dash"))))
-                             (with-connection *postgresql-accidents-credentials*
-                               (loop
-                                  for (column-name) in (table-description *postgresql-accidents-table*)
-                                  collect (lit (concatenate 'string "accidents " column-name " $accidents_" column-name " $accidents_" column-name "_color" " $accidents_" column-name "_width" " $accidents_" column-name "_dash"))))))))
+                             (lit (concatenate 'string "accidents renderp $accidentsrender nil nil nil"))
+                             (lit (concatenate 'string "accidents year_min $accidentsyearmin nil nil nil"))
+                             (lit (concatenate 'string "accidents year_max $accidentsyearmax nil nil nil"))))))
     (tcl "tk::toplevel" ".chart-dialog")
-    (tcl "grid" (tcl[ "tk::text" ".chart-dialog.t" :width 80 :height 50 :xscrollcommand ".chart-dialog.h set" :yscrollcommand ".chart-dialog.v set") :column 0 :row 0)
+    (tcl "grid" (tcl[ "tk::text" ".chart-dialog.t" :width 140 :height 50 :xscrollcommand ".chart-dialog.h set" :yscrollcommand ".chart-dialog.v set") :column 0 :row 0)
     (tcl "grid" (tcl[ "tk::scrollbar" ".chart-dialog.h" :orient "horizontal" :command ".chart-dialog.t xview") :column 0 :row 1 :sticky "we")
     (tcl "grid" (tcl[ "tk::scrollbar" ".chart-dialog.v" :orient "vertical" :command ".chart-dialog.t yview") :column 1 :row 0 :sticky "sn")
     (tcl ".chart-dialog.t" "window" "create" "end" :window (tcl[ "ttk::frame" ".chart-dialog.t.f"))
-    (tcl "grid" (tcl[ "ttk::labelframe" ".chart-dialog.t.f.zeb" :text "ZEB" :borderwidth 3 :relief "groove") :column 0 :row 0 :sticky "n")
-    (tcl "grid" (tcl[ "ttk::labelframe" ".chart-dialog.t.f.accidents" :text "accidents" :borderwidth 3 :relief "groove") :column 1 :row 0 :sticky "ns")
-    (tcl "grid" (tcl[ "ttk::frame" ".chart-dialog.buttons") :column 2 :row 0 :sticky "n")
+    (tcl "grid" (tcl[ "ttk::labelframe" ".chart-dialog.t.f.roadnetwork" :text "road network" :borderwidth 3 :relief "groove") :column 0 :row 0 :sticky "n")
+    (tcl "grid" (tcl[ "ttk::labelframe" ".chart-dialog.t.f.zeb" :text "ZEB" :borderwidth 3 :relief "groove") :column 1 :row 0 :sticky "n")
+    (tcl "grid" (tcl[ "ttk::labelframe" ".chart-dialog.t.f.accidents" :text "accidents" :borderwidth 3 :relief "groove") :column 2 :row 0 :sticky "ns")
+    (tcl "grid" (tcl[ "ttk::frame" ".chart-dialog.buttons") :column 3 :row 0 :sticky "n")
     (tcl "grid" (tcl[ "ttk::button" ".chart-dialog.buttons.cancel" :text "cancel" :command (tcl{ "destroy" ".chart-dialog")) :column 0 :row 0)
-    (tcl "grid" (tcl[ "ttk::button" ".chart-dialog.buttons.save" :text "save" :command (send-column-selection :save)) :column 0 :row 1)
-    (tcl "grid" (tcl[ "ttk::button" ".chart-dialog.buttons.ok" :text "ok" :command (send-column-selection :ok)) :column 0 :row 2)
+    (tcl "grid" (tcl[ "ttk::button" ".chart-dialog.buttons.save" :text "save" :command (send-chart-configuration :save)) :column 0 :row 1)
+    (tcl "grid" (tcl[ "ttk::button" ".chart-dialog.buttons.ok" :text "ok" :command (send-chart-configuration :ok)) :column 0 :row 2)
 
+    (with-connection *postgresql-road-network-credentials*
+      (present-db-columns (table-description *postgresql-road-network-table*) ".chart-dialog.t.f.roadnetwork" "roadnetwork_" *road-network-chart-configuration*))
     (with-connection *postgresql-zeb-credentials*
-      (present-db-columns (table-description *postgresql-zeb-table*) ".chart-dialog.t.f.zeb" "zeb_" *zeb-column-selection*))
-    (with-connection *postgresql-accidents-credentials*
-      (present-db-columns (table-description *postgresql-accidents-table*) ".chart-dialog.t.f.accidents" "accidents_" *accidents-column-selection*))
+      (present-db-columns (table-description *postgresql-zeb-table*) ".chart-dialog.t.f.zeb" "zeb_" *zeb-chart-configuration*))
+
+    (tcl "set" "accidentsrender" (or (second (find "renderp" *accidents-chart-configuration* :key #'first :test #'string-equal))
+                                            0))
+    (tcl "set" "accidentsyearmin" (or (second (find "year_min" *accidents-chart-configuration* :key #'first :test #'string-equal))
+                                              1999))
+    (tcl "set" "accidentsyearmax" (or (second (find "year_max" *accidents-chart-configuration* :key #'first :test #'string-equal))
+                                              2030))
+    (tcl "grid" (tcl[ "ttk::checkbutton" ".chart-dialog.t.f.accidents.render" :text "render accidents" :variable "accidentsrender") :column 0 :row 0 :columnspan 2 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".chart-dialog.t.f.accidents.yearmin_label" :text "from year") :column 0 :row 1 :sticky "w")
+    (tcl "grid" (tcl[ "tk::spinbox" ".chart-dialog.t.f.accidents.yearmin" :width 4 :from 1000 :to 3000 :textvariable "accidentsyearmin") :column 1 :row 1 :sticky "w")
+    (tcl "grid" (tcl[ "ttk::label" ".chart-dialog.t.f.accidents.yearmax_label" :text "to year") :column 0 :row 2 :sticky "w")
+    (tcl "grid" (tcl[ "tk::spinbox" ".chart-dialog.t.f.accidents.yearmax" :width 4 :from 1000 :to 3000 :textvariable "accidentsyearmax") :column 1 :row 2 :sticky "w")
+
+    
     (bind-event ".chart-dialog" "<<columnselection>>" ((payload #\d))
       (let ((purpose (first (cl-utilities:split-sequence #\Space payload))))
         (cond ((string-equal purpose "ok")
-               (restore-column-selection payload)
+               (restore-chart-configuration payload)
                (refresh-chart)
                (tcl "destroy" ".chart-dialog"))
               ((string-equal purpose "save")
-               (save-column-selection payload)))))
+               (save-chart-configuration payload)))))
     (mainloop)))
 
 (defun lit$ (tcl-variable)
   (lit (concatenate 'string "$" tcl-variable)))
 
-(defun present-db-columns (columns tcl-path variable-prefix column-selection)
+(defun present-db-columns (columns tcl-path variable-prefix chart-configuration)
   (loop
      for (column-name type) in columns
      ;; name of checkbutton and trunk of the other element's names
@@ -591,7 +671,7 @@ outcome."
            (tcl "grid" (tcl[ "ttk::label" dash-header-path-name :text "dash" :font "TkHeadingFont") :column 4 :row i :sticky "w")
            (tcl "grid" (tcl[ "ttk::label" sample-header-path-name :text "sample" :font "TkHeadingFont") :column 5 :row i))
          (incf i))
-       (let ((selected-column (find column-name column-selection :key #'first :test #'string-equal)))
+       (let ((selected-column (find column-name chart-configuration :key #'first :test #'string-equal)))
          (tcl "grid" (tcl[ "ttk::checkbutton" path-name :text column-name :variable variable-name) :column 0 :row i :sticky "w")
          (tcl "grid" (tcl[ "ttk::label" label-path-name :text type) :column 1 :row i :sticky "w")
          (tcl "grid" (tcl[ "tk::spinbox" width-path-name :width 2 :textvariable width-variable-name :values "1 2 3 4 5 6"
@@ -607,7 +687,7 @@ outcome."
                                            (lit ";")
                                            sample-path-name "itemconfigure" sample-line-path-name :fill (lit$ color-variable-name)))
               :column 3 :row i)
-         (tcl "grid" (tcl[ "tk::spinbox" dash-path-name :width 2 :textvariable dash-variable-name :values "{} -.-. --- ... "
+         (tcl "grid" (tcl[ "tk::spinbox" dash-path-name :width 2 :textvariable dash-variable-name :values "1 -.-. --- ... "
                            :state "readonly"
                            :command (tcl{ "set" variable-name 1 (lit ";")
                                           sample-path-name "itemconfigure" sample-line-path-name :dash (lit$ dash-variable-name))) :column 4 :row i)
@@ -623,7 +703,7 @@ outcome."
                (tcl "set" variable-name 0)
                (tcl "set" color-variable-name "black")
                (tcl "set" width-variable-name 2)
-               (tcl "set" dash-variable-name "")))
+               (tcl "set" dash-variable-name "1")))
          (tcl sample-path-name "create" "line" 0 18 20 2 60 10 100 10 :tags sample-line-path-name :joinstyle "round" :capstyle "round" :fill (lit$ color-variable-name) :width (lit$ width-variable-name) :dash (lit$ dash-variable-name)))))
 
 (defun color (column-definition)
@@ -646,8 +726,8 @@ current database."
   (when *jump-to-station-event* (unregister-event *jump-to-station-event*))
   (tcl ".f.chart1" "configure" :scrollregion (format nil "~D ~D ~D ~D" 0 0 road-section-length *chart-height*))
   (tcl ".f.chart1" "coords" (lit "$chartbackground") 0 0 road-section-length *chart-height*)
-
-  (draw-zeb-graphs vnk nnk)
+  
+  (draw-graphs vnk nnk)
 
   (tcl "if" (tcl[ "info" "exists" "cursor") (tcl{ ".f.chart1" "delete" (lit "$cursor")))
   (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 0 0 0 *chart-height* :width 2))
@@ -665,20 +745,99 @@ current database."
   "Redraw chart."
   (when *chart-parameters* (apply #'prepare-chart *chart-parameters*)))
 
-(defun draw-zeb-graphs (vnk nnk)
-  "Draw graphs for the columns in *zeb-column-selection*.  Delete
+(defun draw-graphs (vnk nnk)
+  "Draw graphs for the columns in *zeb-chart-configuration*.  Delete
 existing graphs first."
   (tcl ".f.chart1" "delete" (lit "graph"))
   (loop
-     for (column-name color width dash) in *zeb-column-selection*
-     do (draw-zeb-graph column-name vnk nnk color width dash)))
+     for (column-name color width dash) in *road-network-chart-configuration*
+     do (draw-road-network-graph column-name vnk nnk color width dash))
+  (loop
+     for (column-name color width dash) in *zeb-chart-configuration*
+     do (draw-zeb-graph column-name vnk nnk color width dash))
+  (draw-accidents vnk nnk))
+
+(defun draw-road-network-graph (column vnk nnk color width dash)
+  (multiple-value-bind (line minimum maximum)
+      (road-network-data column vnk nnk *chart-height*)
+    (let ((line-fragments
+           (cl-utilities:split-sequence-if #'(lambda (x)
+                                               (eq (second x) :null))
+                                           line
+                                           :remove-empty-subseqs t)))
+      (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
+      (dolist (line-fragment line-fragments)
+        (tcl ".f.chart1" "create" "line"  (format nil "~:{~F ~F ~}" line-fragment) :tags "graph" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
 
 (defun draw-zeb-graph (column vnk nnk color width dash)
   (multiple-value-bind (line minimum maximum)
-      (zeb-data column vnk nnk *chart-height*) ;TODO: take care of data with gaps
-    (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
-    (when line
-      (tcl ".f.chart1" "create" "line" line :tags "graph" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash))))
+      (zeb-data column vnk nnk *chart-height*)
+    (let ((line-fragments
+           (cl-utilities:split-sequence-if #'(lambda (x)
+                                               (eq (second x) :null))
+                                           line
+                                           :remove-empty-subseqs t)))
+      (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
+      (dolist (line-fragment line-fragments)
+        (tcl ".f.chart1" "create" "line" (format nil "~:{~F ~F ~}" line-fragment) :tags "graph" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
+
+(defun draw-accidents (vnk nnk)
+  (when (string-equal (second (find "renderp" *accidents-chart-configuration* :key #'first :test #'string-equal))
+                      "1")
+    (let* ((year-min (second (find "year_min" *accidents-chart-configuration* :key #'first :test #'string-equal)))
+           (year-max (second (find "year_max" *accidents-chart-configuration* :key #'first :test #'string-equal)))
+           (accidents (accidents-data vnk nnk :year-min year-min :year-max year-max))
+           (current-station -1)
+           (y-position 5))
+      (dolist (accident accidents)
+        (if (= current-station (getf accident :nk-station))
+            (incf y-position 10)
+            (progn (setf y-position 10)
+                   (setf current-station (getf accident :nk-station))))
+        (draw-accident accident y-position)))))
+
+(defun draw-accident (accident y-position)
+  "Put graphical representation of accident on chart."
+  (destructuring-bind (&key nk-station unfalltyp unfallkategorie alkohol)
+      accident
+    (when (plusp alkohol) (draw-triangle nk-station y-position "lightblue"))
+    (case unfallkategorie
+      (1 (draw-rectangle nk-station y-position 10 "black")
+         (draw-circle nk-station y-position 8 (accident-type-color unfalltyp)))
+      (2 (draw-circle nk-station y-position 8 (accident-type-color unfalltyp)))
+      (3 (draw-circle nk-station y-position 6 (accident-type-color unfalltyp)))
+      (4 (draw-circle nk-station y-position 6 "white")
+         (draw-circle nk-station y-position 4 (accident-type-color unfalltyp)))
+      (5 (draw-circle nk-station y-position 4 (accident-type-color unfalltyp)))
+      (6 (draw-triangle nk-station y-position "lightblue")
+         (draw-circle nk-station y-position 4 (accident-type-color unfalltyp)))
+      (t (draw-circle nk-station y-position 4 (accident-type-color unfalltyp))))))
+        
+(defun draw-circle (x y diameter color)
+  (tcl ".f.chart1" "create" "oval" (rectangle-coordinates x y diameter) :tags "graph" :fill color))
+
+(defun draw-rectangle (x y diameter color)
+  (tcl ".f.chart1" "create" "rectangle" (rectangle-coordinates x y diameter) :tags "graph" :fill color))
+
+(defun draw-triangle (x y color)
+  (let ((triangle-coordinates
+         (list (- x 3) (- y 6) (+ x 3) (- y 6) x (+ y 9))))
+    (tcl ".f.chart1" "create" "polygon" triangle-coordinates :tags "graph" :fill color :outline "black")))
+
+(defun accident-type-color (accident-type)
+  (case accident-type
+    (1 "green")
+    (2 "yellow")
+    (3 "red")
+    (4 "white")
+    (5 "lightblue")
+    (6 "orange")
+    (7 "black")
+    (t "darkblue")))
+
+(defun rectangle-coordinates (x y diameter)
+  (let ((radius (/ diameter 2)))
+    (list (- x radius) (- y radius) (+ x radius) (+ y radius))))
 
 (defun put-image (&key table vnk nnk station step rear-view-p)
   "Put an image along with a labelled station marker on screen."
@@ -763,23 +922,28 @@ current database."
   "Return a list of plists of :longitude, :latitude,
 :ellipsoid-height, :station, :azimuth of stations step metres apart
 between vnk and nnk."
-  (query
-   (:order-by
-    (:select (:as (:st_x 't1.the-geom) 'longitude)
-             (:as (:st_y 't1.the-geom) 'latitude)
-             (:as (:st_z 't1.the-geom) 'ellipsoid-height)
-             (:as 't1.nk-station 'station)
-             (:as (:st_azimuth 't1.the-geom 't2.the-geom) 'azimuth)
-             :from (:as table 't1)
-             :left-join (:as table 't2)
-             :on (:and (:= 't1.nk-station (:- 't2.nk-station 1))
-                       (:= 't2.vnk vnk)
-                       (:= 't2.nnk nnk))
-             :where (:and (:= 't1.vnk vnk)
-                          (:= 't1.nnk nnk)
-                          (:= 0 (:% 't1.nk-station step))))
-    't1.nk-station)
-   :plists))
+  (let ((stations
+         (query
+          (:order-by
+           (:select (:as (:st_x 't1.the-geom) 'longitude)
+                    (:as (:st_y 't1.the-geom) 'latitude)
+                    (:as (:st_z 't1.the-geom) 'ellipsoid-height)
+                    (:as 't1.nk-station 'station)
+                    (:as (:st_azimuth 't1.the-geom 't2.the-geom) 'azimuth)
+                    :from (:as table 't1)
+                    :left-join (:as table 't2)
+                    :on (:and (:= 't1.nk-station (:- 't2.nk-station 1))
+                              (:= 't2.vnk vnk)
+                              (:= 't2.nnk nnk))
+                    :where (:and (:= 't1.vnk vnk)
+                                 (:= 't1.nnk nnk)
+                                 (:= 0 (:% 't1.nk-station step))))
+           't1.nk-station)
+          :plists)))
+    (setf
+     (getf (nth (- (length stations) 1) stations) :azimuth)
+     (getf (nth (- (length stations) 2) stations) :azimuth))
+    stations))
 
 (defun-cached all-stations (table vnk nnk)
   "Return a vector of coordinates of all points between vnk and nnk,
@@ -803,12 +967,23 @@ station (in metres) being the vector index."
 which are step metres apart, found in table in current database.
 provenience-string only serves as a marker of the provenience of image
 data once cached."
-  (remove nil (mapcar #'(lambda (x)
-                          (apply #'image-data :rear-view-p rear-view-p x))
-                      (stations table vnk nnk step))))
+  (remove nil ;; (mapcar #'(lambda (x)
+          ;;             (apply #'image-data :rear-view-p rear-view-p x))
+          ;;         (stations table vnk nnk step))
+          (loop
+             with azimuth-fallback = nil
+             for station in (stations table vnk nnk step)
+             when (not (eq (getf station :azimuth) :null))
+             do (setf azimuth-fallback (getf station :azimuth))
+             and collect (apply #'image-data :rear-view-p rear-view-p station)
+             end
+             when (and azimuth-fallback
+                       (eq (getf station :azimuth) :null))
+             do (setf (getf station :azimuth) azimuth-fallback)
+             and collect (apply #'image-data :rear-view-p rear-view-p station))))
 
 (defun provenience-string (url)
-  "Turn url recognisibly into something suitable as part of a file
+  "Turn url recognisably into something suitable as part of a file
 name."
   (format nil "~A_~A~{_~A~}"
           (puri:uri-host url)
