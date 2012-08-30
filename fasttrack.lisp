@@ -65,7 +65,7 @@
   "Name of table or view in database described by
   *postgresql-accidents-credentials*")
 
-(defvar *chart-parameters* nil
+(defvar *road-section* nil
   "If there is a chart, we store a list of its parameters (table vnk
   nnk road-section-length) here.")
 
@@ -177,6 +177,7 @@ followed by a digit. "
   (cffi:use-foreign-library phoml)
   (restore-credentials)
   (restore-chart-configuration)
+  (restore-road-section)
   (apply #'phoros-login *phoros-url* *phoros-credentials*)
   (with-tk ((make-instance 'ffi-tk))
     (tcl "package" "require" "Img")
@@ -228,6 +229,7 @@ followed by a digit. "
 
     ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
     ;; (tcl "focus" ".f.feet")
+    (refresh-chart)
     (mainloop)))
 
 (defun road-network-data (column vnk nnk chart-height)
@@ -351,7 +353,9 @@ section between vnk and nnk."
     (setf *choose-road-section-event*
           (bind-event ".choose-road-section.tree" "<ButtonPress-1>" ()
             (let ((vnk-nnk-length (read-from-string (tcl ".choose-road-section.tree" "focus"))))
-              (apply #'prepare-chart (make-symbol *postgresql-road-network-table*) vnk-nnk-length)))))
+              (save-station nil)
+              (apply #'prepare-chart (make-symbol *postgresql-road-network-table*) vnk-nnk-length))))
+    (focus-vnk-nnk-leaf))
   (mainloop))
 
 (defun credentials-dialog ()
@@ -525,6 +529,34 @@ saved by save-credentials if not) into their respective variables."
                             :if-exists :supersede)
       (prin1 chart-configuration-string stream))))
 
+(defun save-road-section (road-section-string)
+  "Save input from road-section-dialog into cache directory."
+  (let ((cache-file-name (cache-file-name 'road-section)))
+    (ensure-directories-exist cache-file-name)
+    (with-open-file (stream cache-file-name
+                            :direction :output
+                            :if-exists :supersede)
+      (prin1 road-section-string stream))))
+
+(defun save-station (station)
+  "Save position of chart cursor into cache directory."
+  (let ((cache-file-name (cache-file-name 'station)))
+    (ensure-directories-exist cache-file-name)
+    (with-open-file (stream cache-file-name
+                            :direction :output
+                            :if-exists :supersede)
+      (prin1 station stream))))
+
+(defun saved-station ()
+  (let ((cache-file-name (cache-file-name 'station))
+        station)
+    (ensure-directories-exist cache-file-name)
+    (with-open-file (stream cache-file-name
+                            :direction :input
+                            :if-does-not-exist nil)
+      (when stream (setf station (read stream)))
+      (or station 0))))
+      
 (defun restore-chart-configuration (&optional chart-configuration-string)
   "Put database columns selected for rendering (from
 chart-configuration-string if any, or previously saved by
@@ -552,6 +584,17 @@ save-chart-configuration if not) into their respective variables."
              (setf *road-network-chart-configuration* road-network-chart-configuration)
              (setf *zeb-chart-configuration* zeb-chart-configuration)
              (setf *accidents-chart-configuration* accidents-chart-configuration))))))
+
+(defun restore-road-section ()
+  (let ((cache-file-name (cache-file-name 'road-section))
+        road-section)
+    (with-open-file (stream cache-file-name
+                            :direction :input
+                            :if-does-not-exist nil)
+      (when stream
+        (setf road-section (read stream)))
+      (when road-section
+        (setf *road-section* road-section)))))
 
 (defun check-db (db-credentials table-name &aux result)
   "Check database connection and presence of table or view table-name.
@@ -719,10 +762,21 @@ outcome."
   "Put a leaf labelled vnk-nnk into road-sections tree."
   (tcl ".choose-road-section.tree" "insert" "" "end" :id (format nil "(~S ~S ~D)" vnk nnk length) :text (format nil "~A - ~A" vnk nnk) :values (tcl[ "list" length (or number-of-images "?"))))
 
+(defun focus-vnk-nnk-leaf ()
+  "Focus the leaf corresponding to *road-section*, of road-sections tree."
+  (let ((vnk (second *road-section*))
+        (nnk (third *road-section*))
+        (length (fourth *road-section*)))
+    (when (and vnk nnk length)
+      (tcl "update")
+      (tcl ".choose-road-section.tree" "selection" "set" (format nil "{(~S ~S ~D)}" vnk nnk length))
+      (tcl ".choose-road-section.tree" "see" (format nil "(~S ~S ~D)" vnk nnk length)))))
+
 (defun prepare-chart (table vnk nnk road-section-length)
   "Prepare chart for the road section between vnk and nnk in table in
 current database."
-  (setf *chart-parameters* (list table vnk nnk road-section-length))
+  (save-road-section
+   (setf *road-section* (list table vnk nnk road-section-length)))
   (when *jump-to-station-event* (unregister-event *jump-to-station-event*))
   (tcl ".f.chart1" "configure" :scrollregion (format nil "~D ~D ~D ~D" 0 0 road-section-length *chart-height*))
   (tcl ".f.chart1" "coords" (lit "$chartbackground") 0 0 road-section-length *chart-height*)
@@ -733,17 +787,18 @@ current database."
   (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 0 0 0 *chart-height* :width 2))
   (setf *jump-to-station-event*
         (bind-event "." "<<jumptostation>>" ((station #\d))
-          (setf station (max 0   ;appearently necessary; not sure why.
-                             (round (parse-number:parse-number station))))
+          (save-station
+           (setf station (max 0   ;appearently necessary; not sure why.
+                              (round (parse-number:parse-number station)))))
           (tcl "set" "meters" station)
           (tcl ".f.chart1" "coords" (lit "$cursor") station 0 station *chart-height*)
           (put-image :table table :vnk vnk :nnk nnk :station station :step 10 :rear-view-p t)
           (put-image :table table :vnk vnk :nnk nnk :station station :step 10 :rear-view-p nil)))
-  (tcl "event" "generate" "." "<<jumptostation>>" :data (tcl[ ".f.chart1" "canvasx" 0)))
+  (tcl "event" "generate" "." "<<jumptostation>>" :data (tcl[ ".f.chart1" "canvasx" (saved-station))))
 
 (defun refresh-chart ()
   "Redraw chart."
-  (when *chart-parameters* (apply #'prepare-chart *chart-parameters*)))
+  (when *road-section* (apply #'prepare-chart *road-section*)))
 
 (defun draw-graphs (vnk nnk)
   "Draw graphs for the columns in *zeb-chart-configuration*.  Delete
