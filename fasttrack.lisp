@@ -210,7 +210,7 @@ followed by a digit. "
     (tcl ".f.rearview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "rearview")
     (tcl ".f.frontview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "frontview")
 
-    (tcl "set" "chartbackground" (tcl[ ".f.chart1" "create" "rectangle" 0 0 0 *chart-height* :width 0 :fill "white"))
+    (tcl "set" "chartbackground" (tcl[ ".f.chart1" "create" "rectangle" 0 0 0 *chart-height* :width 0 :fill "white" :tags "clickablechart"))
 
     ;; (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
     ;;                       (loop
@@ -225,7 +225,8 @@ followed by a digit. "
 
     ;; (tcl ".f.chart1" "create" "line" 100 100 100 100 :capstyle "round" :width 5) ;a point
 
-    (tcl ".f.chart1" "bind" (lit "$chartbackground") "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
+    ;; (tcl ".f.chart1" "bind" (lit "$chartbackground") "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
+    (tcl ".f.chart1" "bind" "clickablechart" "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
 
     ;; (tcl "foreach w [ winfo children .f ] {grid configure $w -padx 5 -pady 5}")
     ;; (tcl "focus" ".f.feet")
@@ -780,11 +781,9 @@ current database."
   (when *jump-to-station-event* (unregister-event *jump-to-station-event*))
   (tcl ".f.chart1" "configure" :scrollregion (format nil "~D ~D ~D ~D" 0 0 road-section-length *chart-height*))
   (tcl ".f.chart1" "coords" (lit "$chartbackground") 0 0 road-section-length *chart-height*)
-  
   (draw-graphs vnk nnk)
-
   (tcl "if" (tcl[ "info" "exists" "cursor") (tcl{ ".f.chart1" "delete" (lit "$cursor")))
-  (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 0 0 0 *chart-height* :width 2))
+  (tcl "set" "cursor" (tcl[ ".f.chart1" "create" "line" 0 0 0 *chart-height* :width 3 :fill "orange" :dash "3"))
   (setf *jump-to-station-event*
         (bind-event "." "<<jumptostation>>" ((station #\d))
           (save-station
@@ -794,7 +793,9 @@ current database."
           (tcl ".f.chart1" "coords" (lit "$cursor") station 0 station *chart-height*)
           (put-image :table table :vnk vnk :nnk nnk :station station :step 10 :rear-view-p t)
           (put-image :table table :vnk vnk :nnk nnk :station station :step 10 :rear-view-p nil)))
-  (tcl "event" "generate" "." "<<jumptostation>>" :data (tcl[ ".f.chart1" "canvasx" (saved-station))))
+  (tcl "event" "generate" "." "<<jumptostation>>" :data (tcl[ ".f.chart1" "canvasx" (saved-station)))
+  ;; TODO: also scroll to station
+  )
 
 (defun refresh-chart ()
   "Redraw chart."
@@ -822,7 +823,7 @@ existing graphs first."
                                            :remove-empty-subseqs t)))
       (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
       (dolist (line-fragment line-fragments)
-        (tcl ".f.chart1" "create" "line"  (format nil "~:{~F ~F ~}" line-fragment) :tags "graph" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
+        (tcl ".f.chart1" "create" "line"  (format nil "~:{~F ~F ~}" line-fragment) :tags "graph clickablechart" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
 
 (defun draw-zeb-graph (column vnk nnk color width dash)
   (multiple-value-bind (line minimum maximum)
@@ -834,7 +835,7 @@ existing graphs first."
                                            :remove-empty-subseqs t)))
       (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
       (dolist (line-fragment line-fragments)
-        (tcl ".f.chart1" "create" "line" (format nil "~:{~F ~F ~}" line-fragment) :tags "graph" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
+        (tcl ".f.chart1" "create" "line" (format nil "~:{~F ~F ~}" line-fragment) :tags "graph clickablechart" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
 
 (defun draw-accidents (vnk nnk)
   (when (string-equal (second (find "renderp" *accidents-chart-configuration* :key #'first :test #'string-equal))
@@ -869,15 +870,15 @@ existing graphs first."
       (t (draw-circle nk-station y-position 4 (accident-type-color unfalltyp))))))
         
 (defun draw-circle (x y diameter color)
-  (tcl ".f.chart1" "create" "oval" (rectangle-coordinates x y diameter) :tags "graph" :fill color))
+  (tcl ".f.chart1" "create" "oval" (rectangle-coordinates x y diameter) :tags "graph clickablechart" :fill color))
 
 (defun draw-rectangle (x y diameter color)
-  (tcl ".f.chart1" "create" "rectangle" (rectangle-coordinates x y diameter) :tags "graph" :fill color))
+  (tcl ".f.chart1" "create" "rectangle" (rectangle-coordinates x y diameter) :tags "graph clickablechart" :fill color))
 
 (defun draw-triangle (x y color)
   (let ((triangle-coordinates
          (list (- x 3) (- y 6) (+ x 3) (- y 6) x (+ y 9))))
-    (tcl ".f.chart1" "create" "polygon" triangle-coordinates :tags "graph" :fill color :outline "black")))
+    (tcl ".f.chart1" "create" "polygon" triangle-coordinates :tags "graph clickablechart" :fill color :outline "black")))
 
 (defun accident-type-color (accident-type)
   (case accident-type
