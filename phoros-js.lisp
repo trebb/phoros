@@ -116,9 +116,11 @@
         :point-kind
         (who-ps-html
          (:h3 "\"kind\"")
-         (:p "The standard ones, polygon, polyline, and solitary are
+         (:p "The standard ones, polygon, polyline, and solitary, are
            rendered as asterisk, square, and triangle respectively.
-           Anything else is rendered as an X."))
+           The numbers 0 to 9, if used as values, are mapped to an
+           alternative set of distinct symbols. Anything else is
+           rendered as an X."))
         :point-description
         (who-ps-html
          (:h3 "\"description\"")
@@ -1384,6 +1386,96 @@
                                                             *like*)
                                                 property symbolizer-property
                                                 value "polygon")))))
+              (zero-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "0")))))
+              (one-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "1")))))
+              (two-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "2")))))
+              (three-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "3")))))
+              (four-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "4")))))
+              (five-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "5")))))
+              (six-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "6")))))
+              (seven-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "7")))))
+              (eight-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "8")))))
+              (nine-filter
+               (new (chain *open-layers
+                           *filter
+                           (*comparison (create type (chain *open-layers
+                                                            *filter
+                                                            *comparison
+                                                            *like*)
+                                                property symbolizer-property
+                                                value "9")))))
               (solitary-rule
                (new (chain *open-layers
                            (*rule (create
@@ -1402,6 +1494,70 @@
                            (*rule (create
                                    filter polygon-filter 
                                    symbolizer (create
+                                               graphic-name "star"))))))
+              (zero-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter zero-filter 
+                                   symbolizer (create
+                                               graphic-name "circle"))))))
+              (one-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter one-filter 
+                                   symbolizer (create
+                                               graphic-name "cross"))))))
+              (two-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter two-filter 
+                                   symbolizer (create
+                                               graphic-name "x"))))))
+              (three-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter three-filter 
+                                   symbolizer (create
+                                               graphic-name "triangle"))))))
+              (four-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter four-filter 
+                                   symbolizer (create
+                                               graphic-name "square"))))))
+              (five-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter five-filter 
+                                   symbolizer (create
+                                               graphic-name "star"))))))
+              (six-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter six-filter 
+                                   symbolizer (create
+                                               point-radius 10
+                                               graphic-name "circle"))))))
+              (seven-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter seven-filter 
+                                   symbolizer (create
+                                               point-radius 10
+                                               graphic-name "triangle"))))))
+              (eight-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter eight-filter 
+                                   symbolizer (create
+                                               point-radius 10
+                                               graphic-name "square"))))))
+              (nine-rule
+               (new (chain *open-layers
+                           (*rule (create
+                                   filter nine-filter 
+                                   symbolizer (create
+                                               point-radius 10
                                                graphic-name "star"))))))
               (else-rule
                (new (chain *open-layers
@@ -1425,6 +1581,16 @@
                              (create rules (array solitary-rule
                                                   polyline-rule
                                                   polygon-rule
+                                                  zero-rule
+                                                  one-rule
+                                                  two-rule
+                                                  three-rule
+                                                  four-rule
+                                                  five-rule
+                                                  six-rule
+                                                  seven-rule
+                                                  eight-rule
+                                                  nine-rule
                                                   else-rule))))))
               (user-point-select-style
                (new (chain
@@ -1434,6 +1600,15 @@
                              (create rules (array solitary-rule
                                                   polyline-rule
                                                   polygon-rule
+                                                  zero-rule
+                                                  one-rule
+                                                  three-rule
+                                                  four-rule
+                                                  five-rule
+                                                  six-rule
+                                                  seven-rule
+                                                  eight-rule
+                                                  nine-rule
                                                   else-rule))))))
               (user-point-temporary-style
                (new (chain
@@ -1442,6 +1617,15 @@
                              (create rules (array solitary-rule
                                                   polyline-rule
                                                   polygon-rule
+                                                  zero-rule
+                                                  one-rule
+                                                  three-rule
+                                                  four-rule
+                                                  five-rule
+                                                  six-rule
+                                                  seven-rule
+                                                  eight-rule
+                                                  nine-rule
                                                   else-rule)))))))
          (new (chain *open-layers
                      (*style-map
