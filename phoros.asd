@@ -83,7 +83,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                #+(and build-phoros (not phoros-uses-cl-png)) :zpng
                #+(and build-phoros phoros-uses-cl-png) :png
                :drakma
-               #+build-phoros :com.dvlsoft.clon
+               #+build-phoros :net.didierverna.clon
                :cl-utilities
                :parse-number
                #+build-phoros :named-readtables

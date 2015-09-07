@@ -15,7 +15,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-LISP = $(shell echo ../sbcl/bin/sbcl || which sbcl)
+LISP = $(shell test -x ../sbcl/bin/sbcl && echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
@@ -66,7 +66,7 @@ fasttrack : $(SOURCE) photogrammetry_lib \
 		--eval '(progn (pushnew :build-fasttrack *features*) (load "make.lisp"))'
 
 $(OPENLAYERS_TARBALL) :
-	wget http://openlayers.org/download/$@
+	wget https://github.com/openlayers/openlayers/releases/download/release-2.10/$@
 
 $(PRISTINE_OPENLAYERS_DIR)/lib/* : $(OPENLAYERS_TARBALL)
 	tar -xmzf $<
@@ -97,7 +97,7 @@ public_html :
 $(LOGO) : Makefile public_html
 	 ! convert \
 		-size 113x125 xc:transparent \
-		-font Gentium-Regular \
+		-font Gentium \
 		-fill black \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
@@ -106,7 +106,7 @@ $(LOGO) : Makefile public_html
 $(BACKGROUND_IMAGE) : Makefile public_html
 	 ! convert \
 		-size 113x125 xc:transparent \
-		-font Gentium-Regular \
+		-font Gentium \
 		-fill "#f5f5f5" \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
@@ -115,12 +115,12 @@ $(BACKGROUND_IMAGE) : Makefile public_html
 $(CURSOR_IMAGE) : Makefile public_html
 	 ! convert \
 		-size 14x16 xc:transparent \
-		-font Gentium-Regular \
+		-font Gentium \
 		-fill Navy \
 		-pointsize 22 -gravity center -draw "text 0.21,1 'Φ'" \
 		-pointsize 7 -gravity center -draw "text 1.61,.1 'Σ'" \
 		$@ 2>&1 | grep convert:
-# Font Gentium-Regular is in Debian package ttf-sil-gentium.
+# Font Gentium is in Debian package fonts-sil-gentium.
 
 $(FAVICON) : favicon.png
 	icotool -c -o $@ $<

@@ -105,7 +105,7 @@
   (:use :cl
         :phoros
         :postmodern)
-  (:import-from :com.dvlsoft.clon
+  (:import-from :net.didierverna.clon
                 :defsynopsis
                 :make-stropt
                 :make-path
@@ -117,7 +117,7 @@
                 :getopt
                 :do-cmdline-options
                 :help)
-  (:export :help ;re-export from com.dvlsoft.clon
+  (:export :help ;re-export from net.didierverna.clon
            :with-options ;Phoros CLI stuff
            :verbosity-level
            :main
