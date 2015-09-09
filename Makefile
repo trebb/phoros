@@ -1,5 +1,5 @@
 # PHOROS -- Photogrammetric Road Survey
-# Copyright (C) 2010, 2011, 2012 Bert Burgemeister
+# Copyright (C) 2010, 2011, 2012, 2015 Bert Burgemeister
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -136,23 +136,19 @@ $(PHOROS_HELP_OUTPUT) : phoros
 .INTERMEDIATE : $(PHOROS_HELP_OUTPUT)
 
 $(INDEX_HTML) : doc/index.org $(LOGO)
-	emacs --batch --visit=$< --funcall org-export-as-html-batch \
-	&& mv doc/index.html $@
+	emacs --batch --visit=$< --eval '(progn (org-html-export-as-html) (write-file "../$@"))'
 
 $(DEPLOYMENT_HTML) : doc/deployment.org $(LOGO)
-	emacs --batch --visit=$< --funcall org-export-as-html-batch \
-	&& mv doc/deployment.html $@
+	emacs --batch --visit=$< --eval '(progn (org-html-export-as-html) (write-file "../$@"))'
 
 $(PHOROS_HELP_HTML) : doc/phoros--help.org $(PHOROS_HELP_OUTPUT) $(LOGO)
-	emacs --batch --visit=$< --funcall org-export-as-html-batch \
-	&& mv doc/phoros--help.html $@
+	emacs --batch --visit=$< --eval '(progn (org-html-export-as-html) (write-file "../$@"))'
 
 $(PUBLIC_CSS) : doc/style.css public_html
 	cp $< $@
 
 $(NOT_FOUND_HTML) : doc/404.org $(LOGO)
-	emacs --batch --visit=$< --funcall org-export-as-html-batch \
-	&& mv doc/404.html $@
+	emacs --batch --visit=$< --eval '(progn (org-html-export-as-html) (write-file "../$@"))'
 
 phoros-proper.tar :
 	git archive --prefix=phoros_$(LATEST_TAG)/ --output=$@ $(LATEST_TAG)
@@ -213,6 +209,7 @@ gh-publish:
 		gh-pages/deployment.html	\
 		gh-pages/phoros--help.html	\
 		gh-pages/phoros-12.8.1.png	\
+		gh-pages/phoros-logo-plain.png	\
 		gh-pages/404.html		\
 		gh-pages/CNAME			\
 		gh-pages/README			\
@@ -225,6 +222,9 @@ gh-pages/%.html: public_html/%.html
 	cp $< $@
 
 gh-pages/favicon.ico: public_html/favicon.ico
+	cp $< $@
+
+gh-pages/phoros-logo-plain.png: public_html/phoros-logo-plain.png
 	cp $< $@
 
 gh-pages/%: doc/%

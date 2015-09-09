@@ -7,8 +7,7 @@
 #+OPTIONS:   H:3 num:nil toc:1 \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
 #+OPTIONS:   TeX:nil LaTeX:nil skip:nil d:nil todo:t pri:nil tags:not-in-toc
 #+OPTIONS:   author:t email:t creator:nil timestamp:t
-#+STYLE:     <link rel="stylesheet" href="style.css" type="text/css"/>
-
+#+HTML_HEAD: <link rel="stylesheet" href="style.css" type="text/css"/>
 #+ATTR_HTML: alt="Phoros logo" height="50" style="padding-top:.5em;float:right"
   [[file:phoros-logo-plain.png]]
 
@@ -75,13 +74,13 @@ A Tool for Photogrammetric Road Survey
   Once images, calibration data and definitions of users and projects
   have been stored using the [[Command Line Interface]], Phoros can be
   started as a web server:
-#+BEGIN_SRC: sh
+#+BEGIN_SRC sh
 $ ./phoros --server \
 >          --common-root=/some_path/where_i_put/my_raw_images/ \
 >          --host=my_server --port=5432 --database=my_projects \
 >          --user=database_admin --password=SeCrEt
-#+END_SRC:
-  A user can than point their browser at Phoros' URL.  Example:
+#+END_SRC
+  A user can than point their browser at Phoros's URL.  Example:
   =http://localhost:8080/phoros/beautiful-cities= connects to
   presentation project =beautiful-cities= (and asks for username and
   password).
@@ -90,8 +89,8 @@ $ ./phoros --server \
    In the map, small yellow circles represent points of view of the
    available images.  Pointing into an area of interest has Phoros
    select and display a few[fn:: The number of images can be specified
-   during server start. Example: @<code>phoros --server --images=N
-   ... @</code>] images containing the point clicked, which on the
+   during server start. Example: =phoros --server --images=N ...=]
+   images containing the point clicked, which on the
    streetmap is represented by the dark blue Phoros logo.
 
    #+ATTR_HTML: style="border:2px solid darkgrey"
@@ -120,13 +119,80 @@ $ ./phoros --server \
    table.
    
 * Deployment
-  [[file:deployment.org][Example scripts]]
+** Download
+
+  - Browse Phoros source code via gitweb at [[http://github.com/trebb/phoros][Github]].
+
+  - Browse source code of [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library, which is
+    needed by Phoros.
+
+  - Get everything:
+    #+BEGIN_SRC sh
+    $ git clone git://github.com:trebb/phoros.git
+    $ # or: git clone https://github.com/trebb/phoros.git
+    $ cd phoros
+    $ git submodule init
+    $ git submodule update
+    #+END_SRC
+
+    The build process isn't perfect yet.  You'll (probably) need an
+    x86-64 Debian system with [[http://beta.quicklisp.org][Quicklisp]] installed on top of [[http://www.sbcl.org][SBCL]].
+
+** Debian Installation Walk-Through
+
+   - Install Debian; choose standard system tools and (probably) SSH server.
+
+   - Install Debian packages
+     ed,
+     emacs,
+     fonts-sil-gentium,
+     g++,
+     git,
+     icoutils,
+     imagemagick,
+     proj-bin,
+     sbcl,
+     sbcl-source,
+     slime,
+     swig.
+
+   - Install (as a non-root user) quicklisp:
+     #+BEGIN_SRC sh
+     $ wget https://beta.quicklisp.org/quicklisp.lisp
+     $ sbcl --load quicklisp.lisp
+     #+END_SRC
+     In SBCL, type
+     #+BEGIN_SRC lisp
+     (quicklisp-quickstart:install)
+     (ql:add-to-init-file)
+     (quit)
+     #+END_SRC
+
+   - Build and install Phoros:
+     #+BEGIN_SRC sh
+     $ git clone ... #(see above)
+     $ cd phoros
+     $ git submodule init
+     $ git submodule update
+     $ make bin-tarball
+     $ mkdir ~/phoros-workspace
+     $ cp ~/phoros/phoros_VERSION_x86_64.tar.gz ~/phoros-workspace/
+     $ cd ~/phoros-workspace
+     $ tar -xzf phoros_VERSION_x86_64.tar.gz
+     $ ln -s phoros_VERSION_x86_64 phoros
+     $ cd ~/phoros-workspace/phoros
+     $ ./phoros --check-dependencies
+     $ ./phoros --check-db --host=DB_HOST --user=DB_USER --password=SECRET --database=PHOROS_WORKSPACE_DB --aux-host=DB_HOST --aux-user=DB_USER --aux-password=SECRET --aux-database=PHOROS_WORKSPACE_DB
+     $ ./phoros --create-sys-tables --host=DB_HOST --user=DB_USER --password=SECRET --database=PHOROS_WORKSPACE_DB
+     #+END_SRC
+	  
+   - Peruse the [[file:deployment.org][example scripts]] and the [[file:phoros--help.org][help message]] to learn about Phoros administration.
 
 * Licence
 
   PHOROS -- Photogrammetric Road Survey
 
-  Copyright (C) 2010, 2011, 2012 [[mailto:Bert Burgemeister <trebbu@googlemail.com>][Bert Burgemeister]]
+  Copyright (C) 2010, 2011, 2012, 2015 [[mailto:Bert Burgemeister <trebbu@googlemail.com>][Bert Burgemeister]]
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -143,24 +209,6 @@ $ ./phoros --server \
   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
   02110-1301 USA.
 
-* Download
-
-  - Browse Phoros source code via gitweb at [[http://github.com/trebb/phoros][Github]].
-
-  - Browse source code of [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s [[http://github.com/trebb/phoml][PhoML]] library, which is
-    needed by Phoros.
-
-  - Get everything:
-    #+BEGIN_SRC sh
-    $ git clone git://github.com/trebb/phoros.git
-    $ cd phoros
-    $ git submodule init
-    $ git submodule update
-    #+END_SRC
-
-    The build process isn't perfect yet.  You'll (probably) need an
-    x86-64 Debian system with [[http://beta.quicklisp.org][Quicklisp]] installed on top of [[http://www.sbcl.org][SBCL]].
-
 * Acknowledgements
 
   - Phoros is implemented using [[http://sbcl.org][Steel Bank Common Lisp]], a Common Lisp
@@ -174,7 +222,7 @@ $ ./phoros --server \
     thanks to the [[http://openlayers.org][OpenLayers]] library, interfaced by [[http://common-lisp.net/project/parenscript/][Parenscript]] and
     [[http://common-lisp.net/project/cl-json/][CL-JSON]].
 
-  - Without [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s photogrammetric library [[http://github.com/trebb/phoml][PhoML]] Phoros'
+  - Without [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s photogrammetric library [[http://github.com/trebb/phoml][PhoML]] Phoros's
     presentation server couldn't do much beyond displaying
     geolocated images. 
 

@@ -7,7 +7,7 @@
 #+OPTIONS:   H:3 num:nil toc:1 \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
 #+OPTIONS:   TeX:nil LaTeX:nil skip:nil d:nil todo:t pri:nil tags:not-in-toc
 #+OPTIONS:   author:t email:t creator:nil timestamp:t
-#+STYLE:     <link rel="stylesheet" href="style.css" type="text/css"/>
+#+HTML_HEAD: <link rel="stylesheet" href="style.css" type="text/css"/>
 
 #+ATTR_HTML: alt="Phoros logo" height="50" style="padding-top:.5em;float:right"
   [[file:phoros-logo-plain.png]]
