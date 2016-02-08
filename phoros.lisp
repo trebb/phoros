@@ -827,7 +827,8 @@ ingredients for the URLs of the 256 nearest images."
                       nil))))
             (decf (hunchentoot:session-value 'number-of-threads))
             (json:encode-json-to-string result))))
-      (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)))
+      ;; (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
+      ))
 
 (hunchentoot:define-easy-handler
     (store-point :uri "/phoros/lib/store-point" :default-request-type :post)
