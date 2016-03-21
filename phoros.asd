@@ -90,5 +90,5 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                #+build-phoros :cl-log
                #+build-phoros :trivial-backtrace
                #+build-fasttrack :cl-tk
-               #+build-fasttrack :lisp-magick))
+               #+build-fasttrack :lisp-magick-wand))
 

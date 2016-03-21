@@ -104,7 +104,7 @@
 (defvar *phoros-credentials* '("user" "password")
   "List of (user password) used for login at *phoros-url*.")
 
-(defvar *cache-dir* '(:absolute "home" "bertb" "lisphack" "phoros" "cache"))
+(defvar *cache-dir* '(:absolute "home" "bertb" "phoros" "cache"))
 ;; TODO: invent cache validity checks
 
 (defparameter *image-size* '(800 800)
@@ -211,19 +211,6 @@ followed by a digit. "
     (tcl ".f.frontview" "create" "image" (mapcar #'(lambda (x) (/ x 2)) *image-size*) :image "frontview")
 
     (tcl "set" "chartbackground" (tcl[ ".f.chart1" "create" "rectangle" 0 0 0 *chart-height* :width 0 :fill "white" :tags "clickablechart"))
-
-    ;; (tcl "set" "ppp" (tcl ".f.chart1" "create" "line"
-    ;;                       (loop
-    ;;                          for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
-    ;;                          for i from 0
-    ;;                          when coordinates collect i and collect (format nil "~F" (* (- (coordinates-longitude coordinates) 14) 500)))
-    ;;                       :fill "green" :width 10))
-    ;; (loop
-    ;;    for coordinates across (all-stations 'bew-landstr-kleinpunkte "4252017" "4252011")
-    ;;    for i from 0
-    ;;    when coordinates do (tcl ".f.chart1" "create" "oval" i (format nil "~F" (coordinates-longitude coordinates)) i (format nil "~F" (coordinates-longitude coordinates))))
-
-    ;; (tcl ".f.chart1" "create" "line" 100 100 100 100 :capstyle "round" :width 5) ;a point
 
     ;; (tcl ".f.chart1" "bind" (lit "$chartbackground") "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
     (tcl ".f.chart1" "bind" "clickablechart" "<ButtonPress-1>" "event generate . <<jumptostation>> -data [.f.chart1 canvasx %x]")
@@ -802,8 +789,8 @@ current database."
   (when *road-section* (apply #'prepare-chart *road-section*)))
 
 (defun draw-graphs (vnk nnk)
-  "Draw graphs for the columns in *zeb-chart-configuration*.  Delete
-existing graphs first."
+  "Draw graphs for the columns in *zeb-chart-configuration* and
+*road-network-chart-configuration*.  Delete existing graphs first."
   (tcl ".f.chart1" "delete" (lit "graph"))
   (loop
      for (column-name color width dash) in *road-network-chart-configuration*
@@ -821,7 +808,7 @@ existing graphs first."
                                                (eq (second x) :null))
                                            line
                                            :remove-empty-subseqs t)))
-      (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
+      (print (list "road-network" :column column :min minimum :max maximum :color color :width width :dash dash))
       (dolist (line-fragment line-fragments)
         (tcl ".f.chart1" "create" "line"  (format nil "~:{~F ~F ~}" line-fragment) :tags "graph clickablechart" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
 
@@ -833,7 +820,7 @@ existing graphs first."
                                                (eq (second x) :null))
                                            line
                                            :remove-empty-subseqs t)))
-      (print (list :column column :min minimum :max maximum :color color :width width :dash dash))
+      (print (list "ZEB" :column column :min minimum :max maximum :color color :width width :dash dash))
       (dolist (line-fragment line-fragments)
         (tcl ".f.chart1" "create" "line" (format nil "~:{~F ~F ~}" line-fragment) :tags "graph clickablechart" :joinstyle "round" :capstyle "round" :fill color :width width :dash dash)))))
 
@@ -1140,12 +1127,13 @@ first."
       (declare (ignore stream must-close))
       (assert (< status-code 400) ()
               'phoros-server-error :body body :status-code status-code :headers headers :url authenticate-url :reason-phrase reason-phrase)
-      (= status-code 302))))
+      (= status-code 200))))            ;should be 302 (?)
+
+
 
 (defun phoros-logout ()
   (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
-      (drakma:http-request (phoros-lib-url *phoros-url* "logout")
-                           :cookie-jar *phoros-cookies*)
+      (drakma:http-request (phoros-lib-url *phoros-url* "logout"))
     (declare (ignore stream must-close))
     (assert (= status-code 200) ()
             'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)))
@@ -1263,13 +1251,13 @@ shrunk image."
 (defun convert-image-file (origin-file destination-file width height)
   "Convert origin-file into destination-file of a maximum size of
 width x height."
-  (lisp-magick:with-magick-wand (wand :load (namestring origin-file))
-    (let ((a (/ (lisp-magick:magick-get-image-width wand)
-                (lisp-magick:magick-get-image-height wand))))
+  (lisp-magick-wand:with-magick-wand (wand :load (namestring origin-file))
+    (let ((a (/ (lisp-magick-wand:get-image-width wand)
+                (lisp-magick-wand:get-image-height wand))))
       (if (> a (/ width height))
-          (lisp-magick:magick-scale-image wand width (truncate (/ width a)))
-          (lisp-magick:magick-scale-image wand (truncate (* a height)) height)))
-    (lisp-magick:magick-write-image wand (namestring destination-file))))
+          (lisp-magick-wand:scale-image wand width (truncate (/ width a)))
+          (lisp-magick-wand:scale-image wand (truncate (* a height)) height)))
+    (lisp-magick-wand:write-image wand (namestring destination-file))))
 
 (defun convert-image-coordinates (original-coordinates-alist image-data-alist)
   "Convert image coordinates from original-coordinates-alist for the
