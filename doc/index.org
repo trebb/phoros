@@ -2,7 +2,7 @@
 #+AUTHOR:    Bert Burgemeister
 #+EMAIL:     trebbu@googlemail.com
 #+DESCRIPTION:
-#+KEYWORDS: 
+#+KEYWORDS:
 #+LANGUAGE:  en
 #+OPTIONS:   H:3 num:nil toc:1 \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
 #+OPTIONS:   TeX:nil LaTeX:nil skip:nil d:nil todo:t pri:nil tags:not-in-toc
@@ -102,14 +102,14 @@ $ ./phoros --server \
    helpful in recognising the selected feature there.
 
    Points selected in images are represented by large yellow circles.
-   
+
 ** Point into second image
    Zooming in and selecting the same feature in a second image
    triggers calculation of the estimated global position.  The
    estimated position is now shown as a cyan circle in all images and
    in the map.  Neither estimated position accuracy nor pointing
    precision are bounded by pixel size.
-   
+
 ** Improve accuracy
    Zooming in and pointing at the feature in some (or all) of the
    remaining images improves accuracy.
@@ -117,7 +117,7 @@ $ ./phoros --server \
 ** Store point
    Finishing this point means storing it in a dedicated user point
    table.
-   
+
 * Deployment
 ** Download
 
@@ -185,9 +185,29 @@ $ ./phoros --server \
      $ ./phoros --check-db --host=DB_HOST --user=DB_USER --password=SECRET --database=PHOROS_WORKSPACE_DB --aux-host=DB_HOST --aux-user=DB_USER --aux-password=SECRET --aux-database=PHOROS_WORKSPACE_DB
      $ ./phoros --create-sys-tables --host=DB_HOST --user=DB_USER --password=SECRET --database=PHOROS_WORKSPACE_DB
      #+END_SRC
-	  
+
    - Peruse the [[file:deployment.org][example scripts]] and the [[file:phoros--help.org][help message]] to learn about Phoros administration.
 
+   - Building fasttrack:
+     Install Debian package libmagickwand-dev
+     #+BEGIN_SRC sh
+     $ cd ~/quicklisp/local-projects
+     $ git clone git://github.com/TBRSS/lisp-magick-wand
+     #+END_SRC
+     In lisp-magick-wand/base.lisp change
+     #+BEGIN_SRC lisp
+     (:unix (:or "libMagickWand.so" "libWand.so.9" "libWand.so"))
+     #+END_SRC
+     into
+     #+BEGIN_SRC lisp
+     (:unix (:or "libMagickWand-6.Q16.so" "libMagickWand.so" "libWand.so.9" "libWand.so"))
+     #+END_SRC
+     #+BEGIN_SRC sh
+     $ make fasttrack
+     #+END_SRC
+
+   - For use with firefox from fasttrack, set in about:config
+     browser.link.open_newwindow.override.external to 1.
 * Licence
 
   PHOROS -- Photogrammetric Road Survey
@@ -224,7 +244,7 @@ $ ./phoros --server \
 
   - Without [[mailto:Steffen.Scheller.home@gmail.com][Steffen Scheller]]'s photogrammetric library [[http://github.com/trebb/phoml][PhoML]] Phoros's
     presentation server couldn't do much beyond displaying
-    geolocated images. 
+    geolocated images.
 
   - Once decoded, images are turned into something a web browser can
     handle by [[http://www.xach.com/lisp/zpng/][ZPNG]].
@@ -233,4 +253,3 @@ $ ./phoros --server \
 
   - [[http://www.openstreetmap.org][OpenStreetMap]] provides the map.  (Other map services can be used
     as well, though.)
-
