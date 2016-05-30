@@ -159,7 +159,7 @@ phoml.tar :
 
 .INTERMEDIATE : phoros-proper.tar phoml.tar
 
-bin-tarball : phoros TimeSteps.history README				\
+bin-tarball : phoros TimeSteps.history fasttrack README			\
           $(EXAMPLES_DIR)						\
 	  $(ETC_DIR)							\
           $(OPENLAYERS_DIR)						\
@@ -167,7 +167,7 @@ bin-tarball : phoros TimeSteps.history README				\
 	  $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf -							\
 		--transform='s,^,phoros_$(PHOROS_VERSION)/,'		\
-		phoros TimeSteps.history README				\
+		phoros TimeSteps.history fasttrack README		\
                 $(EXAMPLES_DIR)						\
 		$(ETC_DIR)						\
 		$(OPENLAYERS_DIR)					\
