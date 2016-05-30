@@ -29,5 +29,4 @@
   (:nicknames :ft)
   (:use :cl
         :phoros-photogrammetry
-        :postmodern
-        :cl-tk))
+        :postmodern))
