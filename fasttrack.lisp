@@ -952,22 +952,18 @@ section between vnk and nnk."
            (let ((selection-predecessor (ignore-errors (nth (1- selection-current) *road-section-selection*))))
              (when selection-predecessor
                (setf *road-section*
-                     (cons table (nth selection-predecessor sections))))
-             (print (list "Pre: sect select pred-select *road-section*" sections-current selection-current selection-predecessor *road-section*))))
+                     (cons table (nth selection-predecessor sections))))))
           ((and *road-section-selection* (eq direction :successor))
            (let* ((selection-successor (nth (1+ selection-current) *road-section-selection*)))
              (when selection-successor
                (setf *road-section*
-                     (cons table (nth selection-successor sections))))
-             (print (list "Suc: sect select succ-select *road-section*" sections-current selection-current selection-successor *road-section*))))
+                     (cons table (nth selection-successor sections))))))
           ((and *road-section-selection* (eq direction :last))
            (setf *road-section* (cons table
-                                      (nth (car (last *road-section-selection*)) sections)))
-           (print (list "Last: sect select *road-section*" sections-current selection-current *road-section*)))
+                                      (nth (car (last *road-section-selection*)) sections))))
           (*road-section-selection*
            (setf *road-section* (cons table
-                                      (nth (first *road-section-selection*) sections)))
-             (print (list "Manu: sect select *road-section*" sections-current selection-current *road-section*)))
+                                      (nth (first *road-section-selection*) sections))))
           (t
            (setf *road-section* nil)))))
 
@@ -1126,7 +1122,6 @@ current database."
                do
                  (when (data-style-chartp style-definition)
                    (ignore-errors
-                     (print (list "ROAD NETWORK GRAPH" style-definition))
                      (draw-graph #'road-network-chart-data "chart_road_network" (data-style-name style-definition) vnk nnk (data-style-color style-definition) (data-style-width style-definition) (data-style-dash style-definition))
                      (draw-scale scale-position #'road-network-chart-data "chart_road_network_scale" (data-style-name style-definition) vnk nnk (data-style-color style-definition) (data-style-width style-definition) (data-style-dash style-definition))
                      (incf scale-position *scale-distance*))))))
@@ -1137,13 +1132,11 @@ current database."
                do
                  (when (data-style-chartp style-definition)
                    (ignore-errors
-                     (print (list "ZEB GRAPH" style-definition))
                      (draw-graph #'zeb-chart-data "chart_zeb" (data-style-name style-definition) vnk nnk (data-style-color style-definition) (data-style-width style-definition) (data-style-dash style-definition))
                      (draw-scale scale-position #'zeb-chart-data "chart_zeb_scale" (data-style-name style-definition) vnk nnk (data-style-color style-definition) (data-style-width style-definition) (data-style-dash style-definition))
                      (incf scale-position *scale-distance*)))))))
       (pipeglade-out "chart_accidents" "remove" 2)
       (ignore-errors
-        (print "ACCIDENTS")
         (draw-accidents vnk nnk)))))
 
 (defun draw-graph (chart-data-function chart column vnk nnk color width dash)
@@ -1238,23 +1231,18 @@ current database."
            (zeroth-position -1)
            y1-position
            y2-position)
-      (print accidents)
       (dolist (accident accidents)
         (unless (= current-station (getf accident :nk-station))
           (setf y1-position (- *chart-height* zeroth-position))
           (setf y2-position zeroth-position)
           (setf y0-position (+ (/ *chart-height* 2) zeroth-position)))
         (setf current-station (getf accident :nk-station))
-        (print (list "accident" accident))
         (cond ((= 1 (getf accident :fahrtrichtung))
-               (draw-accident accident (decf y1-position 10))
-               (print (list "dir 1" accident)))
+               (draw-accident accident (decf y1-position 10)))
               ((= 2 (getf accident :fahrtrichtung))
-               (draw-accident accident (incf y2-position 10))
-               (print (list "dir 2" accident)))
+               (draw-accident accident (incf y2-position 10)))
               (t
-               (draw-accident accident (incf y0-position 10))
-               (print (list "no direction" y0-position current-station))))))))
+               (draw-accident accident (incf y0-position 10))))))))
 
 (defun draw-accident (accident y-position)
   "Put graphical representation of accident on chart."
