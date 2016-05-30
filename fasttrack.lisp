@@ -1399,7 +1399,7 @@ current database."
                                                                  (when image-data (namestring (download-image image-data))))))
                                            (if image-filename
                                                (pipeglade-out image-widget "set_from_file" image-filename)
-                                               (pipeglade-out image-widget "set_from_file" "public_html/phoros-logo-plain.png"))))))))
+                                               (pipeglade-out image-widget "set_from_file" "public_html/phoros-logo-background.png"))))))))
                 (if rear-view-p
                     (setf *rear-view-image-thread* thread)
                     (setf *front-view-image-thread* thread))))
@@ -1415,7 +1415,7 @@ current database."
               (pipeglade-out drawing-widget "rel_move_for" 2 "se" station)
               (pipeglade-out drawing-widget "show_text" 2 station)))
           (progn
-            (pipeglade-out image-widget "set_from_file" "public_html/phoros-logo-plain.png")
+            (pipeglade-out image-widget "set_from_file" "public_html/phoros-logo-background.png")
             (pipeglade-out time-widget "set_text")
             (pipeglade-out drawing-widget "remove" 2))))))
 
