@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012, 2016 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -410,6 +410,31 @@ current session."
       "Bye (again)."))
 
 (pushnew (hunchentoot:create-regex-dispatcher "/logout" 'logout-handler)
+         hunchentoot:*dispatch-table*)
+
+(hunchentoot:define-easy-handler set-cursor-handler (bbox longitude latitude)
+  (assert-authentication)
+  (with-connection *postgresql-credentials*
+    (let ((presentation-project-name
+	   (hunchentoot:session-value 'presentation-project-name))
+	  (sys-user-role
+	   (get-dao 'sys-user-role
+		    (hunchentoot:session-value 'user-id)
+		    (hunchentoot:session-value 'presentation-project-id))))
+      (when sys-user-role
+	(when bbox
+	  (setf (bounding-box sys-user-role) bbox))
+	(when (and longitude latitude)
+	  (let* ;; kludge: should be done by some library, not by DB query
+	      ((point-form (format nil "POINT(~F ~F)" longitude latitude))
+	       (point-wkb (query (:select
+				  (:st_geomfromtext point-form))
+				 :single)))
+	    (setf (cursor sys-user-role) point-wkb)))
+	(update-dao sys-user-role))))
+  "cursor set")
+
+(pushnew (hunchentoot:create-regex-dispatcher "/set-cursor" 'set-cursor-handler)
          hunchentoot:*dispatch-table*)
 
 (define-condition superseded () ()
