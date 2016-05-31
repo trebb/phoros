@@ -28,6 +28,7 @@ OPENLAYERS_JS = ol/OpenLayers.js
 OPENLAYERS_THEME = ol/theme
 OPENLAYERS_IMG = ol/img
 LOGO = public_html/phoros-logo-plain.png
+BUTTON_IMAGE = public_html/phoros-logo-button.png
 BACKGROUND_IMAGE = public_html/phoros-logo-background.png
 CURSOR_IMAGE = public_html/phoros-cursor.png
 FAVICON = public_html/favicon.ico
@@ -56,7 +57,7 @@ phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		--eval '(progn (pushnew :build-phoros *features*) (load "make.lisp"))'
 
 fasttrack : $(SOURCE) photogrammetry_lib \
-		$(BACKGROUND_IMAGE) $(LOGO) $(CURSOR_IMAGE)
+		$(BACKGROUND_IMAGE) $(LOGO) $(BUTTON_IMAGE)
 	CC=gcc \
 	$(LISP) --lose-on-corruption \
 		--disable-ldb \
@@ -101,6 +102,15 @@ $(LOGO) : Makefile public_html
 		-fill black \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
+		$@ 2>&1 | grep convert:
+$(BUTTON_IMAGE) : Makefile public_html
+	 ! convert \
+		-size 113x125 xc:transparent \
+		-font Gentium \
+		-fill black \
+		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
+		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
+		-resize 40% \
 		$@ 2>&1 | grep convert:
 
 $(BACKGROUND_IMAGE) : Makefile public_html

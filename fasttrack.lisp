@@ -244,7 +244,7 @@ followed by a digit. "
 (defun main ()
   (in-package #:phoros-fasttrack) ;for reading of cached #S(...) forms
   (cffi:use-foreign-library phoml)
-  (trivial-shell:shell-command "../pipeglade/pipeglade -i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log")
+  (uiop:run-program "../pipeglade/pipeglade -i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log")
   (loop until (and (probe-file "in.fifo") (probe-file "out.fifo")))
   (pipeglade-out "main" "set_title" "Phoros Fasttrack")
   (pipeglade-out "credentials" "set_title" "Phoros Fasttrack - Credentials")
@@ -298,6 +298,8 @@ followed by a digit. "
     (update-station (saved-station))
     (populate-chart-dialog)
     (refresh-chart)
+    (with-statusbar-message "starting browser"
+      (uiop:run-program (format nil "firefox '~A' &" *phoros-url*)))
     (loop
        for message = (read-line in nil)
        do
@@ -494,6 +496,8 @@ followed by a digit. "
            ((message-name= "phoros_password" message)
             (setf (second *phoros-credentials*) (message-data message))
             (save-phoros-credentials))
+           ((message-name= "phoros" message)
+            (run-phoros-browser))
            (t
             (print (list "fallen through:" message)))))))
 
@@ -1521,6 +1525,7 @@ name."
             (cl-utilities:split-sequence
              #\/ (puri:uri-path parsed-url) :remove-empty-subseqs t))))
 
+
 (defun cache-file-name (kind &rest args)
   "Return pathname for a cache file distinguishable by kind and args."
   (make-pathname :directory *cache-dir*
@@ -1613,6 +1618,24 @@ first."
     (declare (ignore stream must-close))
     (assert (= status-code 200) ()
             'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)))
+
+(defun run-phoros-browser ()
+  (when *road-section*
+    (with-statusbar-message "calling browser synchronously"
+      (destructuring-bind (table vnk nnk road-section-length)
+          *road-section*
+        (let ((current-coordinates (svref (all-stations table vnk nnk) (saved-station))))
+          (uiop:run-program (format nil "firefox '~A/lib/set-cursor?bbox=~F,~F,~F,~F&longitude=~F&latitude=~F'"
+                                    *phoros-url*
+                                    (- (coordinates-longitude current-coordinates) .02)
+                                    (- (coordinates-latitude current-coordinates) .01)
+                                    (+ (coordinates-longitude current-coordinates) .02)
+                                    (+ (coordinates-latitude current-coordinates) .01)
+                                    (coordinates-longitude current-coordinates)
+                                    (coordinates-latitude current-coordinates)
+                                    ))
+          (uiop:run-program (format nil "firefox '~A'" *phoros-url*)))))))
+
 
 (defun heading (azimuth rear-view-p)
   "Return as a string the one of east, west, north, south which best
