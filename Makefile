@@ -107,7 +107,7 @@ $(BUTTON_IMAGE) : Makefile public_html
 	 ! convert \
 		-size 113x125 xc:transparent \
 		-font Gentium \
-		-fill black \
+		-fill navy \
 		-pointsize 200 -gravity center -draw "text 3,3 'Φ'" \
 		-pointsize 57 -gravity center -draw "text 23,2 'Σ'" \
 		-resize 40% \
@@ -177,11 +177,12 @@ bin-tarball : phoros TimeSteps.history fasttrack README			\
 	  $(LIBPHOML_DIR)/$(LIBPHOML)
 	tar -cf -							\
 		--transform='s,^,phoros_$(PHOROS_VERSION)/,'		\
-		phoros TimeSteps.history fasttrack README		\
+		phoros TimeSteps.history fasttrack fasttrack.ui README	\
                 $(EXAMPLES_DIR)						\
 		$(ETC_DIR)						\
 		$(OPENLAYERS_DIR)					\
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
+		$(BUTTON_IMAGE)						\
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML)			\
 		| gzip -f						\
 		> phoros_$(PHOROS_VERSION)_$(MACHINE_TYPE).tar.gz
@@ -198,8 +199,9 @@ git-tag : phoros	    #tag name is :version string in phoros.asd
 clean :
 	rm -rf *.fasl *.log						\
 		phoros phoros*.tar.gz					\
-		fasttrack						\
+		fasttrack fasttrack.ui					\
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)	\
+		$(BUTTON_IMAGE)						\
 		$(PHOROS_HELP_OUTPUT)					\
                 $(INDEX_HTML) $(DEPLOYMENT_HTML)			\
                 $(PUBLIC_CSS)
