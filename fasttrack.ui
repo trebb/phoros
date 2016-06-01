@@ -40,6 +40,7 @@
   </object>
   <object class="GtkDialog" id="credentials">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Phoros Fasttrack -- Credentials</property>
     <property name="type_hint">dialog</property>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox1">
@@ -651,6 +652,7 @@
   <object class="GtkImage" id="image14">
     <property name="visible">True</property>
     <property name="can_focus">False</property>
+    <property name="tooltip_text" translatable="yes">view this point in Phoros</property>
     <property name="pixbuf">public_html/phoros-logo-button.png</property>
   </object>
   <object class="GtkImage" id="image2">
@@ -695,6 +697,105 @@
     <property name="pixel_size">20</property>
     <property name="icon_name">media-seek-forward</property>
   </object>
+  <object class="GtkDialog" id="info">
+    <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Phoros Fasttrack -- Info</property>
+    <property name="type_hint">dialog</property>
+    <child internal-child="vbox">
+      <object class="GtkBox" id="vbox1">
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">2</property>
+        <child internal-child="action_area">
+          <object class="GtkButtonBox" id="dialog-action_area4">
+            <property name="can_focus">False</property>
+            <property name="layout_style">end</property>
+            <child>
+              <object class="GtkButton" id="info_cancel">
+                <property name="label">gtk-close</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+                <property name="use_stock">True</property>
+                <property name="always_show_image">True</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">False</property>
+            <property name="position">0</property>
+          </packing>
+        </child>
+        <child>
+          <object class="GtkGrid" id="grid6">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <child>
+              <object class="GtkLabel" id="fasttrack1">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="hexpand">True</property>
+                <property name="label" translatable="yes">Phoros FASTTRACK</property>
+                <attributes>
+                  <attribute name="font-desc" value="URW Gothic L Book Oblique 12"/>
+                  <attribute name="foreground" value="#000000008080"/>
+                </attributes>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">0</property>
+              </packing>
+            </child>
+            <child>
+              <object class="GtkLabel" id="version">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+              </object>
+              <packing>
+                <property name="left_attach">1</property>
+                <property name="top_attach">1</property>
+              </packing>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+            <child>
+              <placeholder/>
+            </child>
+          </object>
+          <packing>
+            <property name="expand">False</property>
+            <property name="fill">True</property>
+            <property name="position">1</property>
+          </packing>
+        </child>
+      </object>
+    </child>
+  </object>
   <object class="GtkTreeStore" id="treestore1">
     <columns>
       <!-- column-name vnk -->
@@ -711,6 +812,7 @@
   </object>
   <object class="GtkDialog" id="road_section">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Phoros Fasttrack -- Choose Road Sections</property>
     <property name="type_hint">dialog</property>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox2">
@@ -895,6 +997,7 @@
   </object>
   <object class="GtkDialog" id="chart_configuration">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Phoros Fasttrack -- Chart Configuration</property>
     <property name="type_hint">dialog</property>
     <child internal-child="vbox">
       <object class="GtkBox" id="dialog-vbox3">
@@ -1329,6 +1432,7 @@
   </object>
   <object class="GtkWindow" id="main">
     <property name="can_focus">False</property>
+    <property name="title" translatable="yes">Phoros Fasttrack</property>
     <child>
       <object class="GtkBox" id="box1">
         <property name="visible">True</property>
@@ -1411,7 +1515,7 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
-                      <object class="GtkImageMenuItem" id="imagemenuitem10">
+                      <object class="GtkImageMenuItem" id="info_invoke">
                         <property name="label">gtk-about</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -1429,9 +1533,6 @@
             <property name="fill">True</property>
             <property name="position">0</property>
           </packing>
-        </child>
-        <child>
-          <placeholder/>
         </child>
         <child>
           <object class="GtkGrid" id="grid4">
@@ -1826,7 +1927,7 @@ chart to display</property>
                     </child>
                   </object>
                   <packing>
-                    <property name="left_attach">13</property>
+                    <property name="left_attach">14</property>
                     <property name="top_attach">0</property>
                     <property name="height">2</property>
                   </packing>
@@ -1911,7 +2012,7 @@ chart to display</property>
                     <property name="draw_indicator">True</property>
                   </object>
                   <packing>
-                    <property name="left_attach">15</property>
+                    <property name="left_attach">16</property>
                     <property name="top_attach">1</property>
                   </packing>
                 </child>
@@ -1926,7 +2027,7 @@ chart to display</property>
                     </attributes>
                   </object>
                   <packing>
-                    <property name="left_attach">15</property>
+                    <property name="left_attach">16</property>
                     <property name="top_attach">0</property>
                   </packing>
                 </child>
@@ -1952,18 +2053,7 @@ chart to display</property>
                     <property name="hexpand">True</property>
                   </object>
                   <packing>
-                    <property name="left_attach">14</property>
-                    <property name="top_attach">0</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkLabel" id="label26">
-                    <property name="visible">True</property>
-                    <property name="can_focus">False</property>
-                    <property name="hexpand">True</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">1</property>
+                    <property name="left_attach">15</property>
                     <property name="top_attach">0</property>
                   </packing>
                 </child>
@@ -1974,7 +2064,7 @@ chart to display</property>
                     <property name="hexpand">True</property>
                   </object>
                   <packing>
-                    <property name="left_attach">12</property>
+                    <property name="left_attach">13</property>
                     <property name="top_attach">0</property>
                   </packing>
                 </child>
@@ -1987,24 +2077,40 @@ chart to display</property>
                     <property name="always_show_image">True</property>
                   </object>
                   <packing>
-                    <property name="left_attach">2</property>
+                    <property name="left_attach">3</property>
                     <property name="top_attach">0</property>
                     <property name="height">2</property>
                   </packing>
                 </child>
                 <child>
-                  <object class="GtkLabel" id="label28">
+                  <object class="GtkLabel" id="fasttrack">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="opacity">0.5</property>
+                    <property name="hexpand">True</property>
+                    <property name="label" translatable="yes">Phoros FASTTRACK</property>
+                    <attributes>
+                      <attribute name="font-desc" value="URW Gothic L Book Oblique 16"/>
+                      <attribute name="foreground" value="#000000008080"/>
+                    </attributes>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">0</property>
+                    <property name="width">2</property>
+                    <property name="height">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="label26">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="hexpand">True</property>
                   </object>
                   <packing>
-                    <property name="left_attach">3</property>
+                    <property name="left_attach">12</property>
                     <property name="top_attach">0</property>
                   </packing>
-                </child>
-                <child>
-                  <placeholder/>
                 </child>
                 <child>
                   <placeholder/>
@@ -2018,7 +2124,7 @@ chart to display</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
-                <property name="top_attach">2</property>
+                <property name="top_attach">1</property>
                 <property name="width">2</property>
               </packing>
             </child>
@@ -2080,15 +2186,9 @@ PgUp, PgDown</property>
               </object>
               <packing>
                 <property name="left_attach">0</property>
-                <property name="top_attach">3</property>
+                <property name="top_attach">2</property>
                 <property name="width">3</property>
               </packing>
-            </child>
-            <child>
-              <placeholder/>
-            </child>
-            <child>
-              <placeholder/>
             </child>
           </object>
           <packing>
@@ -2096,9 +2196,6 @@ PgUp, PgDown</property>
             <property name="fill">True</property>
             <property name="position">2</property>
           </packing>
-        </child>
-        <child>
-          <placeholder/>
         </child>
         <child>
           <object class="GtkOverlay" id="overlay1">
@@ -2180,9 +2277,6 @@ PgUp, PgDown</property>
           </packing>
         </child>
         <child>
-          <placeholder/>
-        </child>
-        <child>
           <object class="GtkStatusbar" id="statusbar">
             <property name="visible">True</property>
             <property name="can_focus">False</property>
@@ -2200,12 +2294,6 @@ PgUp, PgDown</property>
             <property name="fill">True</property>
             <property name="position">6</property>
           </packing>
-        </child>
-        <child>
-          <placeholder/>
-        </child>
-        <child>
-          <placeholder/>
         </child>
       </object>
     </child>

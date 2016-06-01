@@ -18,9 +18,10 @@
 
 (in-package #:phoros-fasttrack)
 
-;;; Debug helpers.  TODO: remove them.
-(defparameter *t* nil)
-(defparameter *tt* nil)
+(defparameter *phoros-version*
+  (asdf:component-version (asdf:find-system :phoros))
+  "Phoros version as defined in system definition.")
+(print *phoros-version*)
 
 (cffi:define-foreign-library phoml
   (:unix (:or "./libphoml.so"
@@ -245,11 +246,6 @@ followed by a digit. "
   (in-package #:phoros-fasttrack) ;for reading of cached #S(...) forms
   (cffi:use-foreign-library phoml)
   (uiop:run-program "../pipeglade/pipeglade -i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log")
-  (loop until (and (probe-file "in.fifo") (probe-file "out.fifo")))
-  (pipeglade-out "main" "set_title" "Phoros Fasttrack")
-  (pipeglade-out "credentials" "set_title" "Phoros Fasttrack - Credentials")
-  (pipeglade-out "road_section" "set_title" "Phoros Fasttrack - Choose Road Section")
-  (pipeglade-out "chart_configuration" "set_title" "Phoros Fasttrack - Chart Configuration")
   (restore-road-network-credentials)
   (restore-zeb-credentials)
   (restore-accidents-credentials)
@@ -284,6 +280,7 @@ followed by a digit. "
   (pipeglade-out "draw_frontview" "set_line_cap" 1 "round")
   (pipeglade-out "draw_frontview" "set_line_width" 1 2)
   (pipeglade-out "draw_frontview" "set_font_size" 1 10)
+  (pipeglade-out "version" "set_text" "version" *phoros-version*)
   (with-open-file (in *pipeglade-in-fifo*
                       :direction :input
                       :if-does-not-exist :error)
