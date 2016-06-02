@@ -111,10 +111,10 @@
 
 (defvar *cache-dir* '(:relative "cache"))
 
-(defparameter *image-size* '(800 750)
+(defparameter *image-size* '(800 700)
   "Image size in pixels in a list (width height).")
 
-(defparameter *chart-height* 200
+(defparameter *chart-height* 155
   "Height of chart in pixels.")
 
 (defparameter *chart-fringe* 20

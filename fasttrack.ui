@@ -1445,10 +1445,6 @@
       <object class="GtkBox" id="box1">
         <property name="visible">True</property>
         <property name="can_focus">False</property>
-        <property name="margin_left">2</property>
-        <property name="margin_right">2</property>
-        <property name="margin_top">2</property>
-        <property name="margin_bottom">2</property>
         <property name="orientation">vertical</property>
         <child>
           <object class="GtkMenuBar" id="menubar1">
@@ -1554,7 +1550,7 @@
                 <child>
                   <object class="GtkImage" id="img_rearview">
                     <property name="width_request">800</property>
-                    <property name="height_request">750</property>
+                    <property name="height_request">700</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="margin_left">2</property>
@@ -1590,7 +1586,7 @@
                 <child>
                   <object class="GtkImage" id="img_frontview">
                     <property name="width_request">800</property>
-                    <property name="height_request">750</property>
+                    <property name="height_request">700</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="margin_left">2</property>
@@ -2173,8 +2169,6 @@ chart to display</property>
                     <property name="tooltip_text" translatable="yes">station;
 try Left, Right,
 PgUp, PgDown</property>
-                    <property name="margin_top">2</property>
-                    <property name="margin_bottom">2</property>
                     <property name="adjustment">adjustment4</property>
                     <property name="restrict_to_fill_level">False</property>
                     <property name="fill_level">0</property>
@@ -2237,7 +2231,7 @@ PgUp, PgDown</property>
                     <child>
                       <object class="GtkOverlay" id="ovl_chart">
                         <property name="width_request">2000</property>
-                        <property name="height_request">220</property>
+                        <property name="height_request">175</property>
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <child>
