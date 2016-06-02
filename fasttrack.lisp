@@ -21,7 +21,6 @@
 (defparameter *phoros-version*
   (asdf:component-version (asdf:find-system :phoros))
   "Phoros version as defined in system definition.")
-(print *phoros-version*)
 
 (cffi:define-foreign-library phoml
   (:unix (:or "./libphoml.so"
@@ -54,7 +53,7 @@
   "Accidents rendering parameters.")
 
 (defvar *postgresql-accidents-credentials* (make-db-credentials)
-  "A list: (database user password host &key (port 5432) use-ssl).")
+  "A list: (database user password host &key :port 5432 :use-ssl ssl-p.")
 
 (defvar *road-section* nil
   "If there is a chart, we store a list of its parameters (table vnk
@@ -110,8 +109,7 @@
 (defvar *phoros-credentials* '("user" "password")
   "List of (user password) used for login at *phoros-url*.")
 
-(defvar *cache-dir* '(:absolute "home" "bertb" "phoros" "cache"))
-;; TODO: invent cache validity checks
+(defvar *cache-dir* '(:relative "cache"))
 
 (defparameter *image-size* '(800 750)
   "Image size in pixels in a list (width height).")
@@ -200,8 +198,6 @@ followed by a digit. "
           ,@body)
      (pipeglade-out ,spinner "stop")))
 
-
-
 (defmacro defun-cached (name (&rest args) &body body &aux (doc ""))
   "Define a function whose return value must be readibly printable, is
   being read from a chache if possible, and is being cached if
@@ -242,10 +238,17 @@ followed by a digit. "
          ;; original Phoros image data slots
          ,@(mapcar #'ensure-hyphen-before-digit *aggregate-view-columns*)))
 
+(defun start-pipeglade ()
+  (let ((pipeglade-args "-i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log"))
+    (loop
+       for i in '("./pipeglade" "~/pipeglade/pipeglade" "pipeglade")
+       until (probe-file i)
+       finally (uiop:run-program (format nil "~A ~A" i pipeglade-args)))))
+  
 (defun main ()
   (in-package #:phoros-fasttrack) ;for reading of cached #S(...) forms
   (cffi:use-foreign-library phoml)
-  (uiop:run-program "../pipeglade/pipeglade -i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log")
+  (start-pipeglade)
   (restore-road-network-credentials)
   (restore-zeb-credentials)
   (restore-accidents-credentials)
@@ -552,21 +555,22 @@ followed by a digit. "
             (third data)))))
 
 (defun digest-road-section-raw-data ()
-  (let ((sections (sections (make-symbol (db-credentials-table *postgresql-road-network-credentials*)))))
-    (maphash (lambda (key value)
-               (if value
-                   (pushnew key *road-section-selection*)
-                   (setf *road-section-selection* (remove key *road-section-selection*))))
-             *road-section-raw-data*)
-    (setf *road-section-selection* (sort *road-section-selection* #'<))
-    (save-road-section-selection)
-    (set-road-section)
-    (save-road-section)
+  (when *postgresql-road-network-credentials*
+    (let ((sections (sections (make-symbol (db-credentials-table *postgresql-road-network-credentials*)))))
+      (maphash (lambda (key value)
+                 (if value
+                     (pushnew key *road-section-selection*)
+                     (setf *road-section-selection* (remove key *road-section-selection*))))
+               *road-section-raw-data*)
+      (setf *road-section-selection* (sort *road-section-selection* #'<))
+      (save-road-section-selection)
+      (set-road-section)
+      (save-road-section)
     
-    (when (update-station)        ;new section
-      (restore-road-section-image-counts)
-      (prepare-chart))
-    (clrhash *road-section-raw-data*)))
+      (when (update-station)            ;new section
+        (restore-road-section-image-counts)
+        (prepare-chart))
+      (clrhash *road-section-raw-data*))))
 
 (defstruct (data-style (:type list)) chartp drawablep textp name color width dash)
 
@@ -805,11 +809,12 @@ section between vnk and nnk."
     (pipeglade-out "accidents_user" "set_text" (db-credentials-user *postgresql-accidents-credentials*))
     (pipeglade-out "accidents_password" "set_text" (db-credentials-password *postgresql-accidents-credentials*))
     (pipeglade-out "accidents_status" "set_text" "?")
-    (destructuring-bind (user password) *phoros-credentials*
-      (pipeglade-out "phoros_url" "set_text" *phoros-url*)
-      (pipeglade-out "phoros_user" "set_text" user)
-      (pipeglade-out "phoros_password" "set_text" password)
-      (pipeglade-out "phoros_status" "set_text" "?"))))
+    (when *phoros-credentials*
+      (destructuring-bind (user password) *phoros-credentials*
+        (pipeglade-out "phoros_url" "set_text" *phoros-url*)
+        (pipeglade-out "phoros_user" "set_text" user)
+        (pipeglade-out "phoros_password" "set_text" password)
+        (pipeglade-out "phoros_status" "set_text" "?")))))
 
 (defun check-credentials-dialog-statuses ()
   (with-statusbar-message "checking road network db connection"
@@ -819,7 +824,9 @@ section between vnk and nnk."
   (with-statusbar-message "checking accidents db connection"
     (pipeglade-out "accidents_status" "set_text" (check-db *postgresql-accidents-credentials*)))
   (with-statusbar-message "checking Phoros connection"
-    (pipeglade-out "phoros_status" "set_text" (apply #'check-phoros *phoros-url* *phoros-credentials*))))
+    (pipeglade-out "phoros_status" "set_text" (and *phoros-url*
+                                                   *phoros-credentials*
+                                                   (apply #'check-phoros *phoros-url* *phoros-credentials*)))))
 
 (defun save-place (place filename-stump)
   "Save place into a file whose name is based on symbol filename-stump."
@@ -884,29 +891,29 @@ section between vnk and nnk."
   (save-place *postgresql-road-network-credentials* 'road-network-credentials))
 
 (defun restore-road-network-credentials ()
-  (restore-place *postgresql-road-network-credentials* 'road-network-credentials))
+  (restore-place *postgresql-road-network-credentials* 'road-network-credentials *postgresql-road-network-credentials*))
 
 (defun save-zeb-credentials (modifiedp)
   (setf (db-credentials-modifiedp *postgresql-zeb-credentials*) modifiedp)
   (save-place *postgresql-zeb-credentials* 'zeb-credentials))
 
 (defun restore-zeb-credentials ()
-  (restore-place *postgresql-zeb-credentials* 'zeb-credentials))
+  (restore-place *postgresql-zeb-credentials* 'zeb-credentials *postgresql-zeb-credentials*))
 
 (defun save-accidents-credentials (modifiedp)
   (setf (db-credentials-modifiedp *postgresql-accidents-credentials*) modifiedp)
   (save-place *postgresql-accidents-credentials* 'accidents-credentials))
 
 (defun restore-accidents-credentials ()
-  (restore-place *postgresql-accidents-credentials* 'accidents-credentials))
+  (restore-place *postgresql-accidents-credentials* 'accidents-credentials *postgresql-accidents-credentials*))
 
 (defun save-phoros-credentials ()
   (save-place *phoros-credentials* 'phoros-credentials)
   (save-place *phoros-url* 'phoros-url))
 
 (defun restore-phoros-credentials ()
-  (restore-place *phoros-credentials* 'phoros-credentials)
-  (restore-place *phoros-url* 'phoros-url))
+  (restore-place *phoros-credentials* 'phoros-credentials *phoros-credentials*)
+  (restore-place *phoros-url* 'phoros-url *phoros-url*))
 
 (defun save-road-section ()
   "Save road-section into cache directory."
@@ -945,28 +952,29 @@ section between vnk and nnk."
     (restore-place *accidents-chart-configuration* 'accidents-chart-configuration (list "1" "1999" "2030"))))
 
 (defun set-road-section (&key direction)
-  (let* ((table (make-symbol (db-credentials-table *postgresql-road-network-credentials*)))
-         (sections (sections table))
-         (sections-current (position (cdr *road-section*) sections :test #'equal))
-         (selection-current (position sections-current *road-section-selection*)))
-    (cond ((and *road-section-selection* (eq direction :predecessor))
-           (let ((selection-predecessor (ignore-errors (nth (1- selection-current) *road-section-selection*))))
-             (when selection-predecessor
-               (setf *road-section*
-                     (cons table (nth selection-predecessor sections))))))
-          ((and *road-section-selection* (eq direction :successor))
-           (let* ((selection-successor (nth (1+ selection-current) *road-section-selection*)))
-             (when selection-successor
-               (setf *road-section*
-                     (cons table (nth selection-successor sections))))))
-          ((and *road-section-selection* (eq direction :last))
-           (setf *road-section* (cons table
-                                      (nth (car (last *road-section-selection*)) sections))))
-          (*road-section-selection*
-           (setf *road-section* (cons table
-                                      (nth (first *road-section-selection*) sections))))
-          (t
-           (setf *road-section* nil)))))
+  (ignore-errors
+    (let* ((table (make-symbol (db-credentials-table *postgresql-road-network-credentials*)))
+           (sections (sections table))
+           (sections-current (position (cdr *road-section*) sections :test #'equal))
+           (selection-current (position sections-current *road-section-selection*)))
+      (cond ((and *road-section-selection* (eq direction :predecessor))
+             (let ((selection-predecessor (ignore-errors (nth (1- selection-current) *road-section-selection*))))
+               (when selection-predecessor
+                 (setf *road-section*
+                       (cons table (nth selection-predecessor sections))))))
+            ((and *road-section-selection* (eq direction :successor))
+             (let* ((selection-successor (nth (1+ selection-current) *road-section-selection*)))
+               (when selection-successor
+                 (setf *road-section*
+                       (cons table (nth selection-successor sections))))))
+            ((and *road-section-selection* (eq direction :last))
+             (setf *road-section* (cons table
+                                        (nth (car (last *road-section-selection*)) sections))))
+            (*road-section-selection*
+             (setf *road-section* (cons table
+                                        (nth (first *road-section-selection*) sections))))
+            (t
+             (setf *road-section* nil))))))
 
 (let (old-road-section)
   (defun update-station (&optional station)
@@ -1317,12 +1325,12 @@ current database."
                        (ignore-errors (put-image :vnk vnk :nnk nnk :station station :step 10 :rear-view-p t))
                        (progn
                          (pipeglade-out "draw_rearview" "remove" 2)
-                         (pipeglade-out "img_rearview" "set_from_file")))
+                         (pipeglade-out "img_rearview" "set_from_file" "public_html/phoros-logo-background.png")))
                    (if *show-front-view-p*
                        (ignore-errors (put-image :vnk vnk :nnk nnk :station station :step 10 :rear-view-p nil))
                        (progn
                          (pipeglade-out "draw_frontview" "remove" 2)
-                         (pipeglade-out "img_frontview" "set_from_file")))
+                         (pipeglade-out "img_frontview" "set_from_file" "public_html/phoros-logo-background.png")))
                    (put-text-values vnk nnk station)))))
         (when synchronous
           (bt:join-thread *jump-to-station-thread*)
@@ -1443,7 +1451,7 @@ but scaled to fit into *image-size*."
 current database."
   (ignore-errors
     (query (:order-by (:select 'vnk 'nnk (:max 'nk-station)
-                               :from (db-credentials-table *postgresql-road-section-credentials*)
+                               :from (intern (db-credentials-table *postgresql-road-network-credentials*))
                                :where (:and (:not-null 'vnk) (:not-null 'nnk))
                                :group-by 'vnk 'nnk)
                       'vnk 'nnk))))
