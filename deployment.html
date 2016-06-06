@@ -1,0 +1,508 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>Phoros</title>
+<!-- 2016-06-06 Mo 11:58 -->
+<meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta  name="generator" content="Org-mode" />
+<meta  name="author" content="Bert Burgemeister" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { color: green; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  pre.src-sh:before    { content: 'sh'; }
+  pre.src-bash:before  { content: 'sh'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-R:before     { content: 'R'; }
+  pre.src-perl:before  { content: 'Perl'; }
+  pre.src-java:before  { content: 'Java'; }
+  pre.src-sql:before   { content: 'SQL'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.right  { text-align: center;  }
+  th.left   { text-align: center;   }
+  th.center { text-align: center; }
+  td.right  { text-align: right;  }
+  td.left   { text-align: left;   }
+  td.center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara:nth-child(2) { display: inline; }
+  .footpara { display: block; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  /*]]>*/-->
+</style>
+<link rel="stylesheet" href="style.css" type="text/css"/>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2013 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Phoros</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#sec-1">Example: Create a new Phoros project from scratch</a></li>
+<li><a href="#sec-2">Example: Add to an existing Phoros project</a></li>
+<li><a href="#sec-3">Example: Run the Phoros server</a></li>
+</ul>
+</div>
+</div>
+
+<div class="figure">
+<p><img src="phoros-logo-plain.png" alt="phoros-logo-plain.png" />
+</p>
+</div>
+
+<p>
+A Tool for Photogrammetric Road Survey
+</p>
+
+<div id="outline-container-sec-1" class="outline-2">
+<h2 id="sec-1">Example: Create a new Phoros project from scratch</h2>
+<div class="outline-text-2" id="text-1">
+<div class="org-src-container">
+
+<pre class="src src-shell-script"><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">! /bin/</span><span style="font-weight: bold;">bash</span>
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_HOST</span>=my_db_server
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_DATABASE</span>=phoros_workspace
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_USER</span>=some_db_user
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_PASSWORD</span>=wonttell
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_HOST</span>=my_db_server
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_DATABASE</span>=phoros_aux
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_USER</span>=some_db_user
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_PASSWORD</span>=wonttell
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_COMMON_ROOT</span>=/path/to/all/projects/
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_LOG_DIR</span>=preparation.log/
+
+<span style="font-weight: bold;">cd</span> ../                          <span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">where the phoros binary lives</span>
+
+./phoros --get-user-points=my_presentation_project      <span style="font-style: italic;">\</span>
+         --json-file=backed-up-user-points.json
+
+./phoros --nuke-all-tables
+
+./phoros --create-sys-tables
+
+./phoros --create-acquisition-project=this_acquisition_project
+
+./examples/calibration-storage.sh
+
+./phoros --create-presentation-project=my_presentation_project
+
+./phoros --create-user=ahr                              <span style="font-style: italic;">\</span>
+         --user-password=<span style="font-style: italic;">"ahr"</span>                          <span style="font-style: italic;">\</span>
+         --user-full-name=<span style="font-style: italic;">"Andreas Heine"</span>               <span style="font-style: italic;">\</span>
+         --user-role=read                               <span style="font-style: italic;">\</span>
+         --presentation-project=my_presentation_project
+
+./phoros --create-user=tl                               <span style="font-style: italic;">\</span>
+         --user-password=<span style="font-style: italic;">"tl"</span>                           <span style="font-style: italic;">\</span>
+         --user-full-name=<span style="font-style: italic;">"Thomas Lehmann"</span>              <span style="font-style: italic;">\</span>
+         --user-role=write                              <span style="font-style: italic;">\</span>
+         --presentation-project=my_presentation_project
+
+./phoros --create-user=bb                               <span style="font-style: italic;">\</span>
+         --user-password=<span style="font-style: italic;">"bb"</span>                           <span style="font-style: italic;">\</span>
+         --user-full-name=<span style="font-style: italic;">"Bert Burgemeister"</span>           <span style="font-style: italic;">\</span>
+         --user-role=admin                              <span style="font-style: italic;">\</span>
+         --presentation-project=my_presentation_project
+
+./phoros --store-user-points=my_presentation_project    <span style="font-style: italic;">\</span>
+         --json-file=backed-up-user-points.json
+
+./phoros --redefine-trigger-function=my_presentation_project    <span style="font-style: italic;">\</span>
+         --plpgsql-body=trigger-example.sql
+
+./phoros --create-aux-view=my_presentation_project      <span style="font-style: italic;">\</span>
+         --aux-table=some_foreign_table                 <span style="font-style: italic;">\</span>
+         --coordinates-column=the_geom                  <span style="font-style: italic;">\</span>
+         --numeric-column=nk_station                    <span style="font-style: italic;">\</span>
+         --text-column=vnk                              <span style="font-style: italic;">\</span>
+         --text-column=nnk                              <span style="font-style: italic;">\</span>
+         --text-column=strasse
+
+./phoros --create-image-attribute=my_presentation_project                       <span style="font-style: italic;">\</span>
+         --tag=<span style="font-style: italic;">"front cams only"</span>                                                <span style="font-style: italic;">\</span>
+         --sql-clause=<span style="font-style: italic;">"recorded_device_id = '21' OR recorded_device_id = '22'"</span>
+
+./phoros --create-image-attribute=my_presentation_project                                               <span style="font-style: italic;">\</span>
+         --tag=<span style="font-style: italic;">"within 10 minutes"</span>                                                                      <span style="font-style: italic;">\</span>
+         --sql-clause=<span style="font-style: italic;">"trigger_time BETWEEN (first_trigger_time - 300) AND (first_trigger_time + 300)"</span>
+
+<span style="font-weight: bold;">for</span> i<span style="font-weight: bold;"> in</span> /path/to/all/projects/one_project/*;
+<span style="font-weight: bold;">do</span>
+    ./phoros --store-images-and-points=this_acquisition_project <span style="font-style: italic;">\</span>
+             --directory=$<span style="font-weight: bold; font-style: italic;">i</span>/
+
+    ./phoros --add-to-presentation-project=my_presentation_project      <span style="font-style: italic;">\</span>
+             --acquisition-project=this_acquisition_project
+<span style="font-weight: bold;">done</span>
+
+./phoros --insert-footprints=this_acquisition_project
+</pre>
+</div>
+
+<p>
+It may be recommendable to use a dedicated script (called
+calibration-storage.sh in the above script) to maintain a database of
+your calibration data:
+</p>
+
+<div class="org-src-container">
+
+<pre class="src src-shell-script"><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">! /bin/</span><span style="font-weight: bold;">bash</span>
+
+<span style="font-weight: bold; font-style: italic;">CAMERA_HARDWARE_ID</span>=<span style="font-weight: bold;">`./phoros --store-camera-hardware            \</span>
+<span style="font-weight: bold;">    --sensor-width-pix=1700                                     \</span>
+<span style="font-weight: bold;">    --sensor-height-pix=1500                                    \</span>
+<span style="font-weight: bold;">    --pix-size=0.007397                                         \</span>
+<span style="font-weight: bold;">    --channels=3                                                \</span>
+<span style="font-weight: bold;">    --pix-depth=255                                             \</span>
+<span style="font-weight: bold;">    --color-raiser=1.2,1,1                                      \</span>
+<span style="font-weight: bold;">    --bayer-pattern=#00ff00,#ff0000                             \</span>
+<span style="font-weight: bold;">    --serial-number='bogus-pulnix-front-left'                   \</span>
+<span style="font-weight: bold;">    --description='JAI TMC4200 (Position: front left)'`</span> 
+
+<span style="font-weight: bold; font-style: italic;">LENS_ID</span>=<span style="font-weight: bold;">`./phoros --store-lens                                          \</span>
+<span style="font-weight: bold;">    --c=10                                                              \</span>
+<span style="font-weight: bold;">    --serial-number='bogus-skr-cinegon-10-front-left'                   \</span>
+<span style="font-weight: bold;">    --description='Schneider Kreuznach SKR KMP CINEGON 10/1,9-M62,0'`</span>
+
+<span style="font-weight: bold; font-style: italic;">GENERIC_DEVICE_ID</span>=<span style="font-weight: bold;">`./phoros --store-generic-device      \</span>
+<span style="font-weight: bold;">    --camera-hardware-id=$CAMERA_HARDWARE_ID            \</span>
+<span style="font-weight: bold;">    --lens-id=$LENS_ID`</span>
+
+<span style="font-weight: bold; font-style: italic;">DEVICE_STAGE_OF_LIFE_ID</span>=<span style="font-weight: bold;">`./phoros --store-device-stage-of-life  \</span>
+<span style="font-weight: bold;">    --recorded-device-id=21                                     \</span>
+<span style="font-weight: bold;">    --event-number=1                                            \</span>
+<span style="font-weight: bold;">    --generic-device-id=$GENERIC_DEVICE_ID                      \</span>
+<span style="font-weight: bold;">    --vehicle-name='UNO'                                        \</span>
+<span style="font-weight: bold;">    --casing-name='front left'                                  \</span>
+<span style="font-weight: bold;">    --computer-name=''                                          \</span>
+<span style="font-weight: bold;">    --computer-interface-name=''                                \</span>
+<span style="font-weight: bold;">    --mounting-date=2009-04-01`</span>
+
+./phoros --store-device-stage-of-life-end               <span style="font-style: italic;">\</span>
+    --device-stage-of-life-id=$<span style="font-weight: bold; font-style: italic;">DEVICE_STAGE_OF_LIFE_ID</span>  <span style="font-style: italic;">\</span>
+    --unmounting-date=2010-01-01
+
+./phoros --store-camera-calibration                     <span style="font-style: italic;">\</span>
+    --device-stage-of-life-id=$<span style="font-weight: bold; font-style: italic;">DEVICE_STAGE_OF_LIFE_ID</span>  <span style="font-style: italic;">\</span>
+    --date=2009-05-25                                   <span style="font-style: italic;">\</span>
+    --person=Scheller                                   <span style="font-style: italic;">\</span>
+    --main-description <span style="font-style: italic;">''</span>                               <span style="font-style: italic;">\</span>
+    --debug=no                                          <span style="font-style: italic;">\</span>
+    --usable=yes                                        <span style="font-style: italic;">\</span>
+    --photogrammetry-version=0                          <span style="font-style: italic;">\</span>
+    --mounting-angle=0                                  <span style="font-style: italic;">\</span>
+    --inner-orientation-description=<span style="font-style: italic;">'calibration field'</span> <span style="font-style: italic;">\</span>
+    --c=-10.18083                                       <span style="font-style: italic;">\</span>
+    --xh=-0.08149                                       <span style="font-style: italic;">\</span>
+    --yh=0.19289                                        <span style="font-style: italic;">\</span>
+    --a1=-9.13833e-004                                  <span style="font-style: italic;">\</span>
+    --a2=1.04652e-005                                   <span style="font-style: italic;">\</span>
+    --a3=0                                              <span style="font-style: italic;">\</span>
+    --b1=-5.35737e-005                                  <span style="font-style: italic;">\</span>
+    --b2=9.49128e-005                                   <span style="font-style: italic;">\</span>
+    --c1=-1.33724e-004                                  <span style="font-style: italic;">\</span>
+    --c2=2.11705e-004                                   <span style="font-style: italic;">\</span>
+    --r0=4.715882                                       <span style="font-style: italic;">\</span>
+    --outer-orientation-description=<span style="font-style: italic;">''</span>                  <span style="font-style: italic;">\</span>
+    --dx=0                                              <span style="font-style: italic;">\</span>
+    --dy=0                                              <span style="font-style: italic;">\</span>
+    --dz=0                                              <span style="font-style: italic;">\</span>
+    --omega=0                                           <span style="font-style: italic;">\</span>
+    --phi=0                                             <span style="font-style: italic;">\</span>
+    --kappa=0                                           <span style="font-style: italic;">\</span>
+    --boresight-description=<span style="font-style: italic;">''</span>                          <span style="font-style: italic;">\</span>
+    --b-dx=-1.458119959                                 <span style="font-style: italic;">\</span>
+    --b-dy=1.72479135                                   <span style="font-style: italic;">\</span>
+    --b-dz=1.912406042                                  <span style="font-style: italic;">\</span>
+    --b-ddx=0                                           <span style="font-style: italic;">\</span>
+    --b-ddy=0                                           <span style="font-style: italic;">\</span>
+    --b-ddz=0                                           <span style="font-style: italic;">\</span>
+    --b-rotx=-1.390264206                               <span style="font-style: italic;">\</span>
+    --b-roty=0.0138192676                               <span style="font-style: italic;">\</span>
+    --b-rotz=0.1022317722                               <span style="font-style: italic;">\</span>
+    --b-drotx=0                                         <span style="font-style: italic;">\</span>
+    --b-droty=0                                         <span style="font-style: italic;">\</span>
+    --b-drotz=0                                         <span style="font-style: italic;">\</span>
+    --nx=-0.00278                                       <span style="font-style: italic;">\</span>
+    --ny=0.02638                                        <span style="font-style: italic;">\</span>
+    --nz=-0.99965                                       <span style="font-style: italic;">\</span>
+    --d=0.20855
+
+<span style="font-weight: bold; font-style: italic;">######################################################################</span>
+
+<span style="font-weight: bold; font-style: italic;">CAMERA_HARDWARE_ID</span>=<span style="font-weight: bold;">`./phoros --store-camera-hardware    \</span>
+<span style="font-weight: bold;">    --sensor-width-pix=1700                             \</span>
+<span style="font-weight: bold;">    --sensor-height-pix=1500                            \</span>
+<span style="font-weight: bold;">    --pix-size=0.0074                                   \</span>
+<span style="font-weight: bold;">    --channels=3                                        \</span>
+<span style="font-weight: bold;">    --pix-depth=255                                     \</span>
+<span style="font-weight: bold;">    --color-raiser=1.2,1,1                              \</span>
+<span style="font-weight: bold;">    --bayer-pattern=#00ff00,#ff0000                     \</span>
+<span style="font-weight: bold;">    --serial-number='bogus-pulnix-front-left'           \</span>
+<span style="font-weight: bold;">    --description='JAI TMC4200 (Position: front left)'`</span>
+
+<span style="font-weight: bold; font-style: italic;">LENS_ID</span>=<span style="font-weight: bold;">`./phoros --store-lens                                          \</span>
+<span style="font-weight: bold;">    --c=10                                                              \</span>
+<span style="font-weight: bold;">    --serial-number='bogus-skr-cinegon-10-front-left'                   \</span>
+<span style="font-weight: bold;">    --description='Schneider Kreuznach SKR KMP CINEGON 10/1,9-M62,0'`</span>
+
+<span style="font-weight: bold; font-style: italic;">GENERIC_DEVICE_ID</span>=<span style="font-weight: bold;">`./phoros --store-generic-device      \</span>
+<span style="font-weight: bold;">    --camera-hardware-id=$CAMERA_HARDWARE_ID            \</span>
+<span style="font-weight: bold;">    --lens-id=$LENS_ID`</span>
+
+<span style="font-weight: bold; font-style: italic;">DEVICE_STAGE_OF_LIFE_ID</span>=<span style="font-weight: bold;">`./phoros --store-device-stage-of-life  \</span>
+<span style="font-weight: bold;">    --recorded-device-id=21                                     \</span>
+<span style="font-weight: bold;">    --event-number=1                                            \</span>
+<span style="font-weight: bold;">    --generic-device-id=$GENERIC_DEVICE_ID                      \</span>
+<span style="font-weight: bold;">    --vehicle-name='UNO'                                        \</span>
+<span style="font-weight: bold;">    --casing-name='front left'                                  \</span>
+<span style="font-weight: bold;">    --computer-name=''                                          \</span>
+<span style="font-weight: bold;">    --computer-interface-name=''                                \</span>
+<span style="font-weight: bold;">    --mounting-date=2010-01-01`</span>
+
+<span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">./phoros --store-device-stage-of-life-end               \</span>
+<span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">--device-stage-of-life-id=$DEVICE_STAGE_OF_LIFE_ID   \</span>
+<span style="font-weight: bold; font-style: italic;">#    </span><span style="font-weight: bold; font-style: italic;">--unmounting-date=1900-01-01</span>
+
+./phoros --store-camera-calibration                                     <span style="font-style: italic;">\</span>
+    --device-stage-of-life-id=$<span style="font-weight: bold; font-style: italic;">DEVICE_STAGE_OF_LIFE_ID</span>                  <span style="font-style: italic;">\</span>
+    --date=2010-05-07                                                   <span style="font-style: italic;">\</span>
+    --person=Scheller                                                   <span style="font-style: italic;">\</span>
+    --main-description <span style="font-style: italic;">''</span>                                               <span style="font-style: italic;">\</span>
+    --debug=no                                                          <span style="font-style: italic;">\</span>
+    --usable=yes                                                        <span style="font-style: italic;">\</span>
+    --photogrammetry-version=0                                          <span style="font-style: italic;">\</span>
+    --mounting-angle=0                                                  <span style="font-style: italic;">\</span>
+    --inner-orientation-description=<span style="font-style: italic;">'calibration field, software Aicon'</span> <span style="font-style: italic;">\</span>
+    --c=-10.1902                                                        <span style="font-style: italic;">\</span>
+    --xh=-0.0630953                                                     <span style="font-style: italic;">\</span>
+    --yh=0.186176                                                       <span style="font-style: italic;">\</span>
+    --a1=-0.000915845                                                   <span style="font-style: italic;">\</span>
+    --a2=1.07966e-005                                                   <span style="font-style: italic;">\</span>
+    --a3=0                                                              <span style="font-style: italic;">\</span>
+    --b1=2.14923e-005                                                   <span style="font-style: italic;">\</span>
+    --b2=4.47203e-005                                                   <span style="font-style: italic;">\</span>
+    --c1=-0.000554607                                                   <span style="font-style: italic;">\</span>
+    --c2=0.000409916                                                    <span style="font-style: italic;">\</span>
+    --r0=4.715882                                                       <span style="font-style: italic;">\</span>
+    --outer-orientation-description=<span style="font-style: italic;">'calibration field, software Aicon'</span> <span style="font-style: italic;">\</span>
+    --dx=0                                                              <span style="font-style: italic;">\</span>
+    --dy=0                                                              <span style="font-style: italic;">\</span>
+    --dz=0                                                              <span style="font-style: italic;">\</span>
+    --omega=0                                                           <span style="font-style: italic;">\</span>
+    --phi=0                                                             <span style="font-style: italic;">\</span>
+    --kappa=0                                                           <span style="font-style: italic;">\</span>
+    --boresight-description=<span style="font-style: italic;">'RWS'</span>                                       <span style="font-style: italic;">\</span>
+    --b-dx=-1.344490161                                                 <span style="font-style: italic;">\</span>
+    --b-dy=1.53705857                                                   <span style="font-style: italic;">\</span>
+    --b-dz=1.536669766                                                  <span style="font-style: italic;">\</span>
+    --b-ddx=0                                                           <span style="font-style: italic;">\</span>
+    --b-ddy=0                                                           <span style="font-style: italic;">\</span>
+    --b-ddz=0                                                           <span style="font-style: italic;">\</span>
+    --b-rotx=1.450069961                                                <span style="font-style: italic;">\</span>
+    --b-roty=-0.1025556399                                              <span style="font-style: italic;">\</span>
+    --b-rotz=-0.00653031875                                             <span style="font-style: italic;">\</span>
+    --b-drotx=0                                                         <span style="font-style: italic;">\</span>
+    --b-droty=0                                                         <span style="font-style: italic;">\</span>
+    --b-drotz=0                                                         <span style="font-style: italic;">\</span>
+    --nx=-0.00278                                                       <span style="font-style: italic;">\</span>
+    --ny=0.02638                                                        <span style="font-style: italic;">\</span>
+    --nz=-0.99965                                                       <span style="font-style: italic;">\</span>
+    --d=0.20855
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-2" class="outline-2">
+<h2 id="sec-2">Example: Add to an existing Phoros project</h2>
+<div class="outline-text-2" id="text-2">
+<div class="org-src-container">
+
+<pre class="src src-shell-script"><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">! /bin/</span><span style="font-weight: bold;">bash</span>
+
+<span style="font-weight: bold;">shopt</span> -s extglob                <span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">make !() available</span>
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_HOST</span>=my_db_server
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_DATABASE</span>=phoros_workspace
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_USER</span>=some_db_user
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_PASSWORD</span>=wonttell
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_HOST</span>=my_db_server
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_DATABASE</span>=phoros_aux
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_USER</span>=some_db_user
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_PASSWORD</span>=wonttell
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_COMMON_ROOT</span>=/path/to/all/projects/
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_LOG_DIR</span>=preparation.log/
+
+<span style="font-weight: bold;">cd</span> ../                          <span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">where the phoros binary lives</span>
+
+<span style="font-weight: bold;">for</span> i<span style="font-weight: bold;"> in</span> /path/to/all/projects/one_project/!(already_done_01|already_done_02|already_done_03);
+<span style="font-weight: bold;">do</span>
+    ./phoros --store-images-and-points=this_acquisition_project <span style="font-style: italic;">\</span>
+             --directory=$<span style="font-weight: bold; font-style: italic;">i</span>/
+
+    ./phoros --add-to-presentation-project=my_presentation_project      <span style="font-style: italic;">\</span>
+             --acquisition-project=this_acquisition_project
+<span style="font-weight: bold;">done</span>
+
+./phoros --insert-footprints=this_acquisition_project
+</pre>
+</div>
+</div>
+</div>
+
+<div id="outline-container-sec-3" class="outline-2">
+<h2 id="sec-3">Example: Run the Phoros server</h2>
+<div class="outline-text-2" id="text-3">
+<div class="org-src-container">
+
+<pre class="src src-shell-script"><span style="font-weight: bold; font-style: italic;">#</span><span style="font-weight: bold; font-style: italic;">! /bin/</span><span style="font-weight: bold;">bash</span>
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_HOST</span>=my_db_server
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_DATABASE</span>=phoros_workspace
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_USER</span>=some_db_user
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_PASSWORD</span>=wonttell
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_HOST</span>=my_db_server
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_DATABASE</span>=phoros_aux
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_USER</span>=some_db_user
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_AUX_PASSWORD</span>=wonttell
+
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_COMMON_ROOT</span>=/path/to/all/projects/
+<span style="font-weight: bold;">export</span> <span style="font-weight: bold; font-style: italic;">PHOROS_LOG_DIR</span>=server.log/
+
+<span style="font-weight: bold;">cd</span> ../                          <span style="font-weight: bold; font-style: italic;"># </span><span style="font-weight: bold; font-style: italic;">where the phoros binary lives</span>
+
+./phoros --server --common-root=/path/to/all/projects/                                          <span style="font-style: italic;">\</span>
+         --aux-numeric-label=Station                                                            <span style="font-style: italic;">\</span>
+         --aux-text-label=VNK                                                                   <span style="font-style: italic;">\</span>
+         --aux-text-label=NNK                                                                   <span style="font-style: italic;">\</span>
+         --aux-text-label=Name                                                                  <span style="font-style: italic;">\</span>
+         --login-intro=<span style="font-style: italic;">"&lt;b&gt;Our Phoros Project&lt;/b&gt;"</span>                                              <span style="font-style: italic;">\</span>
+         --login-intro=<span style="font-style: italic;">"Please use Firefox or one of its relatives."</span>                            <span style="font-style: italic;">\</span>
+         --login-intro=<span style="font-style: italic;">"It is recommendable to set your browser cache size to about 2000 MB."</span>   <span style="font-style: italic;">\</span>
+         --login-intro=<span style="font-style: italic;">"etc."</span>
+</pre>
+</div>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Bert Burgemeister</p>
+<p class="email">Email: <a href="mailto:trebbu@googlemail.com">trebbu@googlemail.com</a></p>
+<p class="date">Created: 2016-06-06 Mo 11:58</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>

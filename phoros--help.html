@@ -1,0 +1,814 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+<title>Phoros</title>
+<!-- 2016-06-06 Mo 11:58 -->
+<meta  http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<meta  name="generator" content="Org-mode" />
+<meta  name="author" content="Bert Burgemeister" />
+<style type="text/css">
+ <!--/*--><![CDATA[/*><!--*/
+  .title  { text-align: center; }
+  .todo   { font-family: monospace; color: red; }
+  .done   { color: green; }
+  .tag    { background-color: #eee; font-family: monospace;
+            padding: 2px; font-size: 80%; font-weight: normal; }
+  .timestamp { color: #bebebe; }
+  .timestamp-kwd { color: #5f9ea0; }
+  .right  { margin-left: auto; margin-right: 0px;  text-align: right; }
+  .left   { margin-left: 0px;  margin-right: auto; text-align: left; }
+  .center { margin-left: auto; margin-right: auto; text-align: center; }
+  .underline { text-decoration: underline; }
+  #postamble p, #preamble p { font-size: 90%; margin: .2em; }
+  p.verse { margin-left: 3%; }
+  pre {
+    border: 1px solid #ccc;
+    box-shadow: 3px 3px 3px #eee;
+    padding: 8pt;
+    font-family: monospace;
+    overflow: auto;
+    margin: 1.2em;
+  }
+  pre.src {
+    position: relative;
+    overflow: visible;
+    padding-top: 1.2em;
+  }
+  pre.src:before {
+    display: none;
+    position: absolute;
+    background-color: white;
+    top: -10px;
+    right: 10px;
+    padding: 3px;
+    border: 1px solid black;
+  }
+  pre.src:hover:before { display: inline;}
+  pre.src-sh:before    { content: 'sh'; }
+  pre.src-bash:before  { content: 'sh'; }
+  pre.src-emacs-lisp:before { content: 'Emacs Lisp'; }
+  pre.src-R:before     { content: 'R'; }
+  pre.src-perl:before  { content: 'Perl'; }
+  pre.src-java:before  { content: 'Java'; }
+  pre.src-sql:before   { content: 'SQL'; }
+
+  table { border-collapse:collapse; }
+  caption.t-above { caption-side: top; }
+  caption.t-bottom { caption-side: bottom; }
+  td, th { vertical-align:top;  }
+  th.right  { text-align: center;  }
+  th.left   { text-align: center;   }
+  th.center { text-align: center; }
+  td.right  { text-align: right;  }
+  td.left   { text-align: left;   }
+  td.center { text-align: center; }
+  dt { font-weight: bold; }
+  .footpara:nth-child(2) { display: inline; }
+  .footpara { display: block; }
+  .footdef  { margin-bottom: 1em; }
+  .figure { padding: 1em; }
+  .figure p { text-align: center; }
+  .inlinetask {
+    padding: 10px;
+    border: 2px solid gray;
+    margin: 10px;
+    background: #ffffcc;
+  }
+  #org-div-home-and-up
+   { text-align: right; font-size: 70%; white-space: nowrap; }
+  textarea { overflow-x: auto; }
+  .linenr { font-size: smaller }
+  .code-highlighted { background-color: #ffff00; }
+  .org-info-js_info-navigation { border-style: none; }
+  #org-info-js_console-label
+    { font-size: 10px; font-weight: bold; white-space: nowrap; }
+  .org-info-js_search-highlight
+    { background-color: #ffff00; color: #000000; font-weight: bold; }
+  /*]]>*/-->
+</style>
+<link rel="stylesheet" href="style.css" type="text/css"/>
+<script type="text/javascript">
+/*
+@licstart  The following is the entire license notice for the
+JavaScript code in this tag.
+
+Copyright (C) 2012-2013 Free Software Foundation, Inc.
+
+The JavaScript code in this tag is free software: you can
+redistribute it and/or modify it under the terms of the GNU
+General Public License (GNU GPL) as published by the Free Software
+Foundation, either version 3 of the License, or (at your option)
+any later version.  The code is distributed WITHOUT ANY WARRANTY;
+without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.  See the GNU GPL for more details.
+
+As additional permission under GNU GPL version 3 section 7, you
+may distribute non-source (e.g., minimized or compacted) forms of
+that code without the copy of the GNU GPL normally required by
+section 4, provided you include this license notice and a URL
+through which recipients can access the Corresponding Source.
+
+
+@licend  The above is the entire license notice
+for the JavaScript code in this tag.
+*/
+<!--/*--><![CDATA[/*><!--*/
+ function CodeHighlightOn(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(null != target) {
+     elem.cacheClassElem = elem.className;
+     elem.cacheClassTarget = target.className;
+     target.className = "code-highlighted";
+     elem.className   = "code-highlighted";
+   }
+ }
+ function CodeHighlightOff(elem, id)
+ {
+   var target = document.getElementById(id);
+   if(elem.cacheClassElem)
+     elem.className = elem.cacheClassElem;
+   if(elem.cacheClassTarget)
+     target.className = elem.cacheClassTarget;
+ }
+/*]]>*///-->
+</script>
+</head>
+<body>
+<div id="content">
+<h1 class="title">Phoros</h1>
+<div id="table-of-contents">
+<h2>Table of Contents</h2>
+<div id="text-table-of-contents">
+<ul>
+<li><a href="#sec-1">Help Message</a></li>
+</ul>
+</div>
+</div>
+
+<div class="figure">
+<p><img src="phoros-logo-plain.png" alt="phoros-logo-plain.png" />
+</p>
+</div>
+
+<p>
+A Tool for Photogrammetric Road Survey
+</p>
+
+<div id="outline-container-sec-1" class="outline-2">
+<h2 id="sec-1">Help Message</h2>
+<div class="outline-text-2" id="text-1">
+<p>
+(Output of <code>./phoros --help</code>)
+</p>
+<pre class="example">
+Usage: phoros [-h] [OPTIONS]
+
+Phoros (http://phoros.boundp.org) is a tool for photogrammetric road survey.  It
+stores data in a PostgreSQL database and then makes it available over a web 
+interface.
+
+Some options have a corresponding environment variable.  Phoros will set 
+environment variables from definitions found in file 
+&lt;phoros-invocation-dir&gt;/.phoros or, if that doesn't exist, in file ~/.phoros.
+
+Options specified on the command line take precedence over any environment 
+variables.  Pre-existing environment variables take precendence over definitions
+found in any .phoros files.
+
+Config file syntax: one option per line; leading or trailing spaces are ignored;
+anything not beginning with PHOROS_ is ignored.
+
+  -h, --help[=FORMAT]
+          Print help in different formats [long|short] and exit.
+          Fallback: long
+  --licence
+          Print licence boilerplate and exit.
+  --license
+          Same as --licence
+  --version[=FORMAT]
+          Print different amounts [minimal|all] of version information and exit.
+           In a version string A.B.C, changes in A denote incompatible changes 
+          in data; changes in B mean user-visible changes in feature set.
+          Fallback: minimal
+
+General Options:
+
+  --verbose=STR
+          Change behaviour, mainly for debugging, as specified in the form of 
+          &lt;verbosity-topic&gt;:&lt;verbosity-level&gt;.  Repeat if necessary.
+            render-footprints:1 - display image footprints on http client;
+            suppress-preemptive-caching:1 - don't stuff browser cache with lots 
+          of images around map cursor;
+            log-sql:1 - log SQL activity;
+            postgresql-warnings:1 - show PostgreSQL warnings;
+            log-error-backtraces:1 - log http server error backtraces;
+            use-multi-file-openlayers:1 - use multi-file version of OpenLayers;
+            pretty-javascript:1 - send nicely formatted JavaScript;
+            show-server-errors:1 - send HTTP server error messages to client;
+            no-daemon:1 - run HTTP server in foreground;
+            swank-port:&lt;port&gt; - start swank server listening on &lt;port&gt;, offering
+          interactive debugging of the running Lisp process.  Use slime-connect 
+          from inside Emacs SLIME to connect locally to &lt;port&gt;; or establish an 
+          ssh tunnel on a remote client, "ssh -L &lt;local-port&gt;:127.0.0.1:&lt;port&gt; 
+          user@phoros-host", and slime-connect on the remote client to 
+          &lt;local-port&gt;.
+  --umask=OCTAL_NUMBER
+          File permissions mask applied when Phoros creates files and 
+          directories.
+          Default: 002
+          Environment: PHOROS_UMASK
+  --log-dir=PATH
+          Where to put the log files.  Created if necessary; should end with a 
+          slash.
+          Default: log.d/
+          Environment: PHOROS_LOG_DIR
+  --check-db
+          Check connection to databases (including auxiliary if applicable) and 
+          exit.
+  --check-dependencies
+          Check presence of dependencies on local system and exit.
+  --nuke-all-tables
+          Ask for confirmation, then delete anything in database and exit.
+  --create-sys-tables
+          Ask for confirmation, then create in database a set of sys-* tables 
+          (tables shared between all projects).  The database should probably be
+          empty before you try this.
+
+Database Connection:
+
+          Necessary for most operations.
+
+  -H, --host=NAME
+          Database server.
+          Default: localhost
+          Environment: PHOROS_HOST
+  -P, --port=INT
+          Port on database server.
+          Default: 5432
+          Environment: PHOROS_PORT
+  -D, --database=NAME
+          Name of database.
+          Default: phoros
+          Environment: PHOROS_DATABASE
+  -U, --user=NAME
+          Database user.
+          Environment: PHOROS_USER
+  -W, --password=PWD
+          Database user's password.
+          Environment: PHOROS_PASSWORD
+  --use-ssl=MODE
+          Use SSL in database connection. [yes|no|try]
+          Default: no
+          Environment: PHOROS_USE_SSL
+
+Auxiliary Database Connection:
+
+          Connection parameters to the database containing auxiliary data.  Only
+          needed for definition (--create-aux-view) and use (--server) of 
+          auxiliary data.
+
+  --aux-host=NAME
+          Auxiliary database server.
+          Default: localhost
+          Environment: PHOROS_AUX_HOST
+  --aux-port=INT
+          Port on auxiliary database server.
+          Default: 5432
+          Environment: PHOROS_AUX_PORT
+  --aux-database=NAME
+          Name of auxiliary database.
+          Environment: PHOROS_AUX_DATABASE
+  --aux-user=NAME
+          Auxiliary database user.
+          Environment: PHOROS_AUX_USER
+  --aux-password=PWD
+          Auxiliary database user's password.
+          Environment: PHOROS_AUX_PASSWORD
+  --aux-use-ssl=MODE
+          Use SSL in auxiliary database connection. [yes|no|try]
+          Default: no
+          Environment: PHOROS_AUX_USE_SSL
+
+Examine .pictures File:
+
+          Useful primarily for debugging purposes.
+
+  --get-image
+          Get a single image from a .pictures file, print its trigger-time to 
+          stdout, and exit.
+    --count=INT
+          Image number in .pictures file.
+          Default: 0
+    --byte-position=INT
+          Byte position of image in .pictures file.
+    --in=PATH
+          Path to .pictures file.
+    --out=PATH
+          Path to output .png file.
+          Default: phoros-get-image.png
+    --bayer-pattern=STR
+          The first pixels of the first row.  Each pixel is to be interpreted as
+          RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in 
+          topmost row are red, green.
+          Default: #ff0000,#00ff00
+
+Calibration Data:
+
+  Camera Hardware Parameters:
+  
+          These do not include information on lenses or mounting.
+  
+    --store-camera-hardware
+          Put new camera-hardware data into the database; print 
+          camera-hardware-id to stdout.
+      --sensor-width-pix=INT
+          Width of camera sensor.
+      --sensor-height-pix=INT
+          Height of camera sensor.
+      --pix-size=NUM
+          Camera pixel size in millimetres (float).
+      --channels=INT
+          Number of color channels
+      --pix-depth=INT
+          Greatest possible pixel value.
+          Default: 255
+      --color-raiser=STR
+          Multipliers for the individual color components.  Example: 1.2,1,.8 
+          multiplies red by 1.2 and blue by 0.8.
+          Default: 1,1,1
+      --bayer-pattern=STR
+          The first pixels of the first row.  Each pixel is to be interpreted as
+          RGB hex string.  Example: use #ff0000,#00ff00 if the first pixels in 
+          topmost row are red, green.
+          Default: #ff0000,#00ff00
+      --serial-number=STR
+          Serial number.
+          Default:  
+      --description=STR
+          Description of camera.
+          Default:  
+      --try-overwrite=yes/no
+          Overwrite matching record if any.
+          Default: yes
+
+  Lens Parameters:
+  
+          Stored primarily for human consumption; not used in photogrammetric 
+          calculations.
+  
+    --store-lens
+          Put new lens data into the database; print lens-id to stdout.
+      --c=NUM
+          Focal length.
+      --serial-number=STR
+          Serial number.
+          Default:  
+      --description=STR
+          Description of camera.
+          Default:  
+      --try-overwrite=yes/no
+          Overwrite matching record if any.
+          Default: yes
+
+  Generic Device Definition:
+  
+          Basically, this is a particular camera fitted with a particular lens.
+  
+    --store-generic-device
+          Put a newly defined generic-device into the database; print 
+          generic-device-id to stdout.
+      --camera-hardware-id=ID
+          Numeric camera hardware ID in database.
+      --lens-id=ID
+          Numeric lens ID in database.
+
+  Device Stage-Of-Life Definition:
+  
+          A stage-of-life of a generic device is a possibly unfinished period of
+          time during which the mounting constellation of the generic device 
+          remains unchanged.
+  
+    --store-device-stage-of-life
+          Put a newly defined device-stage-of-life into the database; print 
+          device-stage-of-life-id to stdout.
+      --recorded-device-id=STR
+          Device id stored next to the measuring data.
+      --event-number=STR
+          GPS event that triggers this generic device.
+      --generic-device-id=ID
+          Numeric generic-device id in database.
+      --vehicle-name=STR
+          Descriptive name of vehicle.
+      --casing-name=STR
+          Descriptive name of device casing.
+          Default:  
+      --computer-name=STR
+          Name of the recording device.
+          Default:  
+      --computer-interface-name=STR
+          Interface at device.
+          Default:  
+      --mounting-date=STR
+          Time this device constellation became effective.  Format: 
+          "2010-11-19T13:49+01".
+      --unmounting-date=STR
+          Time this device constellation ceased to be effective.  Format: 
+          "2010-11-19T17:02+01".
+          Default: :null
+
+  Put An End To A Device's Stage-Of-Life:
+  
+          This should be done after any event that renders any portion of the 
+          calibration data invalid. E.g.: accidental change of mounting 
+          constellation.
+  
+    --store-device-stage-of-life-end
+          Put an end date to a device-stage-of-life in the database; print 
+          device-stage-of-life-id to stdout.
+      --device-stage-of-life-id=ID
+          ID of the device-stage-of-life.
+      --unmounting-date=STR
+          Time this device constellation ceased to be effective.  Format: 
+          "2010-11-19T17:02+01".
+          Default: :null
+
+  Camera Calibration Parameters:
+  
+    --store-camera-calibration
+          Put new camera-calibration into the database; print generic-device-id 
+          and calibration date to stdout.
+      --device-stage-of-life-id=ID
+          ID of the device-stage-of-life.
+      --date=STR
+          Date of calibration.  Format: "2010-11-19T13:49+01".
+      --person=STR
+          Person who did the calibration.
+      --main-description=STR
+          Regarding this entire set of calibration data
+      --usable[=yes/no]
+          Set to no to just display images and inhibit photogrammetric 
+          calculations.
+          Fallback: yes
+          Default: yes
+      --debug[=yes/no]
+          If yes: not for production use; may be altered or deleted at any time.
+          Fallback: yes
+          Default: no
+      --photogrammetry-version=STR
+          Software version used to create this data.
+      --mounting-angle=OBJ
+          Head up = 0; right ear up = 90; left ear up = -90; head down = 180.
+      --inner-orientation-description=STR
+          Comments regarding inner orientation calibration.
+          Default:  
+      --c=NUM
+          Focal length.
+      --xh=NUM
+          Inner orientation: principal point displacement.
+      --yh=NUM
+          Inner orientation: principal point displacement.
+      --a1=NUM
+          Inner orientation: radial distortion.
+      --a2=NUM
+          Inner orientation: radial distortion.
+      --a3=NUM
+          Inner orientation: radial distortion.
+      --b1=NUM
+          Inner orientation: asymmetric and tangential distortion.
+      --b2=NUM
+          Inner orientation: asymmetric and tangential distortion.
+      --c1=NUM
+          Inner orientation: affinity and shear distortion.
+      --c2=NUM
+          Inner orientation: affinity and shear distortion.
+      --r0=NUM
+          Inner orientation.
+      --outer-orientation-description=STR
+          Comments regarding outer orientation calibration.
+          Default:  
+      --dx=NUM
+          Outer orientation; in metres.
+      --dy=NUM
+          Outer orientation; in metres.
+      --dz=NUM
+          Outer orientation; in metres.
+      --omega=NUM
+          Outer orientation.
+      --phi=NUM
+          Outer orientation.
+      --kappa=NUM
+          Outer orientation.
+      --boresight-description=STR
+          Comments regarding boresight alignment calibration.
+          Default:  
+      --b-dx=NUM
+          Boresight alignment.
+      --b-dy=NUM
+          Boresight alignment.
+      --b-dz=NUM
+          Boresight alignment.
+      --b-ddx=NUM
+          Boresight alignment.
+      --b-ddy=NUM
+          Boresight alignment.
+      --b-ddz=NUM
+          Boresight alignment.
+      --b-rotx=NUM
+          Boresight alignment.
+      --b-roty=NUM
+          Boresight alignment.
+      --b-rotz=NUM
+          Boresight alignment.
+      --b-drotx=NUM
+          Boresight alignment.
+      --b-droty=NUM
+          Boresight alignment.
+      --b-drotz=NUM
+          Boresight alignment.
+      --nx=NUM
+          X component of unit vector of vehicle ground plane.
+      --ny=NUM
+          Y component of unit vector of vehicle ground plane.
+      --nz=NUM
+          Z component of unit vector of vehicle ground plane.
+      --d=OBJ
+          Distance of vehicle ground plane.
+
+Manage Acquisition Projects:
+
+          An acquisition project is a set of measurements which share a set of 
+          data tables and views named like dat-&lt;acquisition-project-name&gt;-point,
+          dat-&lt;acquisition-project-name&gt;-image, 
+          dat-&lt;acquisition-project-name&gt;-aggregate.
+
+  --create-acquisition-project=NAME
+          Create a fresh set of canonically named data tables.  NAME is the 
+          acquisition project name.  It will be stored in table 
+          sys-acquisition-project, field common-table-name, and used as a common
+          part of the data table names.
+  --delete-acquisition-project=NAME
+          Ask for confirmation, then delete acquisition project NAME and all its
+          measurements.
+  --delete-measurement=INT
+          Delete a measurement by its ID.
+  --list-acquisition-project[=NAME]
+          List measurements of one acquisition project if its name is specified,
+          or of all acquisition projects otherwise.
+          Fallback: *
+
+Store Measure Data:
+
+  -s, --store-images-and-points=NAME
+          Link images to GPS points; store both into their respective DB tables.
+           Images become linked to GPS points when their respective times differ
+          by less than epsilon seconds, and when the respective events match.  
+          The string argument is the acquisition project name.
+    -d, --directory=PATH
+          Directory containing one set of measuring data.
+    -r, --common-root=PATH
+          The root part of directory that is equal for all pojects.  TODO: come 
+          up with some sensible default.
+          Environment: PHOROS_COMMON_ROOT
+    --epsilon=NUM
+          Difference in seconds below which two timestamps are considered equal.
+          Default: 0.001
+    --aggregate-events[=yes/no]
+          Put all GPS points in one bucket, disregarding any event numbers.  Use
+          this if you have morons setting up your generic-device.  Hundreds of 
+          orphaned images may indicate this is the case.
+          Fallback: yes
+          Default: no
+
+  --insert-footprints=NAME
+          Update image footprints (the area on the ground that is most probably 
+          covered by the respective image) for acquisition project NAME.
+
+Become An HTTP Presentation Server:
+
+          Phoros is a Web server in its own right, but you can also put it 
+          behind a proxy server to make it part of a larger Web site.  E.g., for
+          Apache, load module proxy_http and use this configuration:
+              ProxyPass /phoros http://127.0.0.1:8080/phoros
+              ProxyPassReverse /phoros http://127.0.0.1:8080/phoros
+
+  --server
+          Start HTTP presentation server as a daemon.  Entry URIs are 
+          http://&lt;host&gt;:&lt;port&gt;/phoros/&lt;presentation-project&gt;.  Asynchronously 
+          update lacking image footprints (which should have been done already 
+          using --insert-footprints).
+    --proxy-root=STR
+          First directory element of the server URL.  Must correspond to the 
+          proxy configuration if Phoros is hidden behind a proxy.
+          Default: phoros
+    --address=STR
+          Address (of local machine) server is to listen on.  Default is 
+          listening on all available addresses.
+          Default: *
+    --http-port=INT
+          Port the presentation server listens on.
+          Default: 8080
+    -r, --common-root=PATH
+          The root part of directory that is equal for all pojects.  TODO: come 
+          up with some sensible default.
+          Environment: PHOROS_COMMON_ROOT
+    --images=INT
+          Number of photos displayed on HTTP client.
+          Default: 4
+    --aux-numeric-label=STR
+          HTML label for an element of auxiliary numeric data.  Repeat if 
+          necessary.  The succession of labels should match the auxiliary data 
+          (defined by --numeric-column) of all presentation projects served by 
+          this server instance.
+    --aux-text-label=STR
+          HTML label for an element of auxiliary text data.  Repeat if 
+          necessary.  The succession of labels should match the auxiliary data 
+          (defined by --text-column) of all presentation projects served by this
+          server instance.
+    --login-intro=STR
+          Text to be shown below the login form.  Use repeatedly to divide text 
+          into paragraphs.  You can use HTML markup as long as it is legal 
+          inside &lt;p&gt;...&lt;/p&gt;
+    --pid-file=PATH
+          Where to put Phoros' PID when run as a daemon.
+          Default: phoros.pid
+          Environment: PHOROS_PID_FILE
+
+Manage Presentation Projects:
+
+          A presentation project is a set of measurements that can be visited 
+          under a dedicated URL 
+          (http://&lt;host&gt;:&lt;port&gt;/phoros/&lt;presentation-project&gt;).  Its extent may 
+          or may not be equal to the extent of an acquisition project.
+
+          Presentation projects have a table of user points and a table of user 
+          lines.  The former is associated with a trigger which may be defined 
+          to induce writing into the latter.
+
+  --create-presentation-project=NAME
+          Create a fresh presentation project NAME which is to expose a set of 
+          measurements to certain users.
+  --delete-presentation-project=NAME
+          Ask for confirmation, then delete the presentation project including 
+          its table of user-generated points.
+  --list-presentation-project[=NAME]
+          List one presentation project if specified, or all presentation 
+          projects if not.
+          Fallback: *
+  --add-to-presentation-project=NAME
+          Add to presentation project NAME either certain measurements or all 
+          measurements currently in a certain acquisition project.
+  --remove-from-presentation-project=NAME
+          Remove from presentation project NAME either certain measurements or 
+          all measurements currently in a certain acquisition project.
+    --measurement-id=ID
+          One measurement-id to add or remove.  Repeat if necessary.
+    --acquisition-project=NAME
+          The acquisition project whose measurements are to add or remove.
+    --redefine-trigger-function=NAME
+          Change body of the trigger function that is fired on changes to the 
+          user point table connected to presentation project NAME.
+    --plpgsql-body=PATH
+          File containing the body of a PL/pgSQL trigger function.  Any 
+          ocurrence of the strings ~0@*~A and ~1@*~A will be replaced by the 
+          name of the user point table/of the user line table respectively.  
+          Omit this option to reset that function to just emit a notice.
+
+Define Selectable Attributes For Images:
+
+          HTTP client users can select classes of images defined here.  
+          Attributes are defined as PostgreSQL expressions and may use the 
+          following column names:
+
+          recorded_device_id, device_stage_of_life_id, generic_device_id, 
+          random, presentation_project_id, directory, measurement_id, filename, 
+          byte_position, point_id, footprint, footprint_device_stage_of_life_id,
+          trigger_time, longitude, latitude, ellipsoid_height, cartesian_system,
+          east_sd, north_sd, height_sd, roll, pitch, heading, roll_sd, pitch_sd,
+          heading_sd, usable, sensor_width_pix, sensor_height_pix, pix_size, 
+          bayer_pattern, color_raiser, mounting_angle, dx, dy, dz, omega, phi, 
+          kappa, c, xh, yh, a1, a2, a3, b1, b2, c1, c2, r0, b_dx, b_dy, b_dz, 
+          b_rotx, b_roty, b_rotz, b_ddx, b_ddy, b_ddz, b_drotx, b_droty, 
+          b_drotz, nx, ny, nz, d.
+
+          Additionally, each of the column names can be prefixed by "first_" in 
+          order to refer to image data of the first image. (Example: 
+          "measurement_id = first_measurement_id" only displays images with 
+          equal measurement_id.)
+
+  --create-image-attribute=NAME
+          Store, for presentation project NAME, a PostgreSQL expression an HTTP 
+          client user can use to select some subset of the images available.
+  --delete-image-attribute=NAME
+          Delete presentation project NAME an image restriction identified by 
+          its tag.
+  --list-image-attribute[=NAME]
+          List restricting PostgreSQL expressions for presentation project NAME,
+          or for all presentation projects.  If --tag is specified, list only 
+          matching expressions.
+          Fallback: *
+    --tag=STR
+          Identifying tag for the restriction.  Should be both short and 
+          descriptive as it is shown as a selectable item on HTTP client.
+    --sql-clause=STR
+          Boolean PostgreSQL expression, to be used as an AND clause.  Should 
+          yield FALSE for images that are to be excluded.
+
+Connect A Presentation Project To A Table Of Auxiliary Data:
+
+          Arbitrary data from tables not directly belonging to any Phoros 
+          project can be connected to a presentation project by means of a view 
+          named phoros-&lt;presentation-project-name&gt;-aux-point with columns 
+          coordinates (geometry), aux-numeric (null or array of numeric), and 
+          aux-text (null or array of text).
+
+          The array elements of both aux-numeric and aux-text of auxiliary 
+          points can then be incorporated into neighbouring user points during 
+          user point creation.
+
+          To match the array elements to the labels shown on HTTP client 
+          (defined by --aux-numeric-label, --aux-text-label), NULL array 
+          elements can be used act as placeholders where appropriate.
+
+          Also, a walk mode along auxiliary points becomes available to the HTTP
+          client.  PL/pgSQL function 
+          phoros-&lt;presentation-project-name&gt;-thread-aux-points is created to 
+          this end.
+
+          In order to be accessible by Phoros, auxiliary data must be structured
+          rather simple (a single table which has a geometry column and some 
+          numeric and/or text columns).  You may want to create a simplifying 
+          view if your data looks more complicated.
+
+  --create-aux-view=NAME
+          Connect table of auxiliary data with presentation project NAME by 
+          creating a view.
+    --aux-table=NAME
+          Name of auxiliary table.  It may reside either in Phoros' native 
+          database or in an auxiliary database (which is common to all 
+          projects).  It must have a geometry column.
+    --coordinates-column=NAME
+          Name of the geometry column (which must contain geographic 
+          coordinates, SRID=4326; and which should have an index) in the 
+          auxiliary data table.
+          Default: the-geom
+    --numeric-column=NAME
+          Name of a numeric column in the auxiliary data table.  An empty string
+          defines an empty placeholder column.  Repeat if necessary.
+    --text-column=NAME
+          Name of a text column in the auxiliary data table.  An empty string 
+          defines an empty placeholder column.  Repeat if necessary.
+
+Manage User Points:
+
+          Backup/restore of user points; especially useful for getting them 
+          through database upgrades.
+
+  --get-user-points=NAME
+          Save user points of presentation project NAME.
+  --store-user-points=NAME
+          Store user points previously saved (using --get-user-points or 
+          download button in Web interface) into presentation project NAME.
+    --json-file=PATH
+          Path to GeoJSON file.
+
+Manage Presentation Project Users:
+
+  --create-user=ID
+          Create or update user (specified by their alphanummeric ID) of certain
+          presentation projects, deleting any pre-existing permissions of that 
+          user.
+    --user-password=PWD
+          User's password.
+    --user-full-name=STR
+          User's real name.
+    --user-role=TYPE
+          User's permission on their projects.  One of "read", "write", or 
+          "admin" where "write" is the same as "read" plus permission to add 
+          user points and delete them if written by themselves (or by unknown 
+          user); and "admin" is the same as "write" plus permission to delete 
+          points written by other users.
+          Default: read
+    --presentation-project=NAME
+          Presentation project the user is allowed to see.  Repeat if necessary.
+
+  --delete-user=ID
+          Delete user.
+  --list-user[=ID]
+          List the specified user with their presentation projects, or all users
+          if no user is given.
+          Fallback: *
+</pre>
+</div>
+</div>
+</div>
+<div id="postamble" class="status">
+<p class="author">Author: Bert Burgemeister</p>
+<p class="email">Email: <a href="mailto:trebbu@googlemail.com">trebbu@googlemail.com</a></p>
+<p class="date">Created: 2016-06-06 Mo 11:58</p>
+<p class="validation"><a href="http://validator.w3.org/check?uri=referer">Validate</a></p>
+</div>
+</body>
+</html>
