@@ -239,7 +239,7 @@ followed by a digit. "
          ,@(mapcar #'ensure-hyphen-before-digit *aggregate-view-columns*)))
 
 (defun start-pipeglade ()
-  (let ((pipeglade-args "-i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log"))
+  (let ((pipeglade-args "-i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log --name fasttrack --class Phoros"))
     (loop
        for i in '("./pipeglade" "~/pipeglade/pipeglade" "pipeglade")
        until (probe-file i)
