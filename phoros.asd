@@ -1,12 +1,13 @@
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  ;; There are two alternative means of image creation:
-  ;; zpng and cl-png.
-  ;; zpng is faster and has no dependencies, but it makes images twice
-  ;; as big as cl-png.  cl-png depends on libpng.so.
+  ;; There are three alternative means of image creation:
+  ;; zpng and cl-png, and Phoros's own imread.so.  zpng is faster than
+  ;; cl-png and has no dependencies, but it makes images twice as big
+  ;; as cl-png.  imread.so is fastest and its images are of the same
+  ;; size as cl-png.  Both cl-png and imread.so depend on libpng.so.
   ;; 
-  ;; To choose zpng, leave *features* alone.  To choose cl-png, do:
-  ;; (pushnew :phoros-uses-cl-png *features*)
-  )
+  ;; (pushnew :phoros-uses-zpng *features*))
+  ;; (pushnew :phoros-uses-cl-png *features*))
+  (pushnew :phoros-uses-imread.so *features*))
 
 (defsystem :phoros
 
@@ -31,7 +32,7 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.11.1"
+  "13.11.2"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012, 2015, 2016 Bert Burgemeister
@@ -56,6 +57,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                       #+build-fasttrack "package-fasttrack")
                #+build-phoros (:file "util")
                (:file "proj4-sh")
+               #+(and build-phoros phoros-uses-imread.so) (:file "imread")
                #+build-phoros (:file "log")
                (:file "photogrammetry")
                #+build-phoros (:file "indent-json")
@@ -80,7 +82,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :cl-json
                :postmodern
                #+build-phoros :simple-date
-               #+(and build-phoros (not phoros-uses-cl-png)) :zpng
+               #+(and build-phoros phoros-uses-zpng) :zpng
                #+(and build-phoros phoros-uses-cl-png) :png
                :drakma
                #+build-phoros :net.didierverna.clon

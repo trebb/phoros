@@ -22,3 +22,6 @@ unexpected_html/
 testsuite/
 cache/
 singlepic
+imread
+imread.so
+libphoml.so

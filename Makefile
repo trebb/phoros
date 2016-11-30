@@ -18,6 +18,7 @@
 LISP = $(shell test -x ../sbcl/bin/sbcl && echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
+LIBIMREAD = imread.so
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
 EXAMPLES_DIR = examples
@@ -47,7 +48,8 @@ all : fasttrack phoros
 
 phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 		$(OPENLAYERS_THEME) $(OPENLAYERS_IMG) \
-		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)
+		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE) \
+		$(LIBIMREAD)
 	CC=gcc \
 	$(LISP) --lose-on-corruption \
 		--disable-ldb \
@@ -174,7 +176,8 @@ bin-tarball : phoros TimeSteps.history fasttrack README			\
 	  $(ETC_DIR)							\
           $(OPENLAYERS_DIR)						\
           $(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
-	  $(LIBPHOML_DIR)/$(LIBPHOML)
+	  $(LIBPHOML_DIR)/$(LIBPHOML)					\
+	  $(LIBIMREAD)
 	tar -cf -							\
 		--transform='s,^,phoros_$(PHOROS_VERSION)/,'		\
 		phoros TimeSteps.history fasttrack fasttrack.ui README	\
@@ -183,6 +186,7 @@ bin-tarball : phoros TimeSteps.history fasttrack README			\
 		$(OPENLAYERS_DIR)					\
 		$(BACKGROUND_IMAGE) $(LOGO) $(FAVICON) $(CURSOR_IMAGE)	\
 		$(BUTTON_IMAGE)						\
+		$(LIBIMREAD)						\
 		--directory=$(LIBPHOML_DIR) $(LIBPHOML)			\
 		| gzip -f						\
 		> phoros_$(PHOROS_VERSION)_$(MACHINE_TYPE).tar.gz
@@ -196,10 +200,17 @@ html : $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVI
 git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
+imread : imread.c Makefile	#for debugging
+	gcc imread.c -O2 -o imread `pkg-config --cflags --libs libpng` -lm
+
+$(LIBIMREAD) : imread.c Makefile
+	gcc -fpic -shared -O2 -o imread.so `pkg-config --cflags --libs libpng` -lm imread.c
+
 clean :
 	rm -rf *.fasl *.log						\
 		phoros phoros*.tar.gz					\
 		fasttrack fasttrack.ui					\
+		$(LIBIMREAD) imread					\
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)	\
 		$(BUTTON_IMAGE)						\
 		$(PHOROS_HELP_OUTPUT)					\

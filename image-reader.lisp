@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012, 2016 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -18,16 +18,20 @@
 
 (in-package :img)
 
-;;; See file phoros.asd for how to choose between two alternative
-;;; image creation libraries, zpng and cl-png.
+;;; See file phoros.asd for how to choose between three alternative
+;;; image creation libraries, zpng cl-png, and phoros's own imread.so.
 
+
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (deftype image-dimension () '(unsigned-byte 16))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (deftype color () '(unsigned-byte 8))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (deftype channels () '(unsigned-byte 8))
 
-#-phoros-uses-cl-png
+#+phoros-uses-zpng
 (deftype image ()
   "We are using zpng."
   '(simple-array color 3))
@@ -84,6 +88,7 @@ start-position is explicitly nil."
   (with-open-file (stream path :element-type 'unsigned-byte)
     (find-keyword-in-stream stream keyword start-position search-range)))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun read-huffman-table (stream &optional start-position)
   "Return in a hash table a huffman table read from stream.  Start
 either at stream's file position or at start-position."
@@ -119,6 +124,7 @@ either at stream's file position or at start-position."
          do (setf (gethash key huffman-table) i))
       huffman-table)))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun read-compressed-picture (stream start-position length)
   "Return a compressed picture in a bit array.  Start either at
 start-position or, if that is nil, at stream's file position."
@@ -139,6 +145,7 @@ start-position or, if that is nil, at stream's file position."
                       (ldb (byte 1 source-bit) byte)))
        finally (return compressed-picture))))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun get-leading-byte (bit-array &optional (start 0) &aux (result 0))
   "Return integer made of eight bits from bit-array."
   (loop
@@ -214,7 +221,7 @@ width channels)), everything in channel 0."
     (when reversep (reverse-displaced-vector uncompressed-image-vector))
     uncompressed-image))
 
-#-phoros-uses-cl-png
+#+phoros-uses-zpng
 (defun uncompress-picture (huffman-table compressed-picture
                            height width channels &key reversep)
   "Return the Bayer pattern extracted from compressed-picture, turned
@@ -283,6 +290,7 @@ width channels)), everything in channel 0."
     (when reversep (reverse-displaced-vector uncompressed-image-vector))
     uncompressed-image))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun fetch-picture (stream start-position length height width channels
                       &key reversep)
   "Return the Bayer pattern taken from stream in an (array
@@ -313,6 +321,7 @@ file position."
     (when reversep (reverse-displaced-vector image-vector))
     image))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun reverse-displaced-vector (vector)
   "Reverse elements of vector of unsigned-byte in-place."
   (loop
@@ -320,6 +329,7 @@ file position."
      for i from 0
      do (setf (aref vector i) cell)))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun complete-horizontally (image row column color)
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
@@ -331,6 +341,7 @@ file position."
                   (the color (aref image row (1+ column) color)))
                2)))
   
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun complete-vertically (image row column color)
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
@@ -342,6 +353,7 @@ file position."
                   (the color (aref image (1+ row) column color)))
                2)))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun complete-squarely (image row column color)
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
@@ -355,6 +367,7 @@ file position."
                   (the color (aref image (1+ row) column color)))
                4)))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun complete-diagonally (image row column color)
   "Fake a color component of a pixel based its neighbors."
   (declare (optimize (safety 0))
@@ -368,11 +381,14 @@ file position."
                   (the color (aref image (1+ row) (1+ column) color)))
                4)))
 
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun height (image) (array-dimension image 0))
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun width (image) (array-dimension image 1))
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun channels (image) (array-dimension image 2))
 
-#-phoros-uses-cl-png
+#+phoros-uses-zpng
 (defun demosaic-image (image bayer-pattern color-raiser brightenp)
   "Demosaic color image whose color channel 0 is supposed to be
 filled with a Bayer color pattern.  Return demosaiced image.
@@ -662,7 +678,7 @@ We are using cl-png."
   (when brightenp (brighten-maybe image))
   image)
 
-#-phoros-uses-cl-png
+#+phoros-uses-zpng
 (defun brighten-maybe (image)
   "Make image brighter if it is too dark.
 We are using zpng."
@@ -705,7 +721,7 @@ We are using cl-png."
                               255)
                            (- brightest-value darkest-value))))))))
 
-#-phoros-uses-cl-png
+#+phoros-uses-zpng
 (defun brightness (image)
   "Return brightest value and darkest value of image.
 We are using zpng."
@@ -739,6 +755,8 @@ cl-png."
        finally (return (values brightest-value
                                darkest-value)))))
 
+
+#+(or phoros-uses-cl-png phoros-uses-zpng)
 (defun* send-png (output-stream path start
                                 &key (color-raiser #(1 1 1))
                                 reversep brightenp
@@ -782,7 +800,80 @@ is a wart."
         (write-image image output-stream)))
     trigger-time))
 
-#-phoros-uses-cl-png
+#+phoros-uses-imread.so
+(cffi:defcstruct mem-encode
+    (buffer :pointer)
+  (size :int))
+
+#+phoros-uses-imread.so
+(defun* send-png (output-stream path start
+                                &key (color-raiser #(1 1 1))
+                                reversep brightenp
+                                &mandatory-key bayer-pattern)
+  "Read an image at position start in .pictures file at path and send
+it to the binary output-stream.  Return UNIX trigger-time of image.
+If brightenp is t, have it brightened up if necessary.  If reversep is
+t, turn it upside-down.  Bayer-pattern is applied after turning, which
+is a wart."
+  ;; TODO: bayer-pattern should be applied to the unturned image
+  (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
+        (blob-size (find-keyword-value path "dataSize=" start))
+        (huffman-table-size (* 511 (+ 1 4)))
+        (image-height (find-keyword-value path "height=" start))
+        (image-width (find-keyword-value path "width=" start))
+        (compression-mode (find-keyword-value path "compressed=" start))
+        (channels (find-keyword-value path "channels=" start))
+        (trigger-time (find-keyword-value path "timeTrigger=" start)))
+    (cffi:with-foreign-objects ((baypat :int 3)
+                                (colr-raisr :double 3)
+                                (mem-png 'mem-encode)
+                                (compressed
+                                 :unsigned-char (- blob-size huffman-table-size))
+                                (uncompressed
+                                 :unsigned-char (* image-width image-height)))
+      (loop
+         for i from 0 to 1 do
+           (setf (cffi:mem-aref baypat :int i) (aref bayer-pattern i)))
+      (loop
+         for i from 0 to 2 do
+           (setf (cffi:mem-aref colr-raisr :double i)
+                 (coerce (aref color-raiser i) 'double-float)))
+      (let ((png2mem-exit
+             (imread:png2mem (namestring path) blob-start (- blob-size huffman-table-size)
+                             image-width image-height channels baypat compression-mode
+                             uncompressed compressed mem-png
+                             (if reversep 1 0) (if brightenp 1 0) colr-raisr)))
+        (cond ((zerop png2mem-exit)
+               (cffi:with-foreign-slots ((buffer size) mem-png mem-encode)
+                 (loop
+                    for i from 0 below size do
+                      (write-byte (cffi:mem-aref buffer :unsigned-char i) output-stream))
+                 (unless (cffi:null-pointer-p buffer) (cffi:foreign-free buffer))))
+              ((= 1 png2mem-exit)
+               (error "Input file ~A not found." path))
+              ((or (= 2 png2mem-exit) (= 3 png2mem-exit))
+               (error "Don't know how to deal with a bayer-pattern of ~A."
+                      bayer-pattern))
+              ((= 5 png2mem-exit)
+               (error "Unknown compression mode ~A in ~A."
+                      compression-mode path))
+              ((= 6 png2mem-exit)
+               (error "Don't know how to deal with ~D-channel pixels." channels))
+              ((= 11 png2mem-exit)
+               (error "PNG error: create_write_struct()."))
+              ((= 12 png2mem-exit)
+               (error "PNG error: create_info_struct()"))
+              ((= 13 png2mem-exit)
+               (error "Error during PNG setup."))
+              ((= 21 png2mem-exit)
+               (error "Error while writing PNG row."))
+              ((= 31 png2mem-exit)
+               (error "Couldn't allocate memory for huffman table."))
+              (t
+               (error "Can't unpack image.")))))
+    trigger-time))
+
+#+phoros-uses-zpng
 (defun write-image (image stream)
   "Write image array (height, width, channel) to stream."
   (zpng:write-png-stream
