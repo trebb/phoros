@@ -832,7 +832,7 @@ is a wart."
                                 (uncompressed
                                  :unsigned-char (* image-width image-height)))
       (loop
-         for i from 0 to 1 do
+         for i from 0 below (min 4 (first (array-dimensions bayer-pattern))) do
            (setf (cffi:mem-aref baypat :int i) (aref bayer-pattern i)))
       (loop
          for i from 0 to 2 do

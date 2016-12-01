@@ -163,50 +163,52 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
         for (i = 0; i < 3; i++)
                 if (fabs(color_raiser[i] - 1) > 0.00001)
                         raise = raise_color;
-        if (bayerpat[0] == 0x0000ff) { /* red */
-                colrz_ev_ev = colrz_r;
-                colrz_ev_od = colrz_g;
-                colrz_od_ev = colrz_g;
-                colrz_od_od = colrz_b;
-                cplt_ev_ev = cplt_r;
-                cplt_ev_od = cplt_g_on_r;
-                cplt_od_ev = cplt_g_on_b;
-                cplt_od_od = cplt_b;
-        } else if (bayerpat[0] == 0xff0000) { /* blue */
-                colrz_ev_ev = colrz_b;
-                colrz_ev_od = colrz_g;
-                colrz_od_ev = colrz_g;
-                colrz_od_od = colrz_r;
-                cplt_ev_ev = cplt_b;
-                cplt_ev_od = cplt_g_on_b;
-                cplt_od_ev = cplt_g_on_r;
-                cplt_od_od = cplt_b;
-        } else if (bayerpat[0] == 0x00ff00) { /* green */
-                if (bayerpat[1] == 0x0000ff) { /* red */
-                        colrz_ev_ev = colrz_g;
-                        colrz_ev_od = colrz_r;
-                        colrz_od_ev = colrz_b;
-                        colrz_od_od = colrz_g;
-                        cplt_ev_ev = cplt_g_on_r;
-                        cplt_ev_od = cplt_r;
-                        cplt_od_ev = cplt_b;
-                        cplt_od_od = cplt_g_on_b;
-                } else if (bayerpat[1] == 0xff0000) { /* blue */
-                        colrz_ev_ev = colrz_g;
-                        colrz_ev_od = colrz_b;
-                        colrz_od_ev = colrz_r;
-                        colrz_od_od = colrz_g;
-                        cplt_ev_ev = cplt_g_on_b;
-                        cplt_ev_od = cplt_b;
-                        cplt_od_ev = cplt_r;
-                        cplt_od_od = cplt_g_on_r;
+        if (channels == 3) {
+                if (bayerpat[0] == 0x0000ff) { /* red */
+                        colrz_ev_ev = colrz_r;
+                        colrz_ev_od = colrz_g;
+                        colrz_od_ev = colrz_g;
+                        colrz_od_od = colrz_b;
+                        cplt_ev_ev = cplt_r;
+                        cplt_ev_od = cplt_g_on_r;
+                        cplt_od_ev = cplt_g_on_b;
+                        cplt_od_od = cplt_b;
+                } else if (bayerpat[0] == 0xff0000) { /* blue */
+                        colrz_ev_ev = colrz_b;
+                        colrz_ev_od = colrz_g;
+                        colrz_od_ev = colrz_g;
+                        colrz_od_od = colrz_r;
+                        cplt_ev_ev = cplt_b;
+                        cplt_ev_od = cplt_g_on_b;
+                        cplt_od_ev = cplt_g_on_r;
+                        cplt_od_od = cplt_b;
+                } else if (bayerpat[0] == 0x00ff00) { /* green */
+                        if (bayerpat[1] == 0x0000ff) { /* red */
+                                colrz_ev_ev = colrz_g;
+                                colrz_ev_od = colrz_r;
+                                colrz_od_ev = colrz_b;
+                                colrz_od_od = colrz_g;
+                                cplt_ev_ev = cplt_g_on_r;
+                                cplt_ev_od = cplt_r;
+                                cplt_od_ev = cplt_b;
+                                cplt_od_od = cplt_g_on_b;
+                        } else if (bayerpat[1] == 0xff0000) { /* blue */
+                                colrz_ev_ev = colrz_g;
+                                colrz_ev_od = colrz_b;
+                                colrz_od_ev = colrz_r;
+                                colrz_od_od = colrz_g;
+                                cplt_ev_ev = cplt_g_on_b;
+                                cplt_ev_od = cplt_b;
+                                cplt_od_ev = cplt_r;
+                                cplt_od_od = cplt_g_on_r;
+                        } else {
+                                retval = 2; /* all green is not a Bayer pattern */
+                                goto finalize;
+                        }
                 } else {
-                        retval = 2; /* all green is not a Bayer pattern */
+                        retval = 3;     /* first byte neither 0x00 nor 0xff */
                         goto finalize;
                 }
-        } else {
-                retval = 3;     /* first byte neither 0x00 nor 0xff */
-                goto finalize;
         }
         png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	if (png_ptr == NULL) {
