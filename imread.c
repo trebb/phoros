@@ -321,6 +321,9 @@ huffdecode(int width, int height, unsigned char *uncompressed,
                         maxlen = hlen[i];
         if ((htable = malloc((1 << maxlen) * sizeof(struct huffval))) == NULL)
                 return 31;
+        /* htable may well become too big to fit into memory.  Maybe
+        we should act a bit smarter and handle longer huffman codes
+        differently. */
         for (i = 0; i < 511; i++) {
                 if (hlen[i] > 0) {
                         code = hcode[4 * i] << 24 | hcode[4 * i + 1] << 16 |
@@ -459,6 +462,7 @@ int
 ping(int n) {
         return n;
 }
+
 int
 main(int argc, char *argv[])
 {
