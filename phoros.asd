@@ -32,10 +32,10 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "13.11.3"
+  "14.0.0"
 
   :licence                              ;goes with --licence output
-  "Copyright (C) 2010, 2011, 2012, 2015, 2016 Bert Burgemeister
+  "Copyright (C) 2010, 2011, 2012, 2015, 2016, 2017 Bert Burgemeister
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

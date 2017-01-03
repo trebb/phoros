@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -721,7 +721,7 @@ $$ LANGUAGE plpgsql;"
    (byte-position
     :reader image-byte-position
     :initarg :byte-position
-    :col-type integer
+    :col-type bigint
     :documentation "Start of image in .pictures file named by slot filename.")
    (point-id
     :accessor point-id
