@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2011, 2012 Bert Burgemeister
+;;; Copyright (C) 2011, 2012, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -134,7 +134,14 @@ aux-use-ssl."
           (if (or database aux-database)
               `((with-connection ,postgresql-credentials
                   (muffle-postgresql-warnings)
-                  ,@body))
+                  (handler-bind
+                      ((database-connection-error
+                        (lambda (err)
+                          (cl-log:log-message
+                           :warning "Need to reconnect database due to the following error:~&~A."
+                           (database-error-message err))
+                          (invoke-restart :reconnect))))
+                    ,@body)))
               body))
          (logged-body
           (if log
