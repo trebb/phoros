@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -632,7 +632,7 @@ don't exist in DB."
              (sql (:is-null 'aux-numeric)))
        for aux-text-comparison =
          (if aux-text
-             (sql (:= 'aux-text (apply #'vector aux-text)))
+             (sql (:= 'aux-text (vector-null aux-text)))
              (sql (:is-null 'aux-text)))
        with points-stored = 0
        with points-already-in-db = 0
@@ -688,10 +688,10 @@ don't exist in DB."
                     ;; 'stdz-global ,stdz-global
                     'input-size ,input-size
                     'aux-numeric ,(if aux-numeric
-                                      (apply #'vector aux-numeric)
+                                      (vector-null aux-numeric)
                                       :null)
                     'aux-text ,(if aux-text
-                                   (apply #'vector aux-text)
+                                   (vector-null aux-text)
                                    :null)))))
              () "Point not stored.  This should not happen.")
             (incf points-stored)))
@@ -699,6 +699,11 @@ don't exist in DB."
                                points-already-in-db
                                points-tried
                                unknown-users)))))
+
+(defun vector-null (elements)
+  "Return a vector made from list elements, but with any occurrences
+of NIL replaced by NULL."
+  (substitute-if :null #'null (apply #'vector elements)))
 
 (defun update-footprint (common-table-name
                          measurement-id filename byte-position)
