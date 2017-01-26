@@ -1,5 +1,5 @@
 # PHOROS -- Photogrammetric Road Survey
-# Copyright (C) 2010, 2011, 2012, 2015 Bert Burgemeister
+# Copyright (C) 2010, 2011, 2012, 2015, 2017 Bert Burgemeister
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -201,10 +201,10 @@ git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
 imread : imread.c Makefile	#for debugging
-	gcc imread.c -O2 -o imread `pkg-config --cflags --libs libpng` -lm
+	gcc imread.c -O2 -o imread `pkg-config --cflags --libs libpng libjpeg` -lm
 
 $(LIBIMREAD) : imread.c Makefile
-	gcc -fpic -shared -O2 -o imread.so `pkg-config --cflags --libs libpng` -lm imread.c
+	gcc -fpic -shared -O2 -o imread.so `pkg-config --cflags --libs libpng libjpeg` -lm imread.c
 
 clean :
 	rm -rf *.fasl *.log						\

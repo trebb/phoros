@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011, 2012, 2016 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012, 2016, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -818,7 +818,6 @@ is a wart."
   ;; TODO: bayer-pattern should be applied to the unturned image
   (let ((blob-start (find-keyword path "PICTUREDATA_BEGIN" start))
         (blob-size (find-keyword-value path "dataSize=" start))
-        (huffman-table-size (* 511 (+ 1 4)))
         (image-height (find-keyword-value path "height=" start))
         (image-width (find-keyword-value path "width=" start))
         (compression-mode (find-keyword-value path "compressed=" start))
@@ -827,10 +826,10 @@ is a wart."
     (cffi:with-foreign-objects ((baypat :int 3)
                                 (colr-raisr :double 3)
                                 (mem-png 'mem-encode)
-                                (compressed
-                                 :unsigned-char (- blob-size huffman-table-size))
+                                (compressed :unsigned-char blob-size)
                                 (uncompressed
-                                 :unsigned-char (* image-width image-height)))
+                                 ;; Too big by a factor of channels unless we have a JPEG
+                                 :unsigned-char (* image-width image-height channels)))
       (loop
          for i from 0 below (min 4 (first (array-dimensions bayer-pattern))) do
            (setf (cffi:mem-aref baypat :int i) (aref bayer-pattern i)))
@@ -839,7 +838,7 @@ is a wart."
            (setf (cffi:mem-aref colr-raisr :double i)
                  (coerce (aref color-raiser i) 'double-float)))
       (let ((png2mem-exit
-             (imread:png2mem (namestring path) blob-start (- blob-size huffman-table-size)
+             (imread:png2mem (namestring path) blob-start blob-size
                              image-width image-height channels baypat compression-mode
                              uncompressed compressed mem-png
                              (if reversep 1 0) (if brightenp 1 0) colr-raisr)))
@@ -859,6 +858,14 @@ is a wart."
                       compression-mode path))
               ((= 6 png2mem-exit)
                (error "Don't know how to deal with ~D-channel pixels." channels))
+              ((= 71 png2mem-exit)
+               (error "JPEG decompression error."))
+              ((= 72 png2mem-exit)
+               (error "JPEG discarded.  It was bigger than expected."))
+              ((= 73 png2mem-exit)
+               (error "JPEG reversing not implemented."))
+              ((= 74 png2mem-exit)
+               (error "JPEG brightening not implemented."))
               ((= 11 png2mem-exit)
                (error "PNG error: create_write_struct()."))
               ((= 12 png2mem-exit)

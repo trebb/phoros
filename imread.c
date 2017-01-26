@@ -1,5 +1,5 @@
 /* PHOROS -- Photogrammetric Road Survey */
-/* Copyright (C) 2016 Bert Burgemeister */
+/* Copyright (C) 2016, 2017 Bert Burgemeister */
 
 /* This program is free software; you can redistribute it and/or modify */
 /* it under the terms of the GNU General Public License as published by */
@@ -15,12 +15,14 @@
 /* with this program; if not, write to the Free Software Foundation, Inc., */
 /* 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA. */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdint.h>
 #include <malloc.h>
 #include <math.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+
 #include <png.h>
+#include <jpeglib.h>
 
 void
 cplt_horiz(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
@@ -227,13 +229,11 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
         mem_png->buffer = NULL;
         mem_png->size = 0;
         png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
-	/* Write header (8 bit colour depth) */
 	row = malloc(channels * width * sizeof(png_byte));
         if (row == NULL) {
                 retval = 21;
                 goto finalize;
         }
-	/* Write image data */
         if (channels == 3) {
                 png_set_IHDR(png_ptr, info_ptr, width, height,
                              8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
@@ -297,6 +297,62 @@ finalize:
 	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
 	if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, NULL);
 	if (row != NULL) free(row);
+	return retval;
+}
+
+int
+uncompressedjpeg2png(struct mem_encode *mem_png, int width, int height,
+                     int channels, double *color_raiser,
+                     unsigned char *uncompressed)
+{
+	int retval = 0;
+	png_structp png_ptr = NULL;
+	png_infop info_ptr = NULL;
+        void (*raise)(unsigned char *, int, double *) = raise_noop;
+        int y;
+        int i;
+
+        for (i = 0; i < 3; i++)
+                if (fabs(color_raiser[i] - 1) > 0.00001)
+                        raise = raise_color;
+        png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (png_ptr == NULL) {
+		retval = 11; /* Could not allocate write struct */
+		goto finalize;
+	}
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		retval = 12; /* Could not allocate info struct */
+		goto finalize;
+	}
+	if (setjmp(png_jmpbuf(png_ptr))) {
+		retval = 13; /* Error during png creation */
+		goto finalize;
+	}
+        mem_png->buffer = NULL;
+        mem_png->size = 0;
+        png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
+        if (channels == 3) {
+                for (i = 0; i < width * height; i++)
+                        raise(uncompressed, i, color_raiser);
+                png_set_IHDR(png_ptr, info_ptr, width, height,
+                             8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
+                             PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+        } else if (channels == 1) {
+                png_set_IHDR(png_ptr, info_ptr, width, height,
+                             8, PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
+                             PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
+        } else {
+                retval = 6;       /* wrong number of channels */
+                goto finalize;
+        }
+        png_write_info(png_ptr, info_ptr);
+        for (y = 0; y < height; y++)
+                png_write_row(png_ptr, uncompressed + y * width * channels);
+	png_write_end(png_ptr, NULL);
+finalize:
+	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
+	if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, NULL);
 	return retval;
 }
 
@@ -409,6 +465,21 @@ brighten(unsigned char *base, size_t size)
                         base[i] = (base[i] - min) * UCHAR_MAX / range;
 }
 
+struct imread_jpeg_error_mgr {
+        struct jpeg_error_mgr pub;
+        jmp_buf setjmp_buffer;
+};
+
+typedef struct imread_jpeg_error_mgr *imread_jpeg_error_ptr;
+
+METHODDEF(void)
+imread_jpeg_error_exit (j_common_ptr cinfo)
+{
+        imread_jpeg_error_ptr myerr = (imread_jpeg_error_ptr) cinfo->err;
+        (*cinfo->err->output_message) (cinfo);
+        longjmp(myerr->setjmp_buffer, 1);
+}
+
 int
 png2mem(char *path, int start, int len, int width, int height,
         int channels, int *bayer_pattern, int compr_mode,
@@ -418,6 +489,7 @@ png2mem(char *path, int start, int len, int width, int height,
 {
         FILE *in;
         unsigned char hlen[511], hcode[511 * 4];
+        int htblsize = 511 * (1 + 4);
         int retval;
 
         if ((in = fopen(path, "r")) == NULL)
@@ -426,7 +498,7 @@ png2mem(char *path, int start, int len, int width, int height,
         if (compr_mode == 1 || compr_mode == 2) {
                 fread(hcode, sizeof(hcode[0]), 511 * 4, in);
                 fread(hlen, sizeof(hlen[0]), 511, in);
-                fread(compressed, sizeof(compressed[0]), len, in);
+                fread(compressed, sizeof(compressed[0]), len - htblsize, in);
                 fclose(in);
                 if ((retval = huffdecode(width, height, uncompressed, hcode,
                                          hlen, compressed)) != 0)
@@ -438,6 +510,46 @@ png2mem(char *path, int start, int len, int width, int height,
                 if ((retval = uncompressed2png(mem_png, width, height, channels,
                                                bayer_pattern, color_raiser,
                                                uncompressed)) != 0)
+                        return retval;
+                return 0;
+        } else if (compr_mode == 3) { /* JPEG */
+                struct jpeg_decompress_struct cinfo;
+                struct imread_jpeg_error_mgr jerr;
+                unsigned char *next_line;
+                int nsamples;
+
+                cinfo.err = jpeg_std_error(&jerr.pub);
+                jerr.pub.error_exit = imread_jpeg_error_exit;
+                if (setjmp(jerr.setjmp_buffer)) {
+                        jpeg_destroy_decompress(&cinfo);
+                        return 71; /* JPEG decompression error */
+                }
+                jpeg_create_decompress(&cinfo);
+                fread(compressed, sizeof(compressed[0]), len, in);
+                fclose(in);
+                jpeg_mem_src(&cinfo, compressed, len);
+                jpeg_read_header(&cinfo, TRUE);
+                if (cinfo.image_width * cinfo.image_height * cinfo.num_components >
+                    width * height * channels) {
+                        return 72; /* JPEG bigger than expected */
+                        jpeg_destroy_decompress(&cinfo);
+                }
+                jpeg_start_decompress(&cinfo);
+                next_line = uncompressed;
+                while (cinfo.output_scanline < cinfo.output_height) {
+                        nsamples = jpeg_read_scanlines(&cinfo, (JSAMPARRAY)&next_line, 1);
+                        next_line += nsamples * cinfo.image_width * cinfo.num_components;
+                }
+                jpeg_finish_decompress(&cinfo);
+                jpeg_destroy_decompress(&cinfo);
+                if (reversep)
+                        return 73; /* JPEG reversing not implemented */
+                if (brightenp)
+                        return 74; /* JPEG brightening not implemented */
+                if ((retval = uncompressedjpeg2png(
+                             mem_png, cinfo.image_width, cinfo.image_height,
+                             cinfo.num_components, color_raiser,
+                             uncompressed)) != 0)
                         return retval;
                 return 0;
         } else if (compr_mode == 0) { /* untested */
