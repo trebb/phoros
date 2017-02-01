@@ -266,6 +266,8 @@ number."
               (body status-code headers uri stream must-close reason-phrase)
             (drakma:http-request *time-steps-history-url*)
           (declare (ignore headers stream must-close reason-phrase))
+          (unless (stringp body)
+            (setf body (flexi-streams:octets-to-string body)))
           (assert (= status-code 200))
           (with-open-file (stream *time-steps-history-file*
                                   :direction :output
