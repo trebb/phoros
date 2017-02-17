@@ -83,6 +83,18 @@ tagged by the short string message-tag."
           (/ ,query-milliseconds 1000)
           ,query-result)))))
 
+(defmacro with-restarting-connection (postgresql-credentials &body body)
+  "Act like with-connection, but reconnect on database-reconnection-error"
+  `(with-connection ,postgresql-credentials
+     (handler-bind
+         ((database-connection-error
+           (lambda (err)
+             (cl-log:log-message
+              :warning "Need to reconnect database due to the following error:~&~A."
+              (database-error-message err))
+             (invoke-restart :reconnect))))
+       ,@body)))
+
 
 (in-package :cli)
 

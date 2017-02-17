@@ -783,7 +783,7 @@ have up-to-date footprints fresh footprints."
   "Asynchronously update image footprints of all acquisition projects
 where necessarcy."
   (let ((common-table-names
-         (with-connection postgresql-credentials
+         (with-restarting-connection postgresql-credentials
            (query (:select 'common-table-name
                            :from 'sys-acquisition-project)
                   :list))))
@@ -795,7 +795,7 @@ where necessarcy."
       (bt:make-thread
        #'(lambda ()
            (declare (special *insert-footprints-postgresql-credentials*))
-           (with-connection *insert-footprints-postgresql-credentials*
+           (with-restarting-connection *insert-footprints-postgresql-credentials*
              (insert-footprints common-table-name)))
        :name "insert-all-footprints"))))
 
@@ -819,7 +819,7 @@ no images."
   "Asynchronously delete imageless footprints of all acquisition
 projects."
   (let ((common-table-names
-         (with-connection postgresql-credentials
+         (with-restarting-connection postgresql-credentials
            (query (:select 'common-table-name
                            :from 'sys-acquisition-project)
                   :list))))
@@ -831,7 +831,7 @@ projects."
       (bt:make-thread
        #'(lambda ()
            (declare (special *delete-imageless-points-postgresql-credentials*))
-           (with-connection *delete-imageless-points-postgresql-credentials*
+           (with-restarting-connection *delete-imageless-points-postgresql-credentials*
              (delete-imageless-points common-table-name)))
        :name "delete-all-imageless-points"))))
 

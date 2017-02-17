@@ -80,7 +80,7 @@
                     :height 30 :style "vertical-align:middle"
                     :alt "PostgreSQL"))
           (who:fmt " ~{~A (v~A)~}"
-                   (with-connection *postgresql-credentials*
+                   (with-restarting-connection *postgresql-credentials*
                      (cl-utilities:split-sequence
                       #\Space
                       (query (:select (:version)) :single)
@@ -93,7 +93,7 @@
           (who:fmt "version ~A"
                    (car (cl-utilities:split-sequence
                          #\Space
-                         (with-connection *postgresql-credentials*
+                         (with-restarting-connection *postgresql-credentials*
                            (query
                             (:select (:postgis_version))
                             :single)))))

@@ -177,7 +177,7 @@ at address.  Address defaults to all addresses of the local machine."
   (setf *proxy-root* proxy-root)
   (setf *common-root* common-root)
   (check-db *postgresql-credentials*)
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (assert-phoros-db-major-version))
   (hunchentoot:reset-session-secret)
   (hunchentoot:start *phoros-server*))
@@ -190,7 +190,7 @@ at address.  Address defaults to all addresses of the local machine."
 (hunchentoot:define-easy-handler phoros-handler ()
   "First HTTP contact: if necessary, check credentials, establish new
 session."
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let* ((s (cl-utilities:split-sequence
                #\/
                (hunchentoot:script-name*)
@@ -234,7 +234,7 @@ session."
                        nil
                        bbox)))
            (setf (hunchentoot:session-value 'aux-data-p)
-                 (with-connection *postgresql-aux-credentials*
+                 (with-restarting-connection *postgresql-aux-credentials*
                    (view-exists-p (aux-point-view-name
                                    presentation-project-name))))
            (setf (hunchentoot:session-value 'number-of-threads) 0)
@@ -283,7 +283,7 @@ session."
 (defun stored-bbox ()
   "Return stored bounding box for user and presentation project of
 current session."
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let ((bbox (bounding-box
                  (get-dao 'sys-user-role
                           (hunchentoot:session-value
@@ -297,7 +297,7 @@ current session."
 (defun stored-cursor ()
   "Return stored cursor position for user and presentation project of
 current session."
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let ((cursor
            (query
             (:select (:st_x 'cursor) (:st_y 'cursor)
@@ -318,7 +318,7 @@ current session."
                           :default-request-type :post)
     ()
   "Check user credentials."
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let* ((user-name (hunchentoot:post-parameter "user-name"))
            (user-password (hunchentoot:post-parameter "user-password"))
            (presentation-project-id (hunchentoot:session-value
@@ -371,7 +371,7 @@ current session."
 
 (hunchentoot:define-easy-handler logout-handler (bbox longitude latitude)
   (if (hunchentoot:session-value 'authenticated-p)
-      (with-connection *postgresql-credentials*
+      (with-restarting-connection *postgresql-credentials*
         (let ((presentation-project-name
                (hunchentoot:session-value 'presentation-project-name))
               (sys-user-role
@@ -416,7 +416,7 @@ current session."
 
 (hunchentoot:define-easy-handler set-cursor-handler (bbox longitude latitude)
   (assert-authentication)
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let ((presentation-project-name
 	   (hunchentoot:session-value 'presentation-project-name))
 	  (sys-user-role
@@ -451,7 +451,7 @@ current session."
   "Respond with a list of restrictions the user may choose from."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (json:encode-json-to-string
      (query
       (:order-by
@@ -507,7 +507,7 @@ wrapped in an array.  Wipe away any unfinished business first."
   (setf (hunchentoot:session-value 'number-of-threads) 1)
   (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
   (setf (hunchentoot:content-type*) "application/json")
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let* ((presentation-project-id (hunchentoot:session-value
                                      'presentation-project-id))
            (common-table-names (common-table-names
@@ -791,7 +791,7 @@ ingredients for the URLs of the 256 nearest images."
       (progn
         (incf (hunchentoot:session-value 'number-of-threads))
         (setf (hunchentoot:content-type*) "application/json")
-        (with-connection *postgresql-credentials*
+        (with-restarting-connection *postgresql-credentials*
           (let* ((presentation-project-id (hunchentoot:session-value
                                            'presentation-project-id))
                  (common-table-names (common-table-names
@@ -893,7 +893,7 @@ ingredients for the URLs of the 256 nearest images."
     (assert
      (not (string-equal user-role "read")) ;that is, "write" or "admin"
      () "No write permission.")
-    (with-connection *postgresql-credentials*
+    (with-restarting-connection *postgresql-credentials*
       (assert
        (= 1 (execute (:insert-into user-point-table-name :set
                                    'user-id user-id
@@ -929,7 +929,7 @@ ingredients for the URLs of the 256 nearest images."
     (assert
      (not (string-equal user-role "read")) ;that is, "write" or "admin"
      () "No write permission.")
-    (with-connection *postgresql-credentials*
+    (with-restarting-connection *postgresql-credentials*
       (assert
        (= 1 (execute
              (:update user-point-table-name :set
@@ -1024,7 +1024,7 @@ of point-attributes by modifying element numeric-description."
                                    (:= 'numeric-description
                                        numeric-description)))))
                    :single!)))))
-      (with-connection *postgresql-credentials*
+      (with-restarting-connection *postgresql-credentials*
         (json:encode-json-to-string
          (unless (uniquep
                   user-point-id kind description numeric-description)
@@ -1049,7 +1049,7 @@ of point-attributes by modifying element numeric-description."
          (user-point-table-name
           (user-point-table-name presentation-project-name))
          (data (json:decode-json-from-string (hunchentoot:raw-post-data))))
-    (with-connection *postgresql-credentials*
+    (with-restarting-connection *postgresql-credentials*
       (assert
        (eql 1 (cond ((string-equal user-role "admin")
                      (execute (:delete-from user-point-table-name
@@ -1138,7 +1138,7 @@ junk-keys."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
   (handler-case 
-      (with-connection *postgresql-credentials*
+      (with-restarting-connection *postgresql-credentials*
         (let* ((presentation-project-id
                 (hunchentoot:session-value 'presentation-project-id))
                (common-table-names
@@ -1194,7 +1194,7 @@ junk-keys."
              (aux-point-view-name (hunchentoot:session-value
                                    'presentation-project-name))))
         (encode-geojson-to-string
-         (with-connection *postgresql-aux-credentials*
+         (with-restarting-connection *postgresql-aux-credentials*
            (query
             (s-sql:sql-compile
              `(:limit
@@ -1243,7 +1243,7 @@ coordinates received, wrapped in an array."
                   (+ latitude snap-distance))))
     (encode-geojson-to-string
      (ignore-errors
-       (with-connection *postgresql-aux-credentials*
+       (with-restarting-connection *postgresql-aux-credentials*
          (nillify-null
           (query
            (s-sql:sql-compile
@@ -1325,7 +1325,7 @@ respectively).  Wipe away any unfinished business first."
               (format nil "POINT(~F ~F)" longitude latitude))
              (sql-response
               (ignore-errors
-                (with-connection *postgresql-aux-credentials*
+                (with-restarting-connection *postgresql-aux-credentials*
                   (nillify-null
                    (query
                     (sql-compile
@@ -1410,7 +1410,7 @@ send all points and indent GeoJSON to make it more readable."
             (user-point-table-name
              (user-point-table-name (hunchentoot:session-value
                                      'presentation-project-name))))
-        (with-connection *postgresql-credentials*
+        (with-restarting-connection *postgresql-credentials*
           (nth-value 0 (get-user-points user-point-table-name
                                         :bounding-box bounding-box
                                         :limit limit
@@ -1434,7 +1434,7 @@ table."
       (let ((user-point-table-name
              (user-point-table-name (hunchentoot:session-value
                                      'presentation-project-name))))
-        (with-connection *postgresql-credentials*
+        (with-restarting-connection *postgresql-credentials*
           (with-output-to-string (s)
             (json:with-object (s)
               (json:as-object-member (:descriptions s)
@@ -1947,7 +1947,7 @@ respond with a JSON object comprising the elements
   image-points for."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (with-connection *postgresql-credentials*
+  (with-restarting-connection *postgresql-credentials*
     (let* ((user-point-table-name
             (user-point-table-name (hunchentoot:session-value
                                     'presentation-project-name)))
