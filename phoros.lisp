@@ -512,7 +512,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                                      'presentation-project-id))
            (common-table-names (common-table-names
                                 presentation-project-id))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
            (longitude (cdr (assoc :longitude data)))
            (latitude (cdr (assoc :latitude data)))
            (count (cdr (assoc :count data)))
@@ -797,7 +797,7 @@ ingredients for the URLs of the 256 nearest images."
                  (common-table-names (common-table-names
                                       presentation-project-id))
                  (data (json:decode-json-from-string
-                        (hunchentoot:raw-post-data)))
+                        (hunchentoot:raw-post-data :force-text t)))
                  (longitude (cdr (assoc :longitude data)))
                  (latitude (cdr (assoc :latitude data)))
                  (count 256)
@@ -866,7 +866,7 @@ ingredients for the URLs of the 256 nearest images."
                                      'presentation-project-name))
          (user-id (hunchentoot:session-value 'user-id))
          (user-role (hunchentoot:session-value 'user-role))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
          (longitude (cdr (assoc :longitude data)))
          (latitude (cdr (assoc :latitude data)))
          (ellipsoid-height (cdr (assoc :ellipsoid-height data)))
@@ -919,7 +919,7 @@ ingredients for the URLs of the 256 nearest images."
                                      'presentation-project-name))
          (user-id (hunchentoot:session-value 'user-id))
          (user-role (hunchentoot:session-value 'user-role))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
          (user-point-id (cdr (assoc :user-point-id data)))
          (kind (cdr (assoc :kind data)))
          (description (cdr (assoc :description data)))
@@ -989,7 +989,7 @@ of point-attributes by modifying element numeric-description."
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((presentation-project-name (hunchentoot:session-value
                                      'presentation-project-name))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
          (user-point-id (cdr (assoc :user-point-id data)))
          (kind (cdr (assoc :kind data)))
          (description (cdr (assoc :description data)))
@@ -1048,7 +1048,7 @@ of point-attributes by modifying element numeric-description."
          (user-role (hunchentoot:session-value 'user-role))
          (user-point-table-name
           (user-point-table-name presentation-project-name))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data))))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t))))
     (with-restarting-connection *postgresql-credentials*
       (assert
        (eql 1 (cond ((string-equal user-role "admin")
@@ -1228,7 +1228,7 @@ coordinates received, wrapped in an array."
   (let* ((aux-view-name
           (aux-point-view-name (hunchentoot:session-value
                                 'presentation-project-name)))
-         (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+         (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
          (longitude (cdr (assoc :longitude data)))
          (latitude (cdr (assoc :latitude data)))
          (count (cdr (assoc :count data)))
@@ -1313,7 +1313,7 @@ respectively).  Wipe away any unfinished business first."
       (let* ((thread-aux-points-function-name
               (thread-aux-points-function-name (hunchentoot:session-value
                                                 'presentation-project-name)))
-             (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+             (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
              (longitude (cdr (assoc :longitude data)))
              (latitude (cdr (assoc :latitude data)))
              (radius (cdr (assoc :radius data)))
@@ -1871,7 +1871,7 @@ which containing coordinates (m, n) of a clicked point. Respond with a
 JSON encoded epipolar-line."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
+  (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t))))
     (json:encode-json-to-string
      (photogrammetry :epipolar-line (first data) (second data)))))
 
@@ -1890,7 +1890,7 @@ data (ex: points too far apart)."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
   (let* ((data
-          (json:decode-json-from-string (hunchentoot:raw-post-data)))
+          (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
          (active-point-photo-parameters
           (first data))
          (number-of-active-points
@@ -1951,7 +1951,7 @@ respond with a JSON object comprising the elements
     (let* ((user-point-table-name
             (user-point-table-name (hunchentoot:session-value
                                     'presentation-project-name)))
-           (data (json:decode-json-from-string (hunchentoot:raw-post-data)))
+           (data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t)))
            (user-point-ids (first data))
            (user-point-count (length user-point-ids))
            (destination-photo-parameters (second data))
@@ -2065,6 +2065,6 @@ or if that image doesn't have a footprint.  Return nil otherwise."
   "Receive vector of sets of picture parameters, respond with stuff."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data))))
+  (let* ((data (json:decode-json-from-string (hunchentoot:raw-post-data :force-text t))))
     (json:encode-json-to-string
      (photogrammetry :multi-position-intersection data))))
