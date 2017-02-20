@@ -76,7 +76,6 @@
      (stropt :long-name "verbose"
              :description "Change behaviour, mainly for debugging, as specified in the form of <verbosity-topic>:<verbosity-level>.  Repeat if necessary.
   render-footprints:1 - display image footprints on http client;
-  suppress-preemptive-caching:1 - don't stuff browser cache with lots of images around map cursor;
   log-sql:1 - log SQL activity;
   postgresql-warnings:1 - show PostgreSQL warnings;
   log-error-backtraces:1 - log http server error backtraces;

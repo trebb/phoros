@@ -125,14 +125,6 @@ button, select {
 .h1-right {
     float: right;
 }
-#caching-indicator {
-    background: url(/~@*~A/lib/ol/theme/theme/default/img/save_features_off.png) no-repeat center center;
-    float: left;
-    margin-top: 3px;
-    margin-right: 15px;
-    height: 16px;
-    width: 16px;
-}
 .vanilla-input {
     font-family: 'andale mono', 'lucida console', monospace;
     padding: 0px;

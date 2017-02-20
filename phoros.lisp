@@ -776,87 +776,6 @@ wrapped in an array.  Wipe away any unfinished business first."
       (json:encode-json-to-string result))))
 
 (hunchentoot:define-easy-handler
-    (nearest-image-urls :uri "/phoros/lib/nearest-image-urls"
-                        :default-request-type :post)
-    ()
-  "Receive coordinates, respond with a json array of the necessary
-ingredients for the URLs of the 256 nearest images."
-  (assert-authentication)
-  (when (cli:verbosity-level :suppress-preemptive-caching)
-    (return-from nearest-image-urls ""))
-  (push (bt:current-thread) (hunchentoot:session-value 'recent-threads))
-  (if (<= (hunchentoot:session-value 'number-of-threads)
-          0)              ;only stuff cache if everything else is done
-      (progn
-        (incf (hunchentoot:session-value 'number-of-threads))
-        (setf (hunchentoot:content-type*) "application/json")
-        (with-restarting-connection *postgresql-credentials*
-          (let* ((presentation-project-id (hunchentoot:session-value
-                                           'presentation-project-id))
-                 (common-table-names (common-table-names
-                                      presentation-project-id))
-                 (data (json:decode-json-from-string
-                        (hunchentoot:raw-post-data :force-text t)))
-                 (longitude (cdr (assoc :longitude data)))
-                 (latitude (cdr (assoc :latitude data)))
-                 (count 256)
-                 (radius (* 5d-4))   ; assuming geographic coordinates
-                 (point-form (format nil "POINT(~F ~F)" longitude latitude))
-                 (result
-                  (handler-case
-                      (ignore-errors
-                        (query
-                         (sql-compile
-                          `(:limit
-                            (:select
-                             'directory 'filename 'byte-position
-                             'bayer-pattern 'color-raiser 'mounting-angle
-                             :from
-                             (:as
-                              (:order-by
-                               (:union
-                                ,@(loop
-                                     for common-table-name
-                                     in common-table-names
-                                     for aggregate-view-name
-                                     = (aggregate-view-name common-table-name)
-                                     collect  
-                                     `(:select
-                                       'directory
-                                       'filename 'byte-position
-                                       'bayer-pattern 'color-raiser
-                                       'mounting-angle
-                                       (:as (:st_distance
-                                             'coordinates
-                                             (:st_geomfromtext
-                                              ,point-form
-                                              ,*standard-coordinates*))
-                                            'distance)
-                                       :from
-                                       ',aggregate-view-name
-                                       :where
-                                       (:and (:= 'presentation-project-id
-                                                 ,presentation-project-id)
-                                             (:st_dwithin
-                                              'coordinates
-                                              (:st_geomfromtext
-                                               ,point-form
-                                               ,*standard-coordinates*)
-                                              ,radius)))))
-                               'distance)
-                              'raw-image-urls))
-                            ,count))
-                         :alists))
-                    (superseded ()
-                      (setf (hunchentoot:return-code*)
-                            hunchentoot:+http-gateway-time-out+)
-                      nil))))
-            (decf (hunchentoot:session-value 'number-of-threads))
-            (json:encode-json-to-string result))))
-      ;; (setf (hunchentoot:return-code*) hunchentoot:+http-gateway-time-out+)
-      ))
-
-(hunchentoot:define-easy-handler
     (store-point :uri "/phoros/lib/store-point" :default-request-type :post)
     ()
   "Receive point sent by user; store it into database."
@@ -1616,7 +1535,6 @@ table."
             (:span :id "presentation-project-emptiness")
             (:span :id "recommend-fresh-login")
             (:span :class "h1-right"
-                   (:span :id "caching-indicator")
                    (:span :id "phoros-version"
                           (who:fmt "v~A" (phoros-version)))))
        ;; streetmap area (northwest)
