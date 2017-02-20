@@ -5,6 +5,7 @@
 *.ini
 *.json
 *.pid
+*.pictures
 phoros
 fasttrack
 *.tar.gz

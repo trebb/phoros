@@ -130,7 +130,6 @@ the key argument, or the whole dotted string."
       (progn
         (geographic-to-utm 33 13 52)    ;check cs2cs
         (phoros-photogrammetry:del-all) ;check photogrammetry
-        #+phoros-uses-imread.so
         (assert (= 42 (imread:ping 42))) ;check imread
         (initialize-leap-seconds)    ;check source of leap second info
         (format *error-output* "~&OK~%"))

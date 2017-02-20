@@ -1,14 +1,3 @@
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  ;; There are three alternative means of image creation:
-  ;; zpng and cl-png, and Phoros's own imread.so.  zpng is faster than
-  ;; cl-png and has no dependencies, but it makes images twice as big
-  ;; as cl-png.  imread.so is fastest and its images are of the same
-  ;; size as cl-png.  Both cl-png and imread.so depend on libpng.so.
-  ;; 
-  ;; (pushnew :phoros-uses-zpng *features*))
-  ;; (pushnew :phoros-uses-cl-png *features*))
-  (pushnew :phoros-uses-imread.so *features*))
-
 (defsystem :phoros
 
   :description                 ;goes with --version --verbose=1 output
@@ -32,7 +21,7 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "14.1.3"
+  "14.2.0"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012, 2015, 2016, 2017 Bert Burgemeister
@@ -57,7 +46,7 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                       #+build-fasttrack "package-fasttrack")
                #+build-phoros (:file "util")
                (:file "proj4-sh")
-               #+(and build-phoros phoros-uses-imread.so) (:file "imread")
+               #+build-phoros (:file "imread")
                #+build-phoros (:file "log")
                (:file "photogrammetry")
                #+build-phoros (:file "indent-json")
@@ -82,8 +71,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                :cl-json
                :postmodern
                #+build-phoros :simple-date
-               #+(and build-phoros phoros-uses-zpng) :zpng
-               #+(and build-phoros phoros-uses-cl-png) :png
                :drakma
                #+build-phoros :net.didierverna.clon
                :cl-utilities
