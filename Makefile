@@ -19,6 +19,7 @@ LISP = $(shell test -x ../sbcl/bin/sbcl && echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
 LIBIMREAD = imread.so
+CCFLAGS = -std=c99 -Wall -Wextra -pedantic -O2
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
 EXAMPLES_DIR = examples
@@ -201,10 +202,12 @@ git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
 imread : imread.c Makefile	#for debugging
-	gcc imread.c -O2 -o imread `pkg-config --cflags --libs libpng libjpeg` -lm
+	gcc $(CCFLAGS) imread.c -o imread \
+		`pkg-config --cflags --libs libpng libjpeg` -lm
 
 $(LIBIMREAD) : imread.c Makefile
-	gcc -fpic -shared -O2 -o imread.so `pkg-config --cflags --libs libpng libjpeg` -lm imread.c
+	gcc $(CCFLAGS) -fpic -shared -o imread.so \
+		`pkg-config --cflags --libs libpng libjpeg` -lm imread.c
 
 clean :
 	rm -rf *.fasl *.log						\

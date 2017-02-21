@@ -24,75 +24,105 @@
 #include <png.h>
 #include <jpeglib.h>
 
+enum color {RED, GREEN, BLUE};
+
+/* 
+   Set one particular color of the cell in row at position x to the
+   average of the surrounding values found in rawp
+ */
 void
 cplt_horiz(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
 {
+        (void) y;
+        (void) width;
         row[3 * x + color] = (rawp[-1] + rawp[1]) / 2;
 }
 
 void
 cplt_vert(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
 {
+        (void) y;
         row[3 * x + color] = (rawp[-width] + rawp[width]) / 2;
 }
 
 void
 cplt_squ(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
 {
+        (void) y;
         row[3 * x + color] = (rawp[-1] + rawp[1] + rawp[-width] + rawp[width]) / 4;
 }
 
 void
 cplt_diag(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
 {
+        (void) y;
         row[3 * x  + color] = (rawp[-width - 1] + rawp[-width + 1] +
                                rawp[width - 1] + rawp[width + 1]) / 4;
 }
 
+/* 
+    Add missing colors to a green cell in a red and green row
+ */
 void
 cplt_g_on_r(unsigned char *rawp, png_bytep row, int y, int x, int width)
 {
-        cplt_horiz(rawp, row, y, x, 0, width);
-        cplt_vert(rawp, row, y, x, 2, width);
+        cplt_horiz(rawp, row, y, x, RED, width);
+        cplt_vert(rawp, row, y, x, BLUE, width);
 }
 
+/* 
+    Add missing colors to a green cell in a blue and green row
+ */
 void
 cplt_g_on_b(unsigned char *rawp, png_bytep row, int y, int x, int width)
 {
-        cplt_horiz(rawp, row, y, x, 2, width);
-        cplt_vert(rawp, row, y, x, 0, width);
+        cplt_horiz(rawp, row, y, x, BLUE, width);
+        cplt_vert(rawp, row, y, x, RED, width);
 }
 
+/* 
+    Add missing colors to a red cell
+ */
 void
 cplt_r(unsigned char *rawp, png_bytep row, int y, int x, int width)
 {
-        cplt_squ(rawp, row, y, x, 1, width);
-        cplt_diag(rawp, row, y, x, 2, width);
+        cplt_squ(rawp, row, y, x, GREEN, width);
+        cplt_diag(rawp, row, y, x, BLUE, width);
 }
 
+/* 
+    Add missing colors to a blue cell
+ */
 void
 cplt_b(unsigned char *rawp, png_bytep row, int y, int x, int width)
 {
-        cplt_squ(rawp, row, y, x, 1, width);
-        cplt_diag(rawp, row, y, x, 0, width);
+        cplt_squ(rawp, row, y, x, GREEN, width);
+        cplt_diag(rawp, row, y, x, RED, width);
 }
 
+/*
+   Set one particular color of the cell in row at position x to the
+   value found in rawp
+ */
 void
 colrz_r(unsigned char *rawp, png_bytep row, int y, int x)
 {
-        row[3 * x + 0] = rawp[0];
+        (void) y;
+        row[3 * x + RED] = rawp[0];
 }
         
 void
 colrz_g(unsigned char *rawp, png_bytep row, int y, int x)
 {
-        row[3 * x + 1] = rawp[0];
+        (void) y;
+        row[3 * x + GREEN] = rawp[0];
 }
         
 void
 colrz_b(unsigned char *rawp, png_bytep row, int y, int x)
 {
-        row[3 * x + 2] = rawp[0];
+        (void) y;
+        row[3 * x + BLUE] = rawp[0];
 }
 
 void
@@ -111,9 +141,12 @@ raise_color(png_bytep row, int x, double *colr_raisr)
 void
 raise_noop(png_bytep row, int x, double *colr_raisr)
 {
+        (void) row;
+        (void) x;
+        (void) colr_raisr;
 }
 
-/* structure to store in-memory PNG in */
+/* Storage for the in-memory PNG */
 struct mem_encode
 {
         char *buffer;
@@ -140,16 +173,17 @@ write_png_data(png_structp png_ptr, png_bytep data, png_size_t length)
 void
 flush_png(png_structp png_ptr)
 {
+        (void) png_ptr;
 }
 
 int
 uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels,
                  int *bayerpat, double *color_raiser, unsigned char *uncompressed)
 {
-	int retval = 0;
+	volatile int retval = 0; /* silence -Wclobbered */
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
-	png_bytep row = NULL;
+	volatile png_bytep row = NULL; /* silence -Wclobbered */
         void (*colrz_ev_ev)(unsigned char *, png_bytep, int, int) = NULL;
         void (*colrz_ev_od)(unsigned char *, png_bytep, int, int) = NULL;
         void (*colrz_od_ev)(unsigned char *, png_bytep, int, int) = NULL;
@@ -158,14 +192,37 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
         void (*cplt_ev_od)(unsigned char *, png_bytep, int, int, int) = NULL;
         void (*cplt_od_ev)(unsigned char *, png_bytep, int, int, int) = NULL;
         void (*cplt_od_od)(unsigned char *, png_bytep, int, int, int) = NULL;
-        void (*raise)(unsigned char *, int, double *) = raise_noop;
         int x, y, x_ev, x_od, y_ev, y_od;
         int i;
 
-        for (i = 0; i < 3; i++)
-                if (fabs(color_raiser[i] - 1) > 0.00001)
-                        raise = raise_color;
+        png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
+	if (png_ptr == NULL) {
+		retval = 11; /* Could not allocate write struct */
+		goto finalize;
+	}
+	info_ptr = png_create_info_struct(png_ptr);
+	if (info_ptr == NULL) {
+		retval = 12; /* Could not allocate info struct */
+		goto finalize;
+	}
+	if (setjmp(png_jmpbuf(png_ptr))) {
+		retval = 13; /* Error during png creation */
+		goto finalize;
+	}
+        mem_png->buffer = NULL;
+        mem_png->size = 0;
+        png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
+	row = malloc(channels * width * sizeof(png_byte));
+        if (row == NULL) {
+                retval = 21;
+                goto finalize;
+        }
         if (channels == 3) {
+                void (*raise)(unsigned char *, int, double *) = raise_noop;
+                
+                for (i = 0; i < 3; i++)
+                        if (fabs(color_raiser[i] - 1) > 0.00001)
+                                raise = raise_color;
                 if (bayerpat[0] == 0x0000ff) { /* red */
                         colrz_ev_ev = colrz_r;
                         colrz_ev_od = colrz_g;
@@ -211,30 +268,6 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
                         retval = 3;     /* first byte neither 0x00 nor 0xff */
                         goto finalize;
                 }
-        }
-        png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-	if (png_ptr == NULL) {
-		retval = 11; /* Could not allocate write struct */
-		goto finalize;
-	}
-	info_ptr = png_create_info_struct(png_ptr);
-	if (info_ptr == NULL) {
-		retval = 12; /* Could not allocate info struct */
-		goto finalize;
-	}
-	if (setjmp(png_jmpbuf(png_ptr))) {
-		retval = 13; /* Error during png creation */
-		goto finalize;
-	}
-        mem_png->buffer = NULL;
-        mem_png->size = 0;
-        png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
-	row = malloc(channels * width * sizeof(png_byte));
-        if (row == NULL) {
-                retval = 21;
-                goto finalize;
-        }
-        if (channels == 3) {
                 png_set_IHDR(png_ptr, info_ptr, width, height,
                              8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
                              PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
@@ -308,13 +341,9 @@ uncompressedjpeg2png(struct mem_encode *mem_png, int width, int height,
 	int retval = 0;
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
-        void (*raise)(unsigned char *, int, double *) = raise_noop;
         int y;
         int i;
 
-        for (i = 0; i < 3; i++)
-                if (fabs(color_raiser[i] - 1) > 0.00001)
-                        raise = raise_color;
         png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	if (png_ptr == NULL) {
 		retval = 11; /* Could not allocate write struct */
@@ -333,6 +362,11 @@ uncompressedjpeg2png(struct mem_encode *mem_png, int width, int height,
         mem_png->size = 0;
         png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
         if (channels == 3) {
+                void (*raise)(unsigned char *, int, double *) = raise_noop;
+                
+                for (i = 0; i < 3; i++)
+                        if (fabs(color_raiser[i] - 1) > 0.00001)
+                                raise = raise_color;
                 for (i = 0; i < width * height; i++)
                         raise(uncompressed, i, color_raiser);
                 png_set_IHDR(png_ptr, info_ptr, width, height,
@@ -387,7 +421,7 @@ huffdecode(int width, int height, unsigned char *uncompressed,
                         code <<= maxlen - hlen[i];
                         htable[code].val = i - 255;
                         htable[code].len = hlen[i];
-                        for (j = 0; j < (1 << maxlen - hlen[i]); j++) {
+                        for (j = 0; j < (1 << (maxlen - hlen[i])); j++) {
                                 htable[code | j].val = i - 255;
                                 htable[code | j].len = hlen[i];
                         }
@@ -407,14 +441,13 @@ huffdecode(int width, int height, unsigned char *uncompressed,
                 uncompressed[width * row] = (rowhead >> 8) & 0xff;
                 uncompressed[width * row + 1] = rowhead & 0xff;
                 for (column = 2; column < width; column++) {
-                        div_t cidx_d, maxlen_d;
+                        div_t cidx_d;
                         int rem_bits, r;
                         uint64_t hc;
                         
                         cidx_d = div(cidx, 8);
                         rem_bits = maxlen - (8 - cidx_d.rem);
                         cidx += 8 - cidx_d.rem;
-                        maxlen_d = div(maxlen, 8);
                         hc = compressed[cidx_d.quot];
                         for (i = rem_bits; i > 0; i -= 8, cidx += 8) {
                                 hc <<= 8;
@@ -481,8 +514,8 @@ imread_jpeg_error_exit (j_common_ptr cinfo)
 }
 
 int
-png2mem(char *path, int start, int len, int width, int height,
-        int channels, int *bayer_pattern, int compr_mode,
+png2mem(char *path, int start, int len, unsigned int width, unsigned int height,
+        unsigned int channels, int *bayer_pattern, int compr_mode,
         unsigned char *uncompressed, unsigned char *compressed,
         struct mem_encode *mem_png,
         int reversep, int brightenp, double *color_raiser)
@@ -583,6 +616,9 @@ main(int argc, char *argv[])
         unsigned char uncompressed[1700 * 1500];
         int width = 1700, height = 1500;
         struct mem_encode mp;
+
+        (void) argc;
+        (void) argv;
         
         setvbuf(stdout, NULL, _IONBF, 0);
 
