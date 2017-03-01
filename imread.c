@@ -15,148 +15,161 @@
 /* with this program; if not, write to the Free Software Foundation, Inc., */
 /* 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA. */
 
-#include <malloc.h>
-#include <math.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <png.h>
-#include <jpeglib.h>
+#include "imread.h"
 
 enum color {RED, GREEN, BLUE};
 
 /* 
-   Set one particular color of the cell in row at position x to the
-   average of the surrounding values found in rawp
+   Set one particular color cell to the value of an adjacent pixel/to
+   the average of the values in the surrounding pixels found in rawp
  */
-void
-cplt_horiz(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
+static void
+cplt_horiz_fast(unsigned char *rawp, png_bytep cell, int color, int width)
 {
-        (void) y;
         (void) width;
-        row[3 * x + color] = (rawp[-1] + rawp[1]) / 2;
+        cell[color] = rawp[1];
 }
 
-void
-cplt_vert(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
+static void
+cplt_horiz_slow(unsigned char *rawp, png_bytep cell, int color, int width)
 {
-        (void) y;
-        row[3 * x + color] = (rawp[-width] + rawp[width]) / 2;
+        (void) width;
+        cell[color] = (rawp[-1] + rawp[1]) / 2;
 }
 
-void
-cplt_squ(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
+static void
+cplt_vert_fast(unsigned char *rawp, png_bytep cell, int color, int width)
 {
-        (void) y;
-        row[3 * x + color] = (rawp[-1] + rawp[1] + rawp[-width] + rawp[width]) / 4;
+        cell[color] = rawp[width];
 }
 
-void
-cplt_diag(unsigned char *rawp, png_bytep row, int y, int x, int color, int width)
+static void
+cplt_vert_slow(unsigned char *rawp, png_bytep cell, int color, int width)
 {
-        (void) y;
-        row[3 * x  + color] = (rawp[-width - 1] + rawp[-width + 1] +
-                               rawp[width - 1] + rawp[width + 1]) / 4;
+        cell[color] = (rawp[-width] + rawp[width]) / 2;
 }
+
+static void
+cplt_squ_fast(unsigned char *rawp, png_bytep cell, int color, int width)
+{
+        (void) width;
+        cell[color] = rawp[1];
+}
+
+static void
+cplt_squ_slow(unsigned char *rawp, png_bytep cell, int color, int width)
+{
+        cell[color] = (rawp[-1] + rawp[1] + rawp[-width] + rawp[width]) / 4;
+}
+
+static void
+cplt_diag_fast(unsigned char *rawp, png_bytep cell, int color, int width)
+{
+        cell[color] = rawp[width + 1];
+}
+
+static void
+cplt_diag_slow(unsigned char *rawp, png_bytep cell, int color, int width)
+{
+        cell[color] = (rawp[-width - 1] + rawp[-width + 1] +
+                      rawp[width - 1] + rawp[width + 1]) / 4;
+}
+
+typedef void (*GeometricCompleter)(unsigned char *, png_bytep, int, int);
+
+GeometricCompleter cplt_horiz, cplt_vert, cplt_squ, cplt_diag;
 
 /* 
     Add missing colors to a green cell in a red and green row
  */
-void
-cplt_g_on_r(unsigned char *rawp, png_bytep row, int y, int x, int width)
+static void
+cplt_g_on_r(unsigned char *rawp, png_bytep cell, int width)
 {
-        cplt_horiz(rawp, row, y, x, RED, width);
-        cplt_vert(rawp, row, y, x, BLUE, width);
+        cplt_horiz(rawp, cell, RED, width);
+        cplt_vert(rawp, cell, BLUE, width);
 }
 
 /* 
     Add missing colors to a green cell in a blue and green row
  */
-void
-cplt_g_on_b(unsigned char *rawp, png_bytep row, int y, int x, int width)
+static void
+cplt_g_on_b(unsigned char *rawp, png_bytep cell, int width)
 {
-        cplt_horiz(rawp, row, y, x, BLUE, width);
-        cplt_vert(rawp, row, y, x, RED, width);
+        cplt_horiz(rawp, cell, BLUE, width);
+        cplt_vert(rawp, cell, RED, width);
 }
 
 /* 
     Add missing colors to a red cell
  */
-void
-cplt_r(unsigned char *rawp, png_bytep row, int y, int x, int width)
+static void
+cplt_r(unsigned char *rawp, png_bytep cell, int width)
 {
-        cplt_squ(rawp, row, y, x, GREEN, width);
-        cplt_diag(rawp, row, y, x, BLUE, width);
+        cplt_squ(rawp, cell, GREEN, width);
+        cplt_diag(rawp, cell, BLUE, width);
 }
 
 /* 
     Add missing colors to a blue cell
  */
-void
-cplt_b(unsigned char *rawp, png_bytep row, int y, int x, int width)
+static void
+cplt_b(unsigned char *rawp, png_bytep cell, int width)
 {
-        cplt_squ(rawp, row, y, x, GREEN, width);
-        cplt_diag(rawp, row, y, x, RED, width);
+        cplt_squ(rawp, cell, GREEN, width);
+        cplt_diag(rawp, cell, RED, width);
 }
+
+typedef void (*Completer)(unsigned char *, png_bytep, int);
 
 /*
-   Set one particular color of the cell in row at position x to the
-   value found in rawp
+   Set one particular color of cell the value found in rawp
  */
-void
-colrz_r(unsigned char *rawp, png_bytep row, int y, int x)
+static void
+colrz_r(unsigned char *rawp, png_bytep cell)
 {
-        (void) y;
-        row[3 * x + RED] = rawp[0];
+        cell[RED] = rawp[0];
 }
         
-void
-colrz_g(unsigned char *rawp, png_bytep row, int y, int x)
+static void
+colrz_g(unsigned char *rawp, png_bytep cell)
 {
-        (void) y;
-        row[3 * x + GREEN] = rawp[0];
+        cell[GREEN] = rawp[0];
 }
         
-void
-colrz_b(unsigned char *rawp, png_bytep row, int y, int x)
+static void
+colrz_b(unsigned char *rawp, png_bytep cell)
 {
-        (void) y;
-        row[3 * x + BLUE] = rawp[0];
+        cell[BLUE] = rawp[0];
 }
 
-void
-raise_color(png_bytep row, int x, double *colr_raisr)
+typedef void (*Colorizer)(unsigned char *, png_bytep);
+
+static void
+raise_color(png_bytep cell, double *colr_raisr)
 {
         int i, val;
         
         for (i = 0; i < 3; i++) {
-                val = round(row[3 * x + i] * colr_raisr[i]);
+                val = round(cell[i] * colr_raisr[i]);
                 if (val > 255)
                         val = 255;
-                row[3 * x + i] = val;
+                cell[i] = val;
         }
 }
         
-void
-raise_noop(png_bytep row, int x, double *colr_raisr)
+static void
+raise_noop(png_bytep cell, double *colr_raisr)
 {
-        (void) row;
-        (void) x;
+        (void) cell;
         (void) colr_raisr;
 }
 
-/* Storage for the in-memory PNG */
-struct mem_encode
-{
-        char *buffer;
-        size_t size;
-};
+typedef void (*ColorRaiser)(unsigned char *, double *);
 
-void
+static void
 write_png_data(png_structp png_ptr, png_bytep data, png_size_t length)
 {
-        struct mem_encode *p = (struct mem_encode *)png_get_io_ptr(png_ptr);
+        struct png_store *p = (struct png_store *)png_get_io_ptr(png_ptr);
         size_t nsize = p->size + length;
         /* allocate or grow buffer */
         if (p->buffer)
@@ -170,30 +183,24 @@ write_png_data(png_structp png_ptr, png_bytep data, png_size_t length)
         p->size += length;
 }
 
-void
+static void
 flush_png(png_structp png_ptr)
 {
         (void) png_ptr;
 }
 
-int
-uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels,
-                 int *bayerpat, double *color_raiser, unsigned char *uncompressed)
+static int
+raw_img2png(struct png_store *png, int width, int height, int channels,
+            int *bayerpat, double *color_raiser, unsigned char *raw_img,
+            bool demosaic_fast)
 {
-	volatile int retval = 0; /* silence -Wclobbered */
+	int retval = 0;
 	png_structp png_ptr = NULL;
 	png_infop info_ptr = NULL;
-	volatile png_bytep row = NULL; /* silence -Wclobbered */
-        void (*colrz_ev_ev)(unsigned char *, png_bytep, int, int) = NULL;
-        void (*colrz_ev_od)(unsigned char *, png_bytep, int, int) = NULL;
-        void (*colrz_od_ev)(unsigned char *, png_bytep, int, int) = NULL;
-        void (*colrz_od_od)(unsigned char *, png_bytep, int, int) = NULL;
-        void (*cplt_ev_ev)(unsigned char *, png_bytep, int, int, int) = NULL;
-        void (*cplt_ev_od)(unsigned char *, png_bytep, int, int, int) = NULL;
-        void (*cplt_od_ev)(unsigned char *, png_bytep, int, int, int) = NULL;
-        void (*cplt_od_od)(unsigned char *, png_bytep, int, int, int) = NULL;
-        int x, y, x_ev, x_od, y_ev, y_od;
-        int i;
+	png_bytep ev_row = NULL, od_row = NULL;
+        Colorizer colrz_ev_ev, colrz_ev_od, colrz_od_ev, colrz_od_od;
+        Completer cplt_ev_ev, cplt_ev_od, cplt_od_ev, cplt_od_od;
+        int i, x, y, x_od, y_od;
 
         png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
 	if (png_ptr == NULL) {
@@ -209,17 +216,28 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
 		retval = 13; /* Error during png creation */
 		goto finalize;
 	}
-        mem_png->buffer = NULL;
-        mem_png->size = 0;
-        png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
-	row = malloc(channels * width * sizeof(png_byte));
-        if (row == NULL) {
-                retval = 21;
+        png->buffer = NULL;
+        png->size = 0;
+        png_set_write_fn(png_ptr, png, write_png_data, flush_png);
+	if (((ev_row = malloc(channels * width * sizeof(png_byte))) == NULL) ||
+            ((od_row = malloc(channels * width * sizeof(png_byte))) == NULL)) {
+                retval = 21;    /* Error while writing PNG row */
                 goto finalize;
         }
         if (channels == 3) {
-                void (*raise)(unsigned char *, int, double *) = raise_noop;
-                
+                ColorRaiser raise = raise_noop;
+
+                if (demosaic_fast) {
+                        cplt_horiz = cplt_horiz_fast;
+                        cplt_vert = cplt_vert_fast;
+                        cplt_squ = cplt_squ_fast;
+                        cplt_diag = cplt_diag_fast;
+                } else {
+                        cplt_horiz = cplt_horiz_slow;
+                        cplt_vert = cplt_vert_slow;
+                        cplt_squ = cplt_squ_slow;
+                        cplt_diag = cplt_diag_slow;
+                }
                 for (i = 0; i < 3; i++)
                         if (fabs(color_raiser[i] - 1) > 0.00001)
                                 raise = raise_color;
@@ -272,43 +290,39 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
                              8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
                              PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
                 png_write_info(png_ptr, info_ptr);
-                for (y_ev = 0, y_od = 1;
-                     y_ev < height && y_od < height;
-                     y_ev += 2, y_od += 2) {
-                        for (x_ev = 0, x_od = 1;
-                             x_ev < width && x_od < width;
-                             x_ev += 2, x_od += 2) {
-                                colrz_ev_ev(uncompressed + y_ev * width + x_ev,
-                                            row, y_ev, x_ev);
-                                colrz_ev_od(uncompressed + y_ev * width + x_od,
-                                            row, y_ev, x_od);
-                                if (y_ev > 0 && y_ev < height - 1) {
-                                        cplt_ev_ev(uncompressed + y_ev * width + x_ev,
-                                                   row, y_ev, x_ev, width);
-                                        cplt_ev_od(uncompressed + y_ev * width + x_od,
-                                                   row, y_ev, x_od, width);
+                for (y_od = 1; y_od <= height; y_od += 2) {
+                        /* neglecting bottom row if height is even */
+                        int y_ev = y_od - 1;
+                        unsigned char *ev_1stcol = raw_img + y_ev * width;
+                        unsigned char *od_1stcol = raw_img + y_od * width;
+                        
+                        for (x_od = 1; x_od < width; x_od += 2) {
+                                int x_ev = x_od - 1;
+                                int ev_xpos = 3 * x_ev;
+                                int od_xpos = 3 * x_od;
+
+                                colrz_ev_ev(ev_1stcol + x_ev, ev_row + ev_xpos);
+                                colrz_ev_od(ev_1stcol + x_od, ev_row + od_xpos);
+                                colrz_od_ev(od_1stcol + x_ev, od_row + ev_xpos);
+                                colrz_od_od(od_1stcol + x_od, od_row + od_xpos);
+                                if (y_od > 1 && y_od < height - 1) {
+                                        /* neglecting bottom row if height is odd */
+                                        cplt_ev_ev(ev_1stcol + x_ev,
+                                                   ev_row + ev_xpos, width);
+                                        cplt_ev_od(ev_1stcol + x_od,
+                                                   ev_row + od_xpos, width);
+                                        cplt_od_ev(od_1stcol + x_ev,
+                                                   od_row + ev_xpos, width);
+                                        cplt_od_od(od_1stcol + x_od,
+                                                   od_row + od_xpos, width);
                                 }
-                                raise(row, x_ev, color_raiser);
-                                raise(row, x_od, color_raiser);
+                                raise(ev_row + ev_xpos, color_raiser);
+                                raise(ev_row + od_xpos, color_raiser);
+                                raise(od_row + ev_xpos, color_raiser);
+                                raise(od_row + od_xpos, color_raiser);
                         }
-                        png_write_row(png_ptr, row);
-                        for (x_ev = 0, x_od = 1;
-                             x_ev < width && x_od < width;
-                             x_ev += 2, x_od += 2) {
-                                colrz_od_ev(uncompressed + y_od * width + x_ev,
-                                            row, y_od, x_ev);
-                                colrz_od_od(uncompressed + y_od * width + x_od,
-                                            row, y_od, x_od);
-                                if (y_od < height - 1) {
-                                        cplt_od_ev(uncompressed + y_od * width + x_ev,
-                                                   row, y_od, x_ev, width);
-                                        cplt_od_od(uncompressed + y_od * width + x_od,
-                                                   row, y_od, x_od, width);
-                                }
-                                raise(row, x_ev, color_raiser);
-                                raise(row, x_od, color_raiser);
-                        }
-                        png_write_row(png_ptr, row);
+                        png_write_row(png_ptr, ev_row);
+                        png_write_row(png_ptr, od_row);
                 }
         } else if (channels == 1) {
                 png_set_IHDR(png_ptr, info_ptr, width, height,
@@ -317,9 +331,9 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
                 png_write_info(png_ptr, info_ptr);
                 for (y = 0; y < height; y++) {
                         for (x = 0; x < width; x++) {
-                                row[x] = uncompressed[y * width + x];
+                                ev_row[x] = raw_img[y * width + x];
                         }
-                        png_write_row(png_ptr, row);
+                        png_write_row(png_ptr, ev_row);
                 }
         } else {
                 retval = 6;       /* wrong number of channels */
@@ -329,14 +343,15 @@ uncompressed2png(struct mem_encode *mem_png, int width, int height, int channels
 finalize:
 	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
 	if (png_ptr != NULL) png_destroy_write_struct(&png_ptr, NULL);
-	if (row != NULL) free(row);
+	if (ev_row != NULL) free(ev_row);
+	if (od_row != NULL) free(od_row);
 	return retval;
 }
 
-int
-uncompressedjpeg2png(struct mem_encode *mem_png, int width, int height,
+static int
+raw_jpeg2png(struct png_store *png, int width, int height,
                      int channels, double *color_raiser,
-                     unsigned char *uncompressed)
+                     unsigned char *raw_jpeg)
 {
 	int retval = 0;
 	png_structp png_ptr = NULL;
@@ -358,17 +373,17 @@ uncompressedjpeg2png(struct mem_encode *mem_png, int width, int height,
 		retval = 13; /* Error during png creation */
 		goto finalize;
 	}
-        mem_png->buffer = NULL;
-        mem_png->size = 0;
-        png_set_write_fn(png_ptr, mem_png, write_png_data, flush_png);
+        png->buffer = NULL;
+        png->size = 0;
+        png_set_write_fn(png_ptr, png, write_png_data, flush_png);
         if (channels == 3) {
-                void (*raise)(unsigned char *, int, double *) = raise_noop;
+                ColorRaiser raise = raise_noop;
                 
                 for (i = 0; i < 3; i++)
                         if (fabs(color_raiser[i] - 1) > 0.00001)
                                 raise = raise_color;
-                for (i = 0; i < width * height; i++)
-                        raise(uncompressed, i, color_raiser);
+                for (i = 0; i < 3 * width * height; i += 3)
+                        raise(raw_jpeg + i, color_raiser);
                 png_set_IHDR(png_ptr, info_ptr, width, height,
                              8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
                              PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
@@ -382,7 +397,7 @@ uncompressedjpeg2png(struct mem_encode *mem_png, int width, int height,
         }
         png_write_info(png_ptr, info_ptr);
         for (y = 0; y < height; y++)
-                png_write_row(png_ptr, uncompressed + y * width * channels);
+                png_write_row(png_ptr, raw_jpeg + y * width * channels);
 	png_write_end(png_ptr, NULL);
 finalize:
 	if (info_ptr != NULL) png_free_data(png_ptr, info_ptr, PNG_FREE_ALL, -1);
@@ -390,48 +405,48 @@ finalize:
 	return retval;
 }
 
-int
+/* 
+   Huffman decoder.  The size of compressed must exceed its contents
+   by 8 bytes.
+ */
+static int
 huffdecode(int width, int height, unsigned char *uncompressed,
-           unsigned char hcode[static 4 * 511], unsigned char hlen[static 511],
-           unsigned char *compressed)
+           uint8_t hcode[static 4 * 511], uint8_t hlen[static 511],
+           unsigned char *compressed, size_t compressed_size)
 {
-        int i, j, m;
-        int maxlen = 0;
-        int code;
-        struct huffval {
-                int val;
-                int len;
-        } *htable;
-        int row, column, cidx;
+        int i, i4, j, maxlen = 0, code, retval = 0, row, column;
         uint64_t hc_mask;
-        unsigned int rowhead;
+        uint32_t rowhead;
+        size_t cidx = 0, max_cidx = (compressed_size + 8) * 8;
+        struct huffval {
+                int16_t val;
+                uint8_t len;
+        } *htable;
 
         for (i = 0; i < 511; i++)
                 if (hlen[i] > maxlen)
                         maxlen = hlen[i];
         if ((htable = malloc((1 << maxlen) * sizeof(struct huffval))) == NULL)
-                return 31;
+                return 31;  /* Couldn't allocate memory for huffman table */
         /* htable may well become too big to fit into memory.  Maybe
         we should act a bit smarter and handle longer huffman codes
         differently. */
-        for (i = 0; i < 511; i++) {
+        for (i = 0, i4 = 0; i < 511; i++, i4 += 4) {
                 if (hlen[i] > 0) {
-                        code = hcode[4 * i] << 24 | hcode[4 * i + 1] << 16 |
-                                hcode[4 * i + 2] << 8 | hcode[4 * i + 3];
+                        code = hcode[i4] << 24 | hcode[i4 + 1] << 16 |
+                                hcode[i4 + 2] << 8 | hcode[i4 + 3];
                         code <<= maxlen - hlen[i];
-                        htable[code].val = i - 255;
-                        htable[code].len = hlen[i];
+                        /* one entry for each number of width maxlen
+                        that starts with code: */
                         for (j = 0; j < (1 << (maxlen - hlen[i])); j++) {
                                 htable[code | j].val = i - 255;
                                 htable[code | j].len = hlen[i];
                         }
                 }
         }
-        hc_mask = 0;
-        for (i = 0, m = 1; i < maxlen; i++, m <<= 1)
-                hc_mask |= m;
-        cidx = 0;
+        hc_mask = (1 << maxlen) - 1;
         for (row = 0; row < height; row++) {
+                /* Columns one and two of each row aren't compressed */
                 rowhead = compressed[cidx / 8] << 16;
                 cidx += 8;
                 rowhead |= compressed[cidx / 8] << 8;
@@ -442,20 +457,22 @@ huffdecode(int width, int height, unsigned char *uncompressed,
                 uncompressed[width * row + 1] = rowhead & 0xff;
                 for (column = 2; column < width; column++) {
                         div_t cidx_d;
-                        int rem_bits, r;
+                        int bits_to_read;
                         uint64_t hc;
                         
                         cidx_d = div(cidx, 8);
-                        rem_bits = maxlen - (8 - cidx_d.rem);
-                        cidx += 8 - cidx_d.rem;
-                        hc = compressed[cidx_d.quot];
-                        for (i = rem_bits; i > 0; i -= 8, cidx += 8) {
+                        cidx = cidx_d.quot * 8;
+                        bits_to_read = maxlen + cidx_d.rem;
+                        hc = 0;
+                        for (i = bits_to_read; i > 0; i -= 8) {
                                 hc <<= 8;
                                 hc |= compressed[cidx / 8];
+                                cidx += 8;
                         }
-                        if ((r = rem_bits % 8) > 0) {
-                                hc >>= 8 - r;
-                                cidx -= 8 - r;
+                        hc >>= -i; /* i <= 0 */
+                        if ((cidx += i) > max_cidx) {
+                                retval = 32; /* Huffman decoder out of step */
+                                goto cleanup;
                         }
                         hc &= hc_mask;
                         uncompressed[width * row + column] =
@@ -463,11 +480,12 @@ huffdecode(int width, int height, unsigned char *uncompressed,
                         cidx -= maxlen - htable[hc].len;
                 }
         }
+cleanup:
         free(htable);
-        return 0;
+        return retval;
 }
 
-void
+static void
 reverse(unsigned char *base, size_t size)
 {
         int i, j;
@@ -480,7 +498,7 @@ reverse(unsigned char *base, size_t size)
         }
 }
 
-void
+static void
 brighten(unsigned char *base, size_t size)
 {
         size_t i;
@@ -515,42 +533,54 @@ imread_jpeg_error_exit (j_common_ptr cinfo)
 
 int
 png2mem(char *path, int start, int len, unsigned int width, unsigned int height,
-        unsigned int channels, int *bayer_pattern, int compr_mode,
-        unsigned char *uncompressed, unsigned char *compressed,
-        struct mem_encode *mem_png,
-        int reversep, int brightenp, double *color_raiser)
+        unsigned int channels, int *bayer_pattern, bool demosaic_fast, int compr_mode,
+        struct png_store *png, bool reversep, bool brightenp, double *color_raiser)
 {
         FILE *in;
         unsigned char hlen[511], hcode[511 * 4];
         int htblsize = 511 * (1 + 4);
-        int retval;
+        int retval = 0xFFFF;    /* will change */
 
         if ((in = fopen(path, "r")) == NULL)
-                return 1;
+                return 1;       /* File not found */
         fseek(in, start, SEEK_CUR);
         if (compr_mode == 1 || compr_mode == 2) {
+                unsigned char *in_buf, *raw_img;
+                
                 fread(hcode, sizeof(hcode[0]), 511 * 4, in);
                 fread(hlen, sizeof(hlen[0]), 511, in);
-                fread(compressed, sizeof(compressed[0]), len - htblsize, in);
+                if ((in_buf = malloc(len + 8)) == NULL)
+                        return 76; /* Couldn't allocate buffer for image data input */
+                fread(in_buf, sizeof(in_buf[0]), len - htblsize, in);
                 fclose(in);
-                if ((retval = huffdecode(width, height, uncompressed, hcode,
-                                         hlen, compressed)) != 0)
-                        return retval;
-                if (reversep)
-                        reverse(uncompressed, width * height);
-                if (brightenp)
-                        brighten(uncompressed, width * height);
-                if ((retval = uncompressed2png(mem_png, width, height, channels,
-                                               bayer_pattern, color_raiser,
-                                               uncompressed)) != 0)
-                        return retval;
-                return 0;
-        } else if (compr_mode == 3) { /* JPEG */
+                if ((raw_img = malloc(width * height)) == NULL) {
+                        free(in_buf);
+                        return 75; /* Couldn't allocate memory for uncompressed image */
+                }
+                if ((retval = huffdecode(width, height, raw_img, hcode,
+                                         hlen, in_buf, len - htblsize)) == 0) {
+                        if (reversep)
+                                reverse(raw_img, width * height);
+                        if (brightenp)
+                                brighten(raw_img, width * height);
+                        retval = raw_img2png(png, width, height, channels,
+                                             bayer_pattern, color_raiser, raw_img,
+                                             demosaic_fast);
+                }
+                free(raw_img);
+                free(in_buf);
+                return retval;
+        }
+        if (compr_mode == 3) { /* JPEG */
                 struct jpeg_decompress_struct cinfo;
                 struct imread_jpeg_error_mgr jerr;
-                unsigned char *next_line;
+                unsigned char *in_buf, *raw_img, *next_line;
                 int nsamples;
 
+                if (reversep)
+                        return 73; /* JPEG reversing not implemented */
+                if (brightenp)
+                        return 74; /* JPEG brightening not implemented */
                 cinfo.err = jpeg_std_error(&jerr.pub);
                 jerr.pub.error_exit = imread_jpeg_error_exit;
                 if (setjmp(jerr.setjmp_buffer)) {
@@ -558,83 +588,58 @@ png2mem(char *path, int start, int len, unsigned int width, unsigned int height,
                         return 71; /* JPEG decompression error */
                 }
                 jpeg_create_decompress(&cinfo);
-                fread(compressed, sizeof(compressed[0]), len, in);
+                if ((in_buf = malloc(len)) == NULL)
+                        return 76;
+                fread(in_buf, sizeof(in_buf[0]), len, in);
                 fclose(in);
-                jpeg_mem_src(&cinfo, compressed, len);
+                jpeg_mem_src(&cinfo, in_buf, len);
                 jpeg_read_header(&cinfo, TRUE);
                 if (cinfo.image_width * cinfo.image_height * cinfo.num_components >
                     width * height * channels) {
-                        return 72; /* JPEG bigger than expected */
                         jpeg_destroy_decompress(&cinfo);
+                        return 72; /* JPEG bigger than expected */
                 }
                 jpeg_start_decompress(&cinfo);
-                next_line = uncompressed;
+                if ((raw_img = malloc(width * height * channels)) == NULL) {
+                        free(in_buf);
+                        return 75;
+                }
+                next_line = raw_img;
                 while (cinfo.output_scanline < cinfo.output_height) {
                         nsamples = jpeg_read_scanlines(&cinfo, (JSAMPARRAY)&next_line, 1);
                         next_line += nsamples * cinfo.image_width * cinfo.num_components;
                 }
                 jpeg_finish_decompress(&cinfo);
                 jpeg_destroy_decompress(&cinfo);
-                if (reversep)
-                        return 73; /* JPEG reversing not implemented */
-                if (brightenp)
-                        return 74; /* JPEG brightening not implemented */
-                if ((retval = uncompressedjpeg2png(
-                             mem_png, cinfo.image_width, cinfo.image_height,
-                             cinfo.num_components, color_raiser,
-                             uncompressed)) != 0)
-                        return retval;
-                return 0;
-        } else if (compr_mode == 0) { /* untested */
-                fread(uncompressed, sizeof(uncompressed[0]), width * height, in);
-                fclose(in);
-                if (reversep)
-                        reverse(uncompressed, width * height);
-                if (brightenp)
-                        brighten(uncompressed, width * height);
-                if ((retval = uncompressed2png(mem_png, width, height, channels,
-                                               bayer_pattern, color_raiser,
-                                               uncompressed)) != 0)
-                        return retval;
-                return 0;
-        } else {
-                fclose(in);
-                return 5;
+                retval = raw_jpeg2png(png, cinfo.image_width, cinfo.image_height,
+                                      cinfo.num_components, color_raiser,
+                                      raw_img);
+                free(raw_img);
+                free(in_buf);
+                return retval;
         }
+        if (compr_mode == 0) { /* untested */
+                unsigned char *raw_img;
+                
+                if ((raw_img = malloc(width * height)) == NULL)
+                        return 75;
+                fread(raw_img, sizeof(raw_img[0]), width * height, in);
+                fclose(in);
+                if (reversep)
+                        reverse(raw_img, width * height);
+                if (brightenp)
+                        brighten(raw_img, width * height);
+                retval = raw_img2png(png, width, height, channels,
+                                     bayer_pattern, color_raiser, raw_img,
+                                     demosaic_fast);
+                free(raw_img);
+                return retval;
+        }
+        fclose(in);
+        return 5;       /* Unknown compression mode */
 }
 
 int
 ping(int n) {
         return n;
-}
-
-int
-main(int argc, char *argv[])
-{
-        FILE *fp;
-        unsigned char compressed[1390353];
-        unsigned char uncompressed[1700 * 1500];
-        int width = 1700, height = 1500;
-        struct mem_encode mp;
-
-        (void) argc;
-        (void) argv;
-        
-        setvbuf(stdout, NULL, _IONBF, 0);
-
-        png2mem("mitsa005_CCD_Front_PULNIX_13.pictures", 2247 + 17, 1390353, width, height, 3, (int[2]){0x00ff00, 0x0000ff}, 2, uncompressed, compressed, &mp, 0, 0, (double[3]){1, 1, 1});
-	fp = fopen("o0.png", "wb");
-	if (fp == NULL) {
-		fprintf(stderr, "Could not open file %s for writing\n", "o0.png");
-	}
-        fwrite(mp.buffer, mp.size, sizeof(mp.buffer[0]), fp);
-
-        png2mem("mitsa005_CCD_Front_PULNIX_13.pictures", 2247 + 17, 1390353, width, height, 3, (int[2]){0x00ff00, 0x0000ff}, 2, uncompressed, compressed, &mp, 0, 1, (double[3]){1, 2.5, 1.5});
-	fp = fopen("o1.png", "wb");
-	if (fp == NULL) {
-		fprintf(stderr, "Could not open file %s for writing\n", "o1.png");
-	}
-        fwrite(mp.buffer, mp.size, sizeof(mp.buffer[0]), fp);
-        if(mp.buffer)
-                free(mp.buffer);
 }

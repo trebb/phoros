@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2011 Bert Burgemeister
+;;; Copyright (C) 2016, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@
 (in-package :imread)
 
 (load-foreign-library
- '(:or "./imread.so"
+ '(:or "./libimread.so"
    (:default "libimread")))
 
 (cffi:defcfun "png2mem" :int
@@ -35,12 +35,11 @@
   (image-height :int)
   (channels :int)
   (baypat :pointer)
+  (demosaic_fast :bool)
   (compr-mode :int)
-  (uncompressed :pointer)
-  (compressed :pointer)
   (mem-png :pointer)
-  (reversep :int)
-  (brightenp :int)
+  (reversep :bool)
+  (brightenp :bool)
   (color-raiser :pointer))
 
 (cffi:defcfun "ping" :int

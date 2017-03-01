@@ -90,14 +90,11 @@ is a wart."
         (image-width (find-keyword-value path "width=" start))
         (compression-mode (find-keyword-value path "compressed=" start))
         (channels (find-keyword-value path "channels=" start))
-        (trigger-time (find-keyword-value path "timeTrigger=" start)))
+        (trigger-time (find-keyword-value path "timeTrigger=" start))
+        (demosaic-fast t))
     (cffi:with-foreign-objects ((baypat :int 3)
                                 (colr-raisr :double 3)
-                                (mem-png 'mem-encode)
-                                (compressed :unsigned-char blob-size)
-                                (uncompressed
-                                 ;; Too big by a factor of channels unless we have a JPEG
-                                 :unsigned-char (* image-width image-height channels)))
+                                (mem-png 'mem-encode))
       (loop
          for i from 0 below (min 4 (first (array-dimensions bayer-pattern))) do
            (setf (cffi:mem-aref baypat :int i) (aref bayer-pattern i)))
@@ -107,9 +104,9 @@ is a wart."
                  (coerce (aref color-raiser i) 'double-float)))
       (let ((png2mem-exit
              (imread:png2mem (namestring path) blob-start blob-size
-                             image-width image-height channels baypat compression-mode
-                             uncompressed compressed mem-png
-                             (if reversep 1 0) (if brightenp 1 0) colr-raisr)))
+                             image-width image-height channels
+                             baypat demosaic-fast compression-mode
+                             mem-png reversep brightenp colr-raisr)))
         (cond ((zerop png2mem-exit)
                (cffi:with-foreign-slots ((buffer size) mem-png mem-encode)
                  (loop
@@ -134,6 +131,10 @@ is a wart."
                (error "JPEG reversing not implemented."))
               ((= 74 png2mem-exit)
                (error "JPEG brightening not implemented."))
+              ((= 75 png2mem-exit)
+               (error "Couldn't allocate memory for uncompressed image."))
+              ((= 76 png2mem-exit)
+               (error "Couldn't allocate buffer for image data input."))
               ((= 11 png2mem-exit)
                (error "PNG error: create_write_struct()."))
               ((= 12 png2mem-exit)
@@ -144,6 +145,8 @@ is a wart."
                (error "Error while writing PNG row."))
               ((= 31 png2mem-exit)
                (error "Couldn't allocate memory for huffman table."))
+              ((= 32 png2mem-exit)
+               (error "Huffman decoder out of step."))
               (t
                (error "Can't unpack image.")))))
     trigger-time))

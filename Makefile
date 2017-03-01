@@ -18,7 +18,7 @@
 LISP = $(shell test -x ../sbcl/bin/sbcl && echo ../sbcl/bin/sbcl || which sbcl)
 LIBPHOML_DIR = phoml/lib
 LIBPHOML = libphoml.so
-LIBIMREAD = imread.so
+LIBIMREAD = libimread.so
 CCFLAGS = -std=c99 -Wall -Wextra -pedantic -O2
 OPENLAYERS_TARBALL = OpenLayers-2.10.tar.gz
 PRISTINE_OPENLAYERS_DIR = OpenLayers-2.10
@@ -201,19 +201,20 @@ html : $(INDEX_HTML) $(DEPLOYMENT_HTML) $(PHOROS_HELP_HTML) $(PUBLIC_CSS) $(FAVI
 git-tag : phoros	    #tag name is :version string in phoros.asd
 	git tag -a $(PHOROS_VERSION) -m ""
 
-imread : imread.c Makefile	#for debugging
-	gcc $(CCFLAGS) imread.c -o imread \
-		`pkg-config --cflags --libs libpng libjpeg` -lm
+imreadtest : imreadtest.c $(LIBIMREAD) Makefile	#for debugging
+	gcc $(CCFLAGS) imreadtest.c -o imreadtest \
+		`pkg-config --cflags --libs libpng libjpeg` -lm \
+		-L./ -limread -Wl,-rpath,"./"
 
-$(LIBIMREAD) : imread.c Makefile
-	gcc $(CCFLAGS) -fpic -shared -o imread.so \
+$(LIBIMREAD) : imread.c imread.h Makefile
+	gcc $(CCFLAGS) -fpic -shared -o libimread.so \
 		`pkg-config --cflags --libs libpng libjpeg` -lm imread.c
 
 clean :
 	rm -rf *.fasl *.log						\
 		phoros phoros*.tar.gz					\
 		fasttrack fasttrack.ui					\
-		$(LIBIMREAD) imread					\
+		$(LIBIMREAD) imreadtest					\
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)	\
 		$(BUTTON_IMAGE)						\
 		$(PHOROS_HELP_OUTPUT)					\
