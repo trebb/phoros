@@ -19,7 +19,7 @@
 
 enum color {RED, GREEN, BLUE};
 
-/* 
+/*
    Set one particular color cell to the value of an adjacent pixel/to
    the average of the values in the surrounding pixels found in rawp
  */
@@ -79,7 +79,7 @@ typedef void (*GeometricCompleter)(unsigned char *, png_bytep, int, int);
 
 GeometricCompleter cplt_horiz, cplt_vert, cplt_squ, cplt_diag;
 
-/* 
+/*
     Add missing colors to a green cell in a red and green row
  */
 static void
@@ -89,7 +89,7 @@ cplt_g_on_r(unsigned char *rawp, png_bytep cell, int width)
         cplt_vert(rawp, cell, BLUE, width);
 }
 
-/* 
+/*
     Add missing colors to a green cell in a blue and green row
  */
 static void
@@ -99,7 +99,7 @@ cplt_g_on_b(unsigned char *rawp, png_bytep cell, int width)
         cplt_vert(rawp, cell, RED, width);
 }
 
-/* 
+/*
     Add missing colors to a red cell
  */
 static void
@@ -109,7 +109,7 @@ cplt_r(unsigned char *rawp, png_bytep cell, int width)
         cplt_diag(rawp, cell, BLUE, width);
 }
 
-/* 
+/*
     Add missing colors to a blue cell
  */
 static void
@@ -129,13 +129,13 @@ colrz_r(unsigned char *rawp, png_bytep cell)
 {
         cell[RED] = rawp[0];
 }
-        
+
 static void
 colrz_g(unsigned char *rawp, png_bytep cell)
 {
         cell[GREEN] = rawp[0];
 }
-        
+
 static void
 colrz_b(unsigned char *rawp, png_bytep cell)
 {
@@ -148,7 +148,7 @@ static void
 raise_color(png_bytep cell, double *colr_raisr)
 {
         int i, val;
-        
+
         for (i = 0; i < 3; i++) {
                 val = round(cell[i] * colr_raisr[i]);
                 if (val > 255)
@@ -156,7 +156,7 @@ raise_color(png_bytep cell, double *colr_raisr)
                 cell[i] = val;
         }
 }
-        
+
 static void
 raise_noop(png_bytep cell, double *colr_raisr)
 {
@@ -295,7 +295,7 @@ raw_img2png(struct png_store *png, int width, int height, int channels,
                         int y_ev = y_od - 1;
                         unsigned char *ev_1stcol = raw_img + y_ev * width;
                         unsigned char *od_1stcol = raw_img + y_od * width;
-                        
+
                         for (x_od = 1; x_od < width; x_od += 2) {
                                 int x_ev = x_od - 1;
                                 int ev_xpos = 3 * x_ev;
@@ -378,7 +378,7 @@ raw_jpeg2png(struct png_store *png, int width, int height,
         png_set_write_fn(png_ptr, png, write_png_data, flush_png);
         if (channels == 3) {
                 ColorRaiser raise = raise_noop;
-                
+
                 for (i = 0; i < 3; i++)
                         if (fabs(color_raiser[i] - 1) > 0.00001)
                                 raise = raise_color;
@@ -405,7 +405,7 @@ finalize:
 	return retval;
 }
 
-/* 
+/*
    Huffman decoder.  The size of compressed must exceed its contents
    by 8 bytes.
  */
@@ -459,7 +459,7 @@ huffdecode(int width, int height, unsigned char *uncompressed,
                         div_t cidx_d;
                         int bits_to_read;
                         uint64_t hc;
-                        
+
                         cidx_d = div(cidx, 8);
                         cidx = cidx_d.quot * 8;
                         bits_to_read = maxlen + cidx_d.rem;
@@ -541,12 +541,12 @@ png2mem(char *path, int start, int len, unsigned int width, unsigned int height,
         int htblsize = 511 * (1 + 4);
         int retval = 0xFFFF;    /* will change */
 
-        if ((in = fopen(path, "r")) == NULL)
+        if ((in = fopen(path, "rb")) == NULL)
                 return 1;       /* File not found */
         fseek(in, start, SEEK_CUR);
         if (compr_mode == 1 || compr_mode == 2) {
                 unsigned char *in_buf, *raw_img;
-                
+
                 fread(hcode, sizeof(hcode[0]), 511 * 4, in);
                 fread(hlen, sizeof(hlen[0]), 511, in);
                 if ((in_buf = malloc(len + 8)) == NULL)
@@ -620,7 +620,7 @@ png2mem(char *path, int start, int len, unsigned int width, unsigned int height,
         }
         if (compr_mode == 0) { /* untested */
                 unsigned char *raw_img;
-                
+
                 if ((raw_img = malloc(width * height)) == NULL)
                         return 75;
                 fread(raw_img, sizeof(raw_img[0]), width * height, in);
