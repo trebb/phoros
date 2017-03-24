@@ -21,19 +21,27 @@ main(int argc, char *argv[])
                 size = strtoul(argv[6], NULL, 10);
                 compression_mode = strtoul(argv[7], NULL, 10);
                 demosaic_fast = strtoul(argv[8], NULL, 10);
-                sscanf(argv[9], "%lf, %lf, %lf", &color_raiser[0], &color_raiser[1], &color_raiser[2]);
+                sscanf(argv[9], "%lf, %lf, %lf",
+                       &color_raiser[0], &color_raiser[1], &color_raiser[2]);
                 out_path = argv[10];
                 err = png2mem(in_path, start, size, width, height, channels,
                               bayer_pattern, demosaic_fast, compression_mode,
                               &mp, false, false, color_raiser);
                 fp = fopen(out_path, "wb");
-                if (fp == NULL)
-                        fprintf(stderr, "Could not open file %s for writing\n", "o0.png");
+                if (fp == NULL) {
+                        fprintf(stderr, "Could not open file %s for writing\n", out_path);
+                        return 2;
+                }
                 fwrite(mp.buffer, mp.size, sizeof(mp.buffer[0]), fp);
                 printf("status=%d\n", err);
-                printf("in_path=%s width=%ld height=%ld channels=%ld start=%ld size=%ld compression_mode=%ld demosaic_fast=%ld color_raiser=%.1lf,%.1lf,%.1lf out_path=%s\n",
-                       in_path, width, height, channels, start, size, compression_mode, demosaic_fast,
-                       color_raiser[0], color_raiser[1], color_raiser[2], out_path);
+                printf("in_path=%s width=%ld height=%ld channels=%ld "
+                       "start=%ld size=%ld compression_mode=%ld "
+                       "demosaic_fast=%ld color_raiser=%.1lf,%.1lf,%.1lf "
+                       "out_path=%s\n",
+                       in_path, width, height, channels, start, size,
+                       compression_mode, demosaic_fast,
+                       color_raiser[0], color_raiser[1], color_raiser[2],
+                       out_path);
                 if(mp.buffer)
                         free(mp.buffer);
                 return 0;
@@ -42,7 +50,9 @@ main(int argc, char *argv[])
                 printf("ping = %d\n", ping(strtoul(argv[1], NULL, 10)));
                 return 0;
         }
-        printf("Usage: %s in_path width height channels start size compression_mode demosaic_fast color_raiser out_path", argv[0]);
+        printf("Usage: %s in_path width height channels start size "
+               "compression_mode demosaic_fast color_raiser out_path",
+               argv[0]);
         return 1;
 }
 
