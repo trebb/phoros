@@ -21,7 +21,7 @@ it available over a web interface."
   ;; There should be a corresponding git tag which marks the point this
   ;; version number becomes official.
 
-  "14.2.1"
+  "14.2.2"
 
   :licence                              ;goes with --licence output
   "Copyright (C) 2010, 2011, 2012, 2015, 2016, 2017 Bert Burgemeister

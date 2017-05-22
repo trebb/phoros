@@ -532,6 +532,13 @@ all pojects."
                 do (setf (cdr (assoc image-event-number
                                      gps-start-pointers :test #'equal))
                          gps-pointer) ;remember index of last matching point
+                and do (cl-log:log-message
+                        :debug
+                        "Mapped image ~A~A, byte ~S, taken ~A, to GPS point ~
+                         recorded at ~A (difference being ~F s)."
+                        dir-path (filename i) (image-byte-position i)
+                        (timestring image-time) (timestring (gps-time gps-point))
+                        (- image-time (gps-time gps-point)))
                 and return gps-point)))
        if matching-point
        do (let ((point-id               ; TODO: consider using transaction
@@ -559,10 +566,10 @@ all pojects."
          (decf mapped-image-counter)
          (cl-log:log-message
           :orphan
-          "Couldn't map to any point: ~A~A, byte ~S. ~
+          "Couldn't map to any point: ~A*/~A, byte ~S, taken ~A (~F). ~
            ~:[~; It didn't have a decent trigger time anyway.~]"
           dir-path (filename i) (image-byte-position i)
-          (fake-trigger-time-p i)))
+          (timestring image-time) image-time (fake-trigger-time-p i)))
     (cl-log:log-message
      :db-dat
      "Tried to map ~D images to GPS points.  ~
