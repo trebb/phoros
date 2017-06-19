@@ -532,7 +532,7 @@ imread_jpeg_error_exit (j_common_ptr cinfo)
 }
 
 int
-png2mem(char *path, int start, int len, unsigned int width, unsigned int height,
+png2mem(char *path, long long int start, int len, unsigned int width, unsigned int height,
         unsigned int channels, int *bayer_pattern, bool demosaic_fast, int compr_mode,
         struct png_store *png, bool reversep, bool brightenp, double *color_raiser)
 {

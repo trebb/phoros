@@ -4,7 +4,8 @@ int
 main(int argc, char *argv[])
 {
         char *in_path, *out_path;
-        unsigned long width, height, channels, start, size, compression_mode, demosaic_fast;
+        unsigned long width, height, channels, size, compression_mode, demosaic_fast;
+        unsigned long long start;
         FILE *fp;
         int bayer_pattern[2] = {0x00ff00, 0x0000ff};
         double color_raiser[3] = {1, 1, 1};
@@ -17,7 +18,7 @@ main(int argc, char *argv[])
                 width = strtoul(argv[2], NULL, 10);
                 height = strtoul(argv[3], NULL, 10);
                 channels = strtoul(argv[4], NULL, 10);
-                start = strtoul(argv[5], NULL, 10);
+                start = strtoull(argv[5], NULL, 10);
                 size = strtoul(argv[6], NULL, 10);
                 compression_mode = strtoul(argv[7], NULL, 10);
                 demosaic_fast = strtoul(argv[8], NULL, 10);
@@ -35,7 +36,7 @@ main(int argc, char *argv[])
                 fwrite(mp.buffer, mp.size, sizeof(mp.buffer[0]), fp);
                 printf("status=%d\n", err);
                 printf("in_path=%s width=%ld height=%ld channels=%ld "
-                       "start=%ld size=%ld compression_mode=%ld "
+                       "start=%lld size=%ld compression_mode=%ld "
                        "demosaic_fast=%ld color_raiser=%.1lf,%.1lf,%.1lf "
                        "out_path=%s\n",
                        in_path, width, height, channels, start, size,
@@ -51,11 +52,14 @@ main(int argc, char *argv[])
                 return 0;
         }
         printf("Usage: %s in_path width height channels start size "
-               "compression_mode demosaic_fast color_raiser out_path",
+               "compression_mode demosaic_fast color_raiser out_path\n",
                argv[0]);
         return 1;
 }
 
 /* ./imreadtest mitsa005_CCD_Front_PULNIX_13.pictures 1700 1500 3 2264 1392908 2 1 1,1,1 m.png */
-/* ./imreadtest phoros_20110405_002_CCDHECK_01_PULNIX_11.pictures 1920 1080 1 1 1363 1384533 2 1,1,1 p.png */
-/* ./imreadtest 15294_IRIS3_20160519_000_CCD_RETRO_ZEB_1.pictures 1920 1080 4 1 1210 598189 3 1,1,1 j.png */
+/* ./imreadtest phoros_20110405_002_CCDHECK_01_PULNIX_11.pictures 1920 1080 1 1363 1384533 2 1 1,1,1 p.png */
+/* ./imreadtest 15294_IRIS3_20160519_000_CCD_RETRO_ZEB_1.pictures 1920 1080 4 1210 598189 3 1 1,1,1 j.png */
+/* ./imreadtest 15294_IRIS3_20160609_004_CCD_Front_1.pictures 1280 960 3 2009 723324 2 1 1,1,1 b.png */
+/* ./imreadtest 15294_IRIS3_20160609_004_CCD_Front_1.pictures 1280 960 3 2125833547 682281 2 1 1,1,1 b.png */
+/* ./imreadtest 15294_IRIS3_20160609_004_CCD_Front_1.pictures 1280 960 3 2185929330 682393 2 1 1,1,1 b.png */

@@ -29,7 +29,7 @@
 
 (cffi:defcfun "png2mem" :int
   (path :string)
-  (blob-start :int)
+  (blob-start :long-long)
   (blob-size :int)
   (image-width :int)
   (image-height :int)

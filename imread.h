@@ -43,7 +43,7 @@ struct png_store
  */
 int
 png2mem(char *pictures_path,    /* path to a *.pictures file */
-        int start,       /* file position after "PICTUREDATA_BEGIN" */
+        long long int start, /* file position after "PICTUREDATA_BEGIN" */
         int data_size,   /* value of "dataSize=" */
         unsigned int width,     /* value of "width=" */
         unsigned int height,    /* value of "height=" */
