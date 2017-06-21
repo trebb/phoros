@@ -54,7 +54,7 @@ phoros : $(SOURCE) photogrammetry_lib $(OPENLAYERS_JS) \
 	CC=gcc \
 	$(LISP) --lose-on-corruption \
 		--disable-ldb \
-		--dynamic-space-size 4096 \
+		--dynamic-space-size 8192 \
 		--end-runtime-options \
 		--disable-debugger \
 		--eval '(progn (pushnew :build-phoros *features*) (load "make.lisp"))'
