@@ -363,7 +363,7 @@ recorded-device-id (a string) of camera (etc.)"
                            (:set 'mounting-date
                                  (:least :current-date 'unmounting-date))
                            (:set (:date date) (:date date)))
-                          (:= 'recorded-device-id recorded-device-id))))))
+                          (:ilike 'recorded-device-id recorded-device-id))))))
             (assert device-stage-of-life
                     ()
                     "Can't figure out what event-number belongs to ~
