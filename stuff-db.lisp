@@ -53,7 +53,7 @@ picture-headers of the .pictures file in path."
                               path "cameraTimestamp=" picture-start
                               estimated-header-length)
              and recorded-device-id = (format
-                                       nil "~S"
+                                       nil "~A"
                                        (img:find-keyword-value
                                         path "cam=" picture-start
                                         estimated-header-length))
@@ -363,7 +363,7 @@ recorded-device-id (a string) of camera (etc.)"
                            (:set 'mounting-date
                                  (:least :current-date 'unmounting-date))
                            (:set (:date date) (:date date)))
-                          (:ilike 'recorded-device-id recorded-device-id))))))
+                          (:= 'recorded-device-id recorded-device-id))))))
             (assert device-stage-of-life
                     ()
                     "Can't figure out what event-number belongs to ~
@@ -823,7 +823,7 @@ no images."
                                                       'point-id)))))))))
 
 (defun delete-all-imageless-points (postgresql-credentials)
-  "Asynchronously delete imageless footprints of all acquisition
+  "Asynchronously delete imageless points of all acquisition
 projects."
   (let ((common-table-names
          (with-restarting-connection postgresql-credentials

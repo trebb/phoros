@@ -41,8 +41,10 @@ start-position is explicitly nil."
                                        most-positive-fixnum)))
       (loop
          for chunk-start-in-stream from start-position to end-position-in-stream by chunk-max-size
-         for chunk-size = (progn (file-position stream chunk-start-in-stream)
-                                 (read-sequence chunk stream))
+         for chunk-size = (let ((*readtable* (copy-readtable)))
+                            (setf (readtable-case *readtable*) :preserve)
+                            (file-position stream chunk-start-in-stream)
+                            (read-sequence chunk stream))
          for end-in-chunk = (min chunk-size (- end-position-in-stream
                                                chunk-start-in-stream))
          while (plusp chunk-size)
@@ -62,8 +64,10 @@ start-position is explicitly nil."
          (find-keyword path keyword start-position search-range)))
     (when start-of-value
       (with-open-file (stream path)
-        (file-position stream start-of-value)
-        (car (read-delimited-list #\; stream))))))
+        (let ((*readtable* (copy-readtable)))
+          (setf (readtable-case *readtable*) :preserve)
+          (file-position stream start-of-value)
+          (car (read-delimited-list #\; stream)))))))
 
 (defun find-keyword (path keyword &optional (start-position 0) search-range)
   "Return file-position after keyword."
