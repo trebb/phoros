@@ -78,5 +78,6 @@ with this program; if not, write to the Free Software Foundation, Inc.,
                #+build-phoros :named-readtables
                #+build-phoros :cl-log
                #+build-phoros :trivial-backtrace
-               #+build-fasttrack :lisp-magick-wand))
+               #+build-fasttrack :lisp-magick-wand
+               #+build-fasttrack :trivial-timeout))
 
