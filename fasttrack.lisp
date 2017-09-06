@@ -425,7 +425,6 @@ UI is estimated to take."
   "The currently displayed image.")
 
 (defvar *rear-view-image-arrow-coordinates* nil)
-
 (defvar *front-view-image-arrow-coordinates* nil)
 
 (defvar *show-rear-view-p* t)
@@ -465,12 +464,26 @@ the key argument, or the whole dotted string."
           (revision revision-number)
           (t *fasttrack-version*))))
 
+(defun check-dependencies ()
+  "Say OK if the necessary external dependencies are available."
+  (handler-case
+      (progn
+        (let ((utm-coordinate-system
+               (format nil "+proj=utm +ellps=WGS84 +zone=~D" 33)))
+          (proj:cs2cs (list (proj:degrees-to-radians 12)
+                            (proj:degrees-to-radians 52) 0)
+                      :destination-cs utm-coordinate-system))
+        (phoros-photogrammetry:del-all) ;check photogrammetry
+        (format *error-output* "~&dependencies OK~%"))
+    (error (e) (format *error-output* "~A~&" e))))
+
 (defun main ()
   (handler-case
       (progn
 	(in-package #:phoros-fasttrack) ;for reading of cached #S(...) forms
 	(cffi:use-foreign-library phoml)
 	(start-pipeglade)
+        (check-dependencies)
 	(restore-road-network-credentials)
 	(restore-zeb-credentials)
 	(restore-accidents-credentials)
@@ -1255,8 +1268,9 @@ section between vnk and nnk."
   (let ((current-station)
         (current-road-section))
     (loop
-       (if (and (eql current-station *station*)
-                (equal current-road-section *road-section*))
+       (if (or (not *road-section*)
+               (and (eql current-station *station*)
+                    (equal current-road-section *road-section*)))
            (progn
              (sleep .1)
              (bt:thread-yield))
@@ -1271,7 +1285,8 @@ section between vnk and nnk."
                    (put-image :vnk vnk :nnk nnk :station current-station :step 10 :rear-view-p t)
                    (put-image :vnk vnk :nnk nnk :station current-station :step 10 :rear-view-p nil)
                    (put-text-values vnk nnk current-station))
-               (database-connection-error ())))))))
+               (database-connection-error ())
+               (database-error ())))))))
 
 (defun check-db (db-credentials &aux result)
   "Check database connection and presence of table or view table-name.
@@ -1287,6 +1302,7 @@ Return a string describing the outcome."
       (database-connection-error (e) (setf result (list e nil)))
       (cl+ssl:ssl-error-verify (e) (setf result (list e nil)))
       (sb-bsd-sockets:name-service-error (e) (setf result (list e nil)))
+      (database-error (e) (setf result (list e nil)))
       (trivial-timeout:timeout-error () (setf result (list "timeout" nil))))
     (values-list result)))
 
@@ -1320,7 +1336,7 @@ outcome."
       (update-chart-dialog-treeview "road_network" *postgresql-road-network-credentials* *road-network-chart-configuration*)
       (save-road-network-credentials nil))
     (when (and (db-credentials-modifiedp *postgresql-zeb-credentials*)
-               *postgresql-road-network-ok*)
+               *postgresql-zeb-ok*)
       (update-chart-dialog-treeview "zeb" *postgresql-zeb-credentials* *zeb-chart-configuration*)
       (save-zeb-credentials nil))
     (when (and (db-credentials-modifiedp *postgresql-accidents-credentials*)
@@ -1614,20 +1630,21 @@ current database."
   "Return a list (m n) of image coordinates representing
 global-point-coordinates in the image described in image-data-alist
 but scaled to fit into *image-size*."
-  (ignore-errors
-    (convert-image-coordinates
-     (photogrammetry :reprojection
-                     image-data-alist
-                     (pairlis '(:x-global :y-global :z-global)
-                              (proj:cs2cs
-                               (list
-                                (proj:degrees-to-radians
-                                 (coordinates-longitude global-point-coordinates))
-                                (proj:degrees-to-radians
-                                 (coordinates-latitude global-point-coordinates))
-                                (coordinates-ellipsoid-height global-point-coordinates))
-                               :destination-cs (cdr (assoc :cartesian-system image-data-alist)))))
-     image-data-alist)))
+  (handler-case
+      (convert-image-coordinates
+       (photogrammetry :reprojection
+                       image-data-alist
+                       (pairlis '(:x-global :y-global :z-global)
+                                (proj:cs2cs
+                                 (list
+                                  (proj:degrees-to-radians
+                                   (coordinates-longitude global-point-coordinates))
+                                  (proj:degrees-to-radians
+                                   (coordinates-latitude global-point-coordinates))
+                                  (coordinates-ellipsoid-height global-point-coordinates))
+                                 :destination-cs (cdr (assoc :cartesian-system image-data-alist)))))
+       image-data-alist)
+    (error (e) nil)))
 
 (defun in-image-p (m n)
   "Check if m, n lay inside *image-size*."
