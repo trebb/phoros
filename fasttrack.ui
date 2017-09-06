@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Generated with glade 3.18.3 -->
+<!-- Generated with glade 3.20.0 -->
 <interface>
-  <requires lib="gtk+" version="3.8"/>
+  <requires lib="gtk+" version="3.14"/>
   <object class="GtkAdjustment" id="adjustment1">
     <property name="upper">100000</property>
     <property name="step_increment">1</property>
@@ -824,6 +824,19 @@
             <property name="can_focus">False</property>
             <property name="layout_style">end</property>
             <child>
+              <object class="GtkButton" id="road_section_cache">
+                <property name="label">cache images</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="receives_default">True</property>
+              </object>
+              <packing>
+                <property name="expand">True</property>
+                <property name="fill">True</property>
+                <property name="position">0</property>
+              </packing>
+            </child>
+            <child>
               <object class="GtkSpinner" id="road_section_spinner">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
@@ -831,7 +844,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="position">0</property>
+                <property name="position">1</property>
               </packing>
             </child>
             <child>
@@ -845,7 +858,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="position">1</property>
+                <property name="position">2</property>
               </packing>
             </child>
             <child>
@@ -859,7 +872,7 @@
               <packing>
                 <property name="expand">True</property>
                 <property name="fill">True</property>
-                <property name="position">2</property>
+                <property name="position">3</property>
               </packing>
             </child>
           </object>
@@ -1557,8 +1570,11 @@
                     <property name="margin_right">2</property>
                     <property name="margin_top">2</property>
                     <property name="margin_bottom">2</property>
-                    <property name="pixbuf">public_html/phoros-logo-background.png</property>
+                    <property name="pixbuf">public_html/phoros-logo-button.png</property>
                   </object>
+                  <packing>
+                    <property name="index">-1</property>
+                  </packing>
                 </child>
                 <child type="overlay">
                   <object class="GtkDrawingArea" id="draw_rearview">
@@ -1571,6 +1587,9 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
+                  <packing>
+                    <property name="index">1</property>
+                  </packing>
                 </child>
               </object>
               <packing>
@@ -1593,8 +1612,11 @@
                     <property name="margin_right">2</property>
                     <property name="margin_top">2</property>
                     <property name="margin_bottom">2</property>
-                    <property name="pixbuf">public_html/phoros-logo-background.png</property>
+                    <property name="pixbuf">public_html/phoros-logo-button.png</property>
                   </object>
+                  <packing>
+                    <property name="index">-1</property>
+                  </packing>
                 </child>
                 <child type="overlay">
                   <object class="GtkDrawingArea" id="draw_frontview">
@@ -1607,6 +1629,9 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                   </object>
+                  <packing>
+                    <property name="index">1</property>
+                  </packing>
                 </child>
               </object>
               <packing>
@@ -1695,7 +1720,6 @@
                     <property name="receives_default">True</property>
                     <property name="tooltip_text" translatable="yes">previous section</property>
                     <property name="image">image2</property>
-                    <property name="xalign">0.51999998092651367</property>
                     <property name="always_show_image">True</property>
                   </object>
                   <packing>
@@ -2025,9 +2049,9 @@ chart to display</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="hexpand">True</property>
-                    <property name="xalign">1</property>
                     <property name="label" translatable="yes">front view</property>
                     <property name="angle">90</property>
+                    <property name="xalign">1</property>
                   </object>
                   <packing>
                     <property name="left_attach">16</property>
@@ -2040,26 +2064,12 @@ chart to display</property>
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="hexpand">True</property>
-                    <property name="xalign">1</property>
                     <property name="label" translatable="yes">charts</property>
                     <property name="angle">90</property>
+                    <property name="xalign">1</property>
                   </object>
                   <packing>
                     <property name="left_attach">14</property>
-                    <property name="top_attach">0</property>
-                    <property name="height">2</property>
-                  </packing>
-                </child>
-                <child>
-                  <object class="GtkButton" id="phoros">
-                    <property name="visible">True</property>
-                    <property name="can_focus">True</property>
-                    <property name="receives_default">True</property>
-                    <property name="image">image14</property>
-                    <property name="always_show_image">True</property>
-                  </object>
-                  <packing>
-                    <property name="left_attach">4</property>
                     <property name="top_attach">0</property>
                     <property name="height">2</property>
                   </packing>
@@ -2101,7 +2111,7 @@ chart to display</property>
                   <object class="GtkSwitch" id="show_front_view">
                     <property name="visible">True</property>
                     <property name="can_focus">True</property>
-                    <property name="state">True</property>
+                    <property name="active">True</property>
                   </object>
                   <packing>
                     <property name="left_attach">17</property>
@@ -2123,12 +2133,26 @@ chart to display</property>
                   <object class="GtkLabel" id="label28">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <property name="xalign">1</property>
                     <property name="label" translatable="yes">rear view</property>
                     <property name="angle">90</property>
+                    <property name="xalign">1</property>
                   </object>
                   <packing>
                     <property name="left_attach">0</property>
+                    <property name="top_attach">0</property>
+                    <property name="height">2</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkButton" id="phoros">
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                    <property name="receives_default">True</property>
+                    <property name="image">image14</property>
+                    <property name="always_show_image">True</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">4</property>
                     <property name="top_attach">0</property>
                     <property name="height">2</property>
                   </packing>
@@ -2239,6 +2263,9 @@ PgUp, PgDown</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                           </object>
+                          <packing>
+                            <property name="index">-1</property>
+                          </packing>
                         </child>
                         <child type="overlay">
                           <object class="GtkDrawingArea" id="chart_road_network">
@@ -2251,30 +2278,45 @@ PgUp, PgDown</property>
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                           </object>
+                          <packing>
+                            <property name="index">1</property>
+                          </packing>
                         </child>
                         <child type="overlay">
                           <object class="GtkDrawingArea" id="chart_cursor">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                           </object>
+                          <packing>
+                            <property name="index">2</property>
+                          </packing>
                         </child>
                         <child type="overlay">
                           <object class="GtkDrawingArea" id="chart_road_network_scale">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                           </object>
+                          <packing>
+                            <property name="index">3</property>
+                          </packing>
                         </child>
                         <child type="overlay">
                           <object class="GtkDrawingArea" id="chart_zeb_scale">
                             <property name="visible">True</property>
                             <property name="can_focus">False</property>
                           </object>
+                          <packing>
+                            <property name="index">4</property>
+                          </packing>
                         </child>
                       </object>
                     </child>
                   </object>
                 </child>
               </object>
+              <packing>
+                <property name="index">-1</property>
+              </packing>
             </child>
             <child type="overlay">
               <object class="GtkSpinner" id="chart_spinner">

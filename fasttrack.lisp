@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2012, 2016 Bert Burgemeister
+;;; Copyright (C) 2012, 2016, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@
   "Accidents rendering parameters.")
 
 (defvar *postgresql-accidents-credentials* (make-db-credentials)
-  "A list: (database user password host &key :port 5432 :use-ssl ssl-p.")
+  "A list: (database user password host &key :port 5432 :use-ssl ssl-p.") 
 
 (defvar *postgresql-road-network-ok* nil
   "t if database connection could be established.")
@@ -142,8 +142,9 @@
 (defvar *cruise-control-backward-p* nil)
 
 (defvar *rear-view-image-done* nil)
-
 (defvar *front-view-image-done* nil)
+
+(defparameter *caching-images-p* nil)
 
 (defvar *pipeglade-pid-file* "fasttrack-pipeglade.pid")
 
@@ -232,9 +233,9 @@ followed by a digit. "
 
          (handler-bind
              ((file-error (lambda (c)
-                       (invoke-restart 'restart-create-fresh-cache "FILE")))
+                            (invoke-restart 'restart-create-fresh-cache "FILE")))
               (end-of-file (lambda (c)
-                       (invoke-restart 'restart-create-fresh-cache "EOF"))))
+                             (invoke-restart 'restart-create-fresh-cache "EOF"))))
            (restart-case (if create-fresh-cache
                              (run-and-cache)
                              (read-from-cache))
@@ -368,7 +369,6 @@ UI is estimated to take."
                             (progn
                               (psetf current-station station
                                      current-road-section road-section)
-                              ;; (incf sleep-duration .1)
                               (return-from image-output)))
                         (progn
                           (psetf current-image-data image-data
@@ -377,7 +377,7 @@ UI is estimated to take."
                           (if (empty-image-data-p image-data)
                               (progn
                                 (clear-date-image-and-arrow ,time-widget ,img-widget ,draw-widget)
-                                ;; (incf sleep-duration .1)
+                                (incf sleep-duration .1)
                                 (return-from image-worker))
                               (incf sleep-duration
                                     (display-date-and-image ,time-widget ,img-widget ,draw-widget ,spinner-widget image-data))))))
@@ -495,15 +495,14 @@ the key argument, or the whole dotted string."
 	(pipeglade-out "chart_cursor" "set_font_size" 1 10)
 	(pipeglade-out "chart_road_network_scale" "set_font_size" 1 10)
 	(pipeglade-out "zeb_network_scale" "set_font_size" 1 10)
-	(pipeglade-out "draw_rearview" "set_source_rgba" 1 *cursor-color*)
-	(pipeglade-out "draw_rearview" "set_line_cap" 1 "round")
-	(pipeglade-out "draw_rearview" "set_line_width" 1 2)
-	(pipeglade-out "draw_rearview" "set_font_size" 1 10)
-	(pipeglade-out "draw_frontview" "set_source_rgba" 1 *cursor-color*)
-	(pipeglade-out "draw_frontview" "set_line_cap" 1 "round")
-	(pipeglade-out "draw_frontview" "set_line_width" 1 2)
-	(pipeglade-out "draw_frontview" "set_font_size" 1 10)
-	(pipeglade-out "version" "set_text" "version" *phoros-version*)
+        (dolist (image '("img_rearview" "img_frontview"))
+          (pipeglade-out image "set_from_file" "public_html/phoros-logo-background.png"))
+        (dolist (drawing-area '("draw_rearview" "draw_frontview"))
+          (pipeglade-out drawing-area "set_source_rgba" 1 *cursor-color*)
+          (pipeglade-out drawing-area "set_line_cap" 1 "round")
+          (pipeglade-out drawing-area "set_line_width" 1 2)
+          (pipeglade-out drawing-area "set_font_size" 1 10)
+          (pipeglade-out "version" "set_text" "version" *phoros-version*))
 	(with-open-file (in *pipeglade-in-fifo*
 			    :direction :input
 			    :if-does-not-exist :error)
@@ -548,8 +547,9 @@ the key argument, or the whole dotted string."
 		       (string= (message-info message) "closed"))
 		  (pipeglade-out "_" "main_quit")
 		  (loop-finish))
-		 ((message-name= "station_scale" message) ;the sole invocation of jump-to-station
-		  (jump-to-station (parse-integer (message-data message) :junk-allowed t)))
+		 ((message-name= "station_scale" message)
+                  (setf *station* (parse-integer (message-data message) :junk-allowed t)) ;picked up by jump-to-station-worker
+                  (save-place *station* 'station))
 		 ((message-name= "show_road_network_chart" message)
 		  (pipeglade-out "chart_road_network" "set_visible" (message-info message))
 		  (pipeglade-out "chart_road_network_scale" "set_visible" (message-info message)))
@@ -617,7 +617,11 @@ the key argument, or the whole dotted string."
 		  (digest-road-section-raw-data))
 		 ((message-name= "road_section_cncl" message)
 		  (restore-road-section-selection)
+                  (setf *caching-images-p* nil)
 		  (pipeglade-out "road_section" "set_visible" 0))
+                 ((message-name= "road_section_cache" message)
+                  (digest-road-section-raw-data)
+                  (cache-images))
 		 ((message-name= "road_network" message)
 		  (collect-raw-message message *road-network-chart-raw-data*))
 		 ((message-name= "zeb" message)
@@ -830,12 +834,12 @@ the key argument, or the whole dotted string."
 
 (defstruct (data-style (:type list)) chartp drawablep textp name color width dash)
 
-(defun clear-main-window ()
-  (dolist (drawingarea '("chart_accidents" "chart_road_network" "chart_zeb" "chart_cursor" "chart_road_network_scale" "chart_zeb_scale" "draw_rearview" "draw_frontview"))
-    (pipeglade-out drawingarea "remove" 2))
-  (dolist (image '("img_rearview" "img_frontview"))
-    (pipeglade-out image "set_from_file"))
-  (pipeglade-out "text_values" "clear"))
+;; (defun clear-main-window ()
+;;   (dolist (drawingarea '("chart_accidents" "chart_road_network" "chart_zeb" "chart_cursor" "chart_road_network_scale" "chart_zeb_scale" "draw_rearview" "draw_frontview"))
+;;     (pipeglade-out drawingarea "remove" 2))
+;;   (dolist (image '("img_rearview" "img_frontview"))
+;;     (pipeglade-out image "set_from_file"))
+;;   (pipeglade-out "text_values" "clear"))
 
 (defun digest-chart-raw-data (raw-data)
   "Return the information read from raw-data in chart configuration format."
@@ -1247,30 +1251,15 @@ section between vnk and nnk."
   (when (numberp station)
     (pipeglade-out "station_scale" "set_value" station)))
 
-(let ((old-road-section nil))
-  (defun jump-to-station (station)
-    (cond ((not *road-section*)
-           nil)
-          ((not old-road-section)
-           (setf old-road-section *road-section*)
-           (setf *station* station)
-           (save-place *station* 'station))
-          ((not (and (equal (cdr *road-section*) (cdr old-road-section))
-                     (equal (string (car *road-section*)) (string (car *road-section*))))) ;comparing uninterned symbols
-           (setf old-road-section *road-section*)
-           (setf *station* 0)     ;picked up by jump-to-station-worker
-           (save-place *station* 'station))
-          (t
-           (setf *station* station) ;picked up by jump-to-station-worker
-           (save-place *station* 'station)))))
-
 (defun jump-to-station-worker ()
   (let ((current-station)
         (current-road-section))
     (loop
        (if (and (eql current-station *station*)
                 (equal current-road-section *road-section*))
-           (bt:thread-yield)
+           (progn
+             (sleep .1)
+             (bt:thread-yield))
            (progn
              (psetf current-station *station*
                     current-road-section *road-section*)
@@ -1732,7 +1721,6 @@ name."
             (cl-utilities:split-sequence
              #\/ (puri:uri-path parsed-url) :remove-empty-subseqs t))))
 
-
 (defun cache-file-name (kind &rest args)
   "Return pathname for a cache file distinguishable by kind and args."
   (make-pathname :directory *cache-dir*
@@ -1742,12 +1730,51 @@ name."
                                (fasttrack-version :minor t))
                  :type (string-downcase kind)))
 
-(defun cache-images (road-section-image-data)
-  "Download images described in road-section-image-data into their
+(defun cache-images ()
+  "Download images of road-sections selected in dialog into their
 canonical places."
-  (loop
-     for i in road-section-image-data
-     do (download-image i)))
+  (unless *caching-images-p*
+    (setf *caching-images-p* t)
+    (bt:make-thread
+     (lambda ()
+       (when *postgresql-road-network-ok*
+         (with-statusbar-message "caching images"
+           (with-spinner "road_section_spinner"
+             (handler-bind
+                 ((phoros-server-error (lambda (e) (invoke-restart 'retry))))
+               (with-connection *postgresql-road-network-credentials*
+                 (let* ((table (make-symbol (db-credentials-table *postgresql-road-network-credentials*)))
+                        (sections (sections table)))
+                   (loop
+                      for selected-section in *road-section-selection*
+                      do
+                        (cache-road-section-images (nth selected-section sections) table))))))))
+       (setf *caching-images-p* nil))
+     :name "cache-images")))
+
+(let ((retry-delay 1))
+  (defun cache-road-section-images (section table)
+    (destructuring-bind (vnk nnk length)
+        section
+      (restart-case
+          (progn
+            (loop
+               for image-data in (road-section-image-data (provenience-string *phoros-url*) table vnk nnk 10 t)
+               do (if *caching-images-p*
+                      (download-image image-data)
+                      (loop-finish)))
+            (loop
+               for image-data in (road-section-image-data (provenience-string *phoros-url*) table vnk nnk 10 nil)
+               do (if *caching-images-p*
+                      (download-image image-data)
+                      (loop-finish)))
+            (setf retry-delay 1))
+        (retry ()
+          (with-statusbar-message (format nil "error while caching images; retry after ~A seconds" retry-delay)
+            (sleep retry-delay))
+          (when (< retry-delay 15)
+            (incf retry-delay 1))
+          (cache-road-section-images section table))))))
 
 (defun get-image-data (road-section-image-data station step)
   "Return image data for the image near station."
