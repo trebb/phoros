@@ -35,7 +35,21 @@
   (asdf:component-version (asdf:find-system :phoros))
   "Fasttrack version as defined in system definition.  TODO: enforce equality with *phoros-version*")
 
-(defstruct (db-credentials (:type list)) database user password host (port-key :port :read-only t) (port 5432) (ssl-key :use-ssl :read-only t) (ssl :no) (modifiedp-key :modifiedp :read-only t) (modifiedp t) (table-key :table :read-only t) table (allow-other-keys-key :allow-other-keys :read-only t) (allow-other-keys-value t :read-only t))
+(defstruct (db-credentials (:type list))
+  (database " ")
+  (user " ")
+  (password " ")
+  (host " ")
+  (port-key :port :read-only t)
+  (port 5432)
+  (ssl-key :use-ssl :read-only t)
+  (ssl :no)
+  (modifiedp-key :modifiedp :read-only t)
+  (modifiedp t)
+  (table-key :table :read-only t)
+  (table " ")
+  (allow-other-keys-key :allow-other-keys :read-only t)
+  (allow-other-keys-value t :read-only t))
 
 (defvar *postgresql-road-network-credentials* (make-db-credentials)
   "A list: (database user password host :port 5432 :use-ssl ssl-p.")
@@ -533,7 +547,8 @@ the key argument, or the whole dotted string."
 	   :name "cruise-control-worker")
           (check-credentials-dialog-statuses)
           (handler-case
-              (apply #'phoros-login *phoros-url* *phoros-credentials*)
+              (when *phoros-url*
+                (apply #'phoros-login *phoros-url* *phoros-credentials*))
             (phoros-server-error ()))
 	  ;; getting rid of initial feedback from credentials dialog:
 	  (with-statusbar-message "please wait" (sleep 1))
@@ -1831,12 +1846,13 @@ latitude."
 
 (defun phoros-lib-url (canonical-url suffix)
   "Replace last path element of canonical-url by lib/<suffix>."
-  (let* ((parsed-canonical-url (puri:parse-uri canonical-url))
-         (old-path (puri:uri-parsed-path parsed-canonical-url))
-         (new-path (append (butlast old-path) (list "lib" suffix)))
-         (new-url (puri:copy-uri parsed-canonical-url)))
-    (setf (puri:uri-parsed-path new-url) new-path)
-    new-url))
+  (when canonical-url
+    (let* ((parsed-canonical-url (puri:parse-uri canonical-url))
+           (old-path (puri:uri-parsed-path parsed-canonical-url))
+           (new-path (append (butlast old-path) (list "lib" suffix)))
+           (new-url (puri:copy-uri parsed-canonical-url)))
+      (setf (puri:uri-parsed-path new-url) new-path)
+      new-url)))
 
 (defun phoros-login (url user-name user-password)
   "Log into Phoros server; return T if successful.  Try logging out
@@ -1846,25 +1862,26 @@ first."
   (pushnew (cons "application" "json") drakma:*text-content-types* :test #'equal)
   (phoros-logout)
   (setf *phoros-cookies* (make-instance 'drakma:cookie-jar))
-  (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
-      (drakma:http-request (puri:parse-uri url) :cookie-jar *phoros-cookies*)
-    (declare (ignore stream must-close))
-    (assert (= status-code 200) ()
-            'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
-    (multiple-value-bind (body status-code headers authenticate-url stream must-close reason-phrase)
-        (drakma:http-request (phoros-lib-url url "authenticate")
-                             :cookie-jar *phoros-cookies*
-                             :form-data t
-                             :method :post
-                             :parameters (pairlis '("user-name" "user-password")
-                                                  (list user-name user-password)))
+  (when url
+    (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
+        (drakma:http-request (puri:parse-uri url) :cookie-jar *phoros-cookies*)
       (declare (ignore stream must-close))
-      (assert (< status-code 400) ()
-              'phoros-server-error :body body :status-code status-code :headers headers :url authenticate-url :reason-phrase reason-phrase)
-      (let ((body-strings (cl-utilities:split-sequence #\Space (substitute-if-not #\Space #'alphanumericp body))))
-        (and (not (find "Rejected" body-strings :test #'string=))
-             (not (find "Retry" body-strings :test #'string=))
-             (= status-code 200))))))   ;should be 302 (?)
+      (assert (= status-code 200) ()
+              'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
+      (multiple-value-bind (body status-code headers authenticate-url stream must-close reason-phrase)
+          (drakma:http-request (phoros-lib-url url "authenticate")
+                               :cookie-jar *phoros-cookies*
+                               :form-data t
+                               :method :post
+                               :parameters (pairlis '("user-name" "user-password")
+                                                    (list user-name user-password)))
+        (declare (ignore stream must-close))
+        (assert (< status-code 400) ()
+                'phoros-server-error :body body :status-code status-code :headers headers :url authenticate-url :reason-phrase reason-phrase)
+        (let ((body-strings (cl-utilities:split-sequence #\Space (substitute-if-not #\Space #'alphanumericp body))))
+          (and (not (find "Rejected" body-strings :test #'string=))
+               (not (find "Retry" body-strings :test #'string=))
+               (= status-code 200))))))) ;should be 302 (?)
 
 (defun phoros-logout ()
   (drakma:http-request (phoros-lib-url *phoros-url* "logout")))
