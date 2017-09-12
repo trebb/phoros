@@ -776,6 +776,9 @@ the key argument, or the whole dotted string."
 		 (t
 		  (print (list "fallen through:" message)))))))
     (sb-sys:interactive-interrupt () (kill-pipeglade))
+    (usocket:ns-condition (c)
+      (format *error-output* "DNS error: ~A~%" c)
+      (kill-pipeglade))
     ;; (error (e)
     ;;   (print e)
     ;;   (kill-pipeglade))
