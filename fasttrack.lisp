@@ -181,7 +181,6 @@
                          :if-does-not-exist :error)
       (format out "~A:~A~{ ~@[~A~]~}~%" widget action data))))
 
-
 (defun ensure-hyphen-before-digit (symbol)
   "Return symbol with hyphens inserted after each letter that is
 followed by a digit. "
@@ -196,7 +195,6 @@ followed by a digit. "
        end
        if (alpha-char-p c) do (setf need-hyphen-before-next-digit-p t) end)
     'string)))
-
 
 (defmacro with-statusbar-message (message &body body)
   "Push message to statusbar while body is executing."
@@ -1680,26 +1678,23 @@ current database."
 between vnk and nnk."
   (when (and table vnk nnk)
     (let ((stations
-	   (prog2
-	       (with-open-file (s "ttt" :direction :output :if-exists :append :if-does-not-exist :create))
-	       (query
-		(:order-by
-		 (:select (:as (:st_x 't1.the-geom) 'longitude)
-			  (:as (:st_y 't1.the-geom) 'latitude)
-			  (:as (:st_z 't1.the-geom) 'ellipsoid-height)
-			  (:as 't1.nk-station 'station)
-			  (:as (:st_azimuth 't1.the-geom 't2.the-geom) 'azimuth)
-			  :from (:as table 't1)
-			  :left-join (:as table 't2)
-			  :on (:and (:= 't1.nk-station (:- 't2.nk-station 1))
-				    (:= 't2.vnk vnk)
-				    (:= 't2.nnk nnk))
-			  :where (:and (:= 't1.vnk vnk)
-				       (:= 't1.nnk nnk)
-				       (:= 0 (:% 't1.nk-station step))))
-		 't1.nk-station)
-		:plists)
-	     (with-open-file (s "ttt" :direction :output :if-exists :append :if-does-not-exist :create)))))
+           (query
+            (:order-by
+             (:select (:as (:st_x 't1.the-geom) 'longitude)
+                      (:as (:st_y 't1.the-geom) 'latitude)
+                      (:as (:st_z 't1.the-geom) 'ellipsoid-height)
+                      (:as 't1.nk-station 'station)
+                      (:as (:st_azimuth 't1.the-geom 't2.the-geom) 'azimuth)
+                      :from (:as table 't1)
+                      :left-join (:as table 't2)
+                      :on (:and (:= 't1.nk-station (:- 't2.nk-station 1))
+                                (:= 't2.vnk vnk)
+                                (:= 't2.nnk nnk))
+                      :where (:and (:= 't1.vnk vnk)
+                                   (:= 't1.nnk nnk)
+                                   (:= 0 (:% 't1.nk-station step))))
+             't1.nk-station)
+            :plists)))
       (setf
        (getf (nth (- (length stations) 1) stations) :azimuth)
        (getf (nth (- (length stations) 2) stations) :azimuth))
@@ -1916,23 +1911,25 @@ describes azimuth."
 
 (defun phoros-nearest-image-data (coordinates rear-view-p)
   "Return a set of image-data."
-  (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
-      (drakma:http-request (phoros-lib-url *phoros-url* "nearest-image-data")
-                           :cookie-jar *phoros-cookies*
-                           :method :post
-                           :content-type "text/plain; charset=UTF-8"
-                           :content (json:encode-json-plist-to-string (list :longitude (coordinates-longitude coordinates)
-                                                                            :latitude (coordinates-latitude coordinates)
-                                                                            :zoom 20
-                                                                            :count 1
-                                                                            :selected-restriction-ids (vector "Device_21" (heading (coordinates-azimuth coordinates) rear-view-p))))) ;TODO: document requirement for restrictions tagged north, east, south, west, and front_cam; actually use the latter
-    (declare (ignore stream must-close))
-    (assert (= status-code 200) ()
-            'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
-    (unless (string-equal body "null")
-      (apply #'make-image-data :allow-other-keys t
-             (plist-from-alist
-              (car (json:decode-json-from-string body)))))))
+  (handler-case
+      (multiple-value-bind (body status-code headers url stream must-close reason-phrase)
+          (drakma:http-request (phoros-lib-url *phoros-url* "nearest-image-data")
+                               :cookie-jar *phoros-cookies*
+                               :method :post
+                               :content-type "text/plain; charset=UTF-8"
+                               :content (json:encode-json-plist-to-string (list :longitude (coordinates-longitude coordinates)
+                                                                                :latitude (coordinates-latitude coordinates)
+                                                                                :zoom 20
+                                                                                :count 1
+                                                                                :selected-restriction-ids (vector "Device_21" (heading (coordinates-azimuth coordinates) rear-view-p))))) ;TODO: document requirement for restrictions tagged north, east, south, west, and front_cam; actually use the latter
+        (declare (ignore stream must-close))
+        (assert (= status-code 200) ()
+                'phoros-server-error :body body :status-code status-code :headers headers :url url :reason-phrase reason-phrase)
+        (unless (string-equal body "null")
+          (apply #'make-image-data :allow-other-keys t
+                 (plist-from-alist
+                  (car (json:decode-json-from-string body))))))
+    (usocket:ns-error (e) (format *error-output* "nearest-image-data: ~A~%" e))))
 
 (defun download-file (url path)
   "Unless already there, store content from url under path.  Return
