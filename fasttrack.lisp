@@ -453,7 +453,7 @@ UI is estimated to take."
 	 (length (min (length "pipeglade") (length stale-pipeglade-program-name))))
     (when (string= "pipeglade" stale-pipeglade-program-name :end2 length)
       (uiop:run-program (format nil "kill ~A" stale-pipeglade-pid))))
-  (let ((pipeglade-args "-i in.fifo -o out.fifo -u fasttrack.ui -b -l log.log --name fasttrack --class Phoros"))
+  (let ((pipeglade-args "-i in.fifo -o out.fifo -u fasttrack.ui -b --name fasttrack --class Phoros"))
     (loop
        for i in '("./pipeglade" "~/pipeglade/pipeglade" "pipeglade")
        until (probe-file i)
