@@ -2046,15 +2046,8 @@ shrunk image."
 (defun convert-image-file (origin-file destination-file width height)
   "Convert origin-file into destination-file of a maximum size of
 width x height."
-  (handler-case
-      (lisp-magick-wand:with-magick-wand (wand :load (namestring origin-file))
-        (let ((a (/ (lisp-magick-wand:get-image-width wand)
-                    (lisp-magick-wand:get-image-height wand))))
-          (if (> a (/ width height))
-              (lisp-magick-wand:scale-image wand width (truncate (/ width a)))
-              (lisp-magick-wand:scale-image wand (truncate (* a height)) height)))
-        (lisp-magick-wand:write-image wand (namestring destination-file)))
-    (lisp-magick-wand:magick-wand-error ()))) ;ignore
+  (uiop:run-program
+   (format nil "convert ~A -scale ~Dx~D ~A" origin-file width height destination-file)))
 
 (defun convert-image-coordinates (original-coordinates-alist image-data-alist)
   "Convert image coordinates from original-coordinates-alist for the
