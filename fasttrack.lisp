@@ -486,8 +486,9 @@ the key argument, or the whole dotted string."
                             (proj:degrees-to-radians 52) 0)
                       :destination-cs utm-coordinate-system))
         (phoros-photogrammetry:del-all) ;check photogrammetry
+        (uiop:run-program (format nil "convert -version"))
         (format *error-output* "~&dependencies OK~%"))
-    (error (e) (format *error-output* "~A~&" e))))
+    (error (e) (format *error-output* "while checking dependencies: ~A~&" e))))
 
 (defun main ()
   (handler-case
@@ -779,10 +780,9 @@ the key argument, or the whole dotted string."
     (usocket:ns-condition (c)
       (format *error-output* "DNS error: ~A~%" c)
       (kill-pipeglade))
-    ;; (error (e)
-    ;;   (print e)
-    ;;   (kill-pipeglade))
-    ))
+    (error (e)
+      (print e)
+      (kill-pipeglade))))
 
 (defun kill-pipeglade ()
   (let ((pipeglade-pid
