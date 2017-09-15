@@ -1,5 +1,5 @@
 ;;; PHOROS -- Photogrammetric Road Survey
-;;; Copyright (C) 2010, 2011, 2012 Bert Burgemeister
+;;; Copyright (C) 2010, 2011, 2012, 2017 Bert Burgemeister
 ;;;
 ;;; This program is free software; you can redistribute it and/or modify
 ;;; it under the terms of the GNU General Public License as published by
@@ -736,7 +736,7 @@ Otherwise do nothing."
         result-swank-port)
     (when swank-port
       (setf swank:*use-dedicated-output-stream* nil)
-      (with-output-to-string (swank:*log-output*)
+      (with-output-to-string (swank/backend:*log-output*)
         (setf result-swank-port
               (swank:create-server :dont-close t :style :spawn :port swank-port)))
       (cl-log:log-message

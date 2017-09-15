@@ -19,10 +19,6 @@
 
 (setf *js-target-version* 1.8)
 
-;;; Debug helpers.  TODO: remove them.
-(defparameter *t* nil)
-(defparameter *tt* nil)
-
 (cffi:define-foreign-library phoml
   (:unix (:or "./libphoml.so"
               "./phoml/lib/libphoml.so"))
