@@ -67,7 +67,7 @@
   "Accidents rendering parameters.")
 
 (defvar *postgresql-accidents-credentials* (make-db-credentials)
-  "A list: (database user password host &key :port 5432 :use-ssl ssl-p.") 
+  "A list: (database user password host &key :port 5432 :use-ssl ssl-p.")
 
 (defvar *postgresql-road-network-ok* nil
   "t if database connection could be established.")
@@ -211,8 +211,6 @@ followed by a digit. "
           (pipeglade-out ,spinner "start")
           ,@body)
      (pipeglade-out ,spinner "stop")))
-
-(define-condition attention () ())
 
 (defmacro defun-cached (name (&rest args) &body body &aux (doc ""))
   "Define a function whose return value must be readibly printable, is
@@ -458,7 +456,7 @@ UI is estimated to take."
        for i in '("./pipeglade" "~/pipeglade/pipeglade" "pipeglade")
        until (probe-file i)
        finally (uiop:run-program (format nil "~A ~A" i pipeglade-args) :output *pipeglade-pid-file*))))
-  
+
 (defun version-number-parts (dotted-string)
   "Return the three version number components of something like
   \"11.22.33\"."
@@ -557,9 +555,9 @@ the key argument, or the whole dotted string."
 	  (restore-road-section-selection)
 	  (update-road-section-selection)
 	  ;; (set-road-section)
-	  (update-station (saved-station))
 	  (populate-chart-dialog)
-	  (refresh-chart)
+	  (prepare-chart)
+	  (update-station (saved-station))
 	  (with-statusbar-message "starting browser"
 	    (uiop:run-program (format nil "firefox '~A' &" *phoros-url*)))
 	  (loop
@@ -568,7 +566,6 @@ the key argument, or the whole dotted string."
 	       (cond
 		 ((message-name= "quit" message)
 		  (pipeglade-out "_" "main_quit")
-		  (signal 'attention)
 		  (loop-finish))
 		 ((and (message-name= "main" message)
 		       (string= (message-info message) "closed"))
@@ -621,34 +618,35 @@ the key argument, or the whole dotted string."
 		 ((message-name= "first_section" message)
                   (stop-cruise-control)
 		  (set-road-section :direction :first)
-		  (refresh-chart)
+		  (prepare-chart)
                   (update-station 0))
 		 ((message-name= "previous_section" message)
                   (stop-cruise-control)
 		  (set-road-section :direction :predecessor)
-		  (refresh-chart)
+		  (prepare-chart)
                   (update-station 0))
 		 ((message-name= "next_section" message)
                   (stop-cruise-control)
 		  (set-road-section :direction :successor)
-		  (refresh-chart)
+		  (prepare-chart)
                   (update-station 0))
 		 ((message-name= "last_section" message)
                   (stop-cruise-control)
 		  (set-road-section :direction :last)
-		  (refresh-chart)
+		  (prepare-chart)
                   (update-station 0))
 		 ((message-name= "road_sections" message)
 		  (collect-road-section-select message))
 		 ((message-name= "road_section_ok" message)
-		  (digest-road-section-raw-data))
-		 ((message-name= "road_section_cncl" message)
+		  (digest-road-section-raw-data)
+                  (prepare-chart))
+		 ((message-name= "road_section_cache" message)
+                  (digest-road-section-raw-data)
+                  (cache-images))
+                 ((message-name= "road_section_cncl" message)
 		  (restore-road-section-selection)
                   (setf *caching-images-p* nil)
 		  (pipeglade-out "road_section" "set_visible" 0))
-                 ((message-name= "road_section_cache" message)
-                  (digest-road-section-raw-data)
-                  (cache-images))
 		 ((message-name= "road_network" message)
 		  (collect-raw-message message *road-network-chart-raw-data*))
 		 ((message-name= "zeb" message)
@@ -667,7 +665,7 @@ the key argument, or the whole dotted string."
 		  (digest-accidents-chart-raw-data)
 		  (update-accidents-chart-dialog)
 		  (pipeglade-out "text_values" "clear")
-		  (refresh-chart))
+		  (prepare-chart))
 		 ((message-name= "chart_configuration_cncl" message)
 		  (update-accidents-chart-dialog)
 		  (setf *accidents-chart-raw-data* (list nil nil nil))
@@ -687,14 +685,14 @@ the key argument, or the whole dotted string."
 		    (update-chart-dialog)
 		    (invalidate-zeb-chart-configuration)
 		    (pipeglade-out "text_values" "clear")
-		    (refresh-chart)
+		    (prepare-chart)
 		    (save-zeb-credentials nil))
 		  (when (db-credentials-modifiedp *postgresql-accidents-credentials*)
-		    (refresh-chart)
+		    (prepare-chart)
 		    (save-accidents-credentials nil))
 		  (handler-case (apply #'phoros-login *phoros-url* *phoros-credentials*)
                     (phoros-server-error ()))
-		  (forget-images-being-launched)
+		  (cancel-launch-image)
                   (update-station (saved-station))
 		  (update-chart-dialog))
 		 ((message-name= "road_network_host" message)
@@ -830,10 +828,10 @@ the key argument, or the whole dotted string."
                        *road-section-raw-data*)
               (string= (third data) "1")))))
 
-(defun collect-accidents-message-data (&key (renderp 0 renderp-p) (from nil from-p) (to nil to-p) (ok-pressed nil ok-pressed-p))
-  (when renderp-p (setf (first *accidents-chart-raw-data*) renderp))
-  (when from-p (setf (second *accidents-chart-raw-data*) (parse-integer from :junk-allowed t)))
-  (when to-p (setf (third *accidents-chart-raw-data*) (parse-integer to :junk-allowed t))))
+;; (defun collect-accidents-message-data (&key (renderp 0 renderp-p) (from nil from-p) (to nil to-p) (ok-pressed nil ok-pressed-p))
+;;   (when renderp-p (setf (first *accidents-chart-raw-data*) renderp))
+;;   (when from-p (setf (second *accidents-chart-raw-data*) (parse-integer from :junk-allowed t)))
+;;   (when to-p (setf (third *accidents-chart-raw-data*) (parse-integer to :junk-allowed t))))
 
 (defun collect-raw-message (message place)
   (unless (string= (message-info message) "clicked")
@@ -845,7 +843,8 @@ the key argument, or the whole dotted string."
 
 (defun digest-road-section-raw-data ()
   (when (and *postgresql-road-network-credentials* *postgresql-road-network-ok*)
-    (let ((sections (sections (make-symbol (db-credentials-table *postgresql-road-network-credentials*)))))
+    (let* ((sections (sections (make-symbol (db-credentials-table *postgresql-road-network-credentials*))))
+           (sections-current (position (cdr *road-section*) sections :test #'equal)))
       (maphash (lambda (key value)
                  (if value
                      (pushnew key *road-section-selection*)
@@ -853,12 +852,10 @@ the key argument, or the whole dotted string."
                *road-section-raw-data*)
       (setf *road-section-selection* (sort *road-section-selection* #'<))
       (save-road-section-selection)
-      (set-road-section :direction :first)
-      ;; (save-road-section)
-    
-      ;; (when (update-station)            ;new section
-      ;;   (restore-road-section-image-counts)
-      ;;   (prepare-chart))
+      (unless (find sections-current *road-section-selection*)
+        (set-road-section :direction :first)
+        (save-road-section)
+        (update-station 0))
       (clrhash *road-section-raw-data*))))
 
 (defstruct (data-style (:type list)) chartp drawablep textp name color width dash)
@@ -944,11 +941,8 @@ constant."
                                 :where (:and (:= 'vnk vnk)
                                              (:= 'nnk nnk)))
                        'nk-station))
-               ;; (unless (zerop span) minimum)
-               ;; (unless (zerop span) maximum)
                minimum
-               maximum
-               ))
+               maximum ))
             (values nil nil nil))))))
 
 (defun zeb-chart-data (column vnk nnk chart-height)
@@ -984,11 +978,8 @@ constant."
                                 :where (:and (:= 'vnk vnk)
                                              (:= 'nnk nnk)))
                        'vst))
-               ;; (unless (zerop span) minimum)
-               ;; (unless (zerop span) maximum)
                minimum
-               maximum
-               ))
+               maximum))
             (values nil nil nil))))))
 
 
@@ -1143,7 +1134,6 @@ section between vnk and nnk."
 	   (setf ,place (read stream))
 	   (setf ,place ,default)))))
 
-
 (defun save-road-section-selection ()
   "Save the list of road sections selected for processing."
   (save-place *road-section-selection* 'road-section-selection))
@@ -1250,33 +1240,32 @@ section between vnk and nnk."
          (sections (sections table))
          (sections-current (position (cdr *road-section*) sections :test #'equal))
          (selection-current (position sections-current *road-section-selection*)))
-    (cond ((and *road-section-selection* (eq direction :predecessor))
+    (cond ((not *road-section-selection*)
+           (invalidate-road-section))
+          ((eq direction :predecessor)
            (let ((selection-predecessor (ignore-errors (nth (1- selection-current) *road-section-selection*))))
              (when selection-predecessor
                (setf *road-section*
                      (cons table (nth selection-predecessor sections)))
                (save-road-section))))
-          ((and *road-section-selection* (eq direction :successor))
+          ((eq direction :successor)
            (let* ((selection-successor (nth (1+ selection-current) *road-section-selection*)))
              (when selection-successor
                (setf *road-section*
                      (cons table (nth selection-successor sections)))
                (save-road-section))))
-          ((and *road-section-selection* (eq direction :last))
+          ((eq direction :last)
            (setf *road-section* (cons table
                                       (nth (car (last *road-section-selection*)) sections)))
            (save-road-section))
-          ((and *road-section-selection* (eq direction :first))
+          ((eq direction :first)
            (setf *road-section* (cons table
                                       (nth (first *road-section-selection*) sections)))
            (save-road-section))
-          ((not *road-section-selection*)
-           (setf *road-section* nil))
           (t
            (error "impossible road section")))))
 
 (defun update-station (station)
-  "Change station widget in UI."
   (when (numberp station)
     (pipeglade-out "station_scale" "set_value" station)))
 
@@ -1284,25 +1273,26 @@ section between vnk and nnk."
   (let ((current-station)
         (current-road-section))
     (loop
-       (if (or (not *road-section*)
-               (and (eql current-station *station*)
-                    (equal current-road-section *road-section*)))
-           (progn
-             (sleep .1)
-             (bt:thread-yield))
-           (progn
-             (psetf current-station *station*
-                    current-road-section *road-section*)
-             (handler-case
-                 (destructuring-bind (table vnk nnk road-section-length)
-                     current-road-section
-                   (pipeglade-out "station" "set_text" current-station)
-                   (place-chart-cursor current-station)
-                   (put-image :vnk vnk :nnk nnk :station current-station :step 10 :rear-view-p t)
-                   (put-image :vnk vnk :nnk nnk :station current-station :step 10 :rear-view-p nil)
-                   (put-text-values vnk nnk current-station))
-               (database-connection-error ())
-               (database-error ())))))))
+       (cond ((not *road-section*)
+              (sleep .2)
+              (bt:thread-yield))
+             ((and (eql current-station *station*)
+                   (equal current-road-section *road-section*))
+              (sleep .1)
+              (bt:thread-yield))
+             (t
+              (psetf current-station *station*
+                     current-road-section *road-section*)
+              (handler-case
+                  (destructuring-bind (table vnk nnk road-section-length)
+                      current-road-section
+                    (pipeglade-out "station" "set_text" current-station)
+                    (place-chart-cursor current-station)
+                    (put-image :vnk vnk :nnk nnk :station current-station :step 10 :rear-view-p t)
+                    (put-image :vnk vnk :nnk nnk :station current-station :step 10 :rear-view-p nil)
+                    (put-text-values vnk nnk current-station))
+                (database-connection-error ())
+                (database-error ())))))))
 
 (defun check-db (db-credentials &aux result)
   "Check database connection and presence of table or view table-name.
@@ -1343,7 +1333,6 @@ outcome."
       (update-chart-dialog-treeview "zeb" *postgresql-zeb-credentials* *zeb-chart-configuration*))
     (when *postgresql-accidents-ok*
       (update-accidents-chart-dialog))))
-
 
 (defun update-chart-dialog ()
   (with-statusbar-message "updating chart configuration"
@@ -1405,20 +1394,25 @@ outcome."
 (defun prepare-chart ()
   "Prepare chart for the road section between vnk and nnk in table in
 current database."
-  (when *road-section*
-    (destructuring-bind (table vnk nnk road-section-length) *road-section*
-      (pipeglade-out "ovl_chart" "set_size_request" (+ *chart-tail* road-section-length) (+ *chart-height* *chart-fringe*))
-      (pipeglade-out "vnk" "set_text" vnk)
-      (pipeglade-out "nnk" "set_text" nnk)
-      (pipeglade-out "length" "set_text" road-section-length)
-      (draw-chart-cursor-scale road-section-length)
-      (pipeglade-out "station_scale" "set_range" 0 road-section-length)
-      ;; (setf *road-section* (list table vnk nnk road-section-length))
-      ;; (save-road-section)
-      (draw-graphs vnk nnk)
-      (update-station (saved-station))
-      ;; (pipeglade-out "station_scale" "set_value" (saved-station))
-      )))
+  (if *road-section*
+      (destructuring-bind (table vnk nnk road-section-length) *road-section*
+        (pipeglade-out "ovl_chart" "set_size_request" (+ *chart-tail* road-section-length) (+ *chart-height* *chart-fringe*))
+        (pipeglade-out "vnk" "set_text" vnk)
+        (pipeglade-out "nnk" "set_text" nnk)
+        (pipeglade-out "length" "set_text" road-section-length)
+        (draw-chart-cursor-scale road-section-length)
+        (pipeglade-out "station_scale" "set_range" 0 road-section-length)
+        (draw-graphs vnk nnk)
+        ;; (update-station (saved-station))
+        )
+      (progn
+        (clear-date-image-and-arrow "rear_view_time" "img_rearview" "draw_rearview")
+        (clear-date-image-and-arrow "front_view_time" "img_frontview" "draw_frontview")
+        (pipeglade-out "vnk" "set_text")
+        (pipeglade-out "nnk" "set_text")
+        (pipeglade-out "length" "set_text")
+        ;; (update-station 0)
+        (pipeglade-out "station" "set_text"))))
 
 (defun place-chart-cursor (station)
   "Move chart cursor to station."
@@ -1430,11 +1424,6 @@ current database."
     (pipeglade-out "chart_scroll" "hscroll_to_range" (- station 200) (+ station 200))
     (pipeglade-out "chart_road_network_scale" "translate" "=3" station 0)
     (pipeglade-out "chart_zeb_scale" "translate" "=3" station 0)))
-
-(defun refresh-chart ()
-  "Redraw chart."
-  (when (= (length *road-section*) 4)
-    (prepare-chart)))
 
 (defun draw-graphs (vnk nnk)
   "Draw graphs for the columns in *zeb-chart-configuration* and
@@ -1662,9 +1651,9 @@ but scaled to fit into *image-size*."
        image-data-alist)
     (error (e) nil)))
 
-(defun in-image-p (m n)
-  "Check if m, n lay inside *image-size*."
-  (and m n (<= 0 m (first *image-size*)) (<= 0 n (second *image-size*))))
+;; (defun in-image-p (m n)
+;;   "Check if m, n lay inside *image-size*."
+;;   (and m n (<= 0 m (first *image-size*)) (<= 0 n (second *image-size*))))
 
 (defun-cached sections (table)
   "Return list of distinct pairs of vnk, nnk found in table in
@@ -1903,7 +1892,6 @@ first."
             (type-error () nil))
           (uiop:run-program (format nil "firefox '~A'" *phoros-url*)))))))
 
-
 (defun heading (azimuth rear-view-p)
   "Return as a string the one of east, west, north, south which best
 describes azimuth."
@@ -1968,7 +1956,7 @@ into jpg, and store it under the cache path.  Return that path."
 	(delete-file origin-path))
       destination-path)))
 
-(defun remember-image-being-launched (image-data image-arrow-coordinates rear-view-p)
+(defun launch-image (image-data image-arrow-coordinates rear-view-p)
   (if rear-view-p
       (if *show-rear-view-p*
           (progn
@@ -1987,7 +1975,7 @@ into jpg, and store it under the cache path.  Return that path."
             (pipeglade-out "draw_frontview" "remove" 2)
             (pipeglade-out "img_frontview" "set_from_file" "public_html/phoros-logo-background.png")))))
 
-(defun forget-images-being-launched ()
+(defun cancel-launch-image ()
   (setf *rear-view-image-data* *empty-image-data*)
   (setf *front-view-image-data* *empty-image-data*))
 
@@ -2105,12 +2093,12 @@ scaled and centered to *image-size*."
                                         (list (- (first image-arrow-coordinates) point-radius)
                                               (- (second image-arrow-coordinates) point-radius))))
         (setf image-data (get-image-data (road-section-image-data (provenience-string *phoros-url*) table vnk nnk step rear-view-p :message (list "image-data" vnk nnk (if rear-view-p "rear-view" "front-view"))) station step))
-        (remember-image-being-launched image-data image-arrow-coordinates rear-view-p)))))
+        (launch-image image-data image-arrow-coordinates rear-view-p)))))
 
 (defun cruise-control (&key backwardp)
   (setf *cruise-control-backward-p* backwardp)
   (setf *cruise-control* t))       ;picked up by cruise-control-worker
-  
+
 (defun stop-cruise-control ()
   (setf *cruise-control* nil))
 
