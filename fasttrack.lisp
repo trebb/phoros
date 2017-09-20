@@ -780,7 +780,8 @@ the key argument, or the whole dotted string."
       (kill-pipeglade))
     (error (e)
       (print e)
-      (kill-pipeglade))))
+      (kill-pipeglade))
+    ))
 
 (defun kill-pipeglade ()
   (let ((pipeglade-pid
@@ -905,7 +906,11 @@ the key argument, or the whole dotted string."
 (defun digest-accidents-chart-raw-data ()
   (setf *accidents-chart-configuration*
         (mapcar (lambda (configuration-value raw-value)
-                  (or (format nil "~D" (parse-integer raw-value :junk-allowed t)) configuration-value))
+                  (or (format nil "~D"
+                              (handler-case
+                                  (parse-integer raw-value :junk-allowed t)
+                                (type-error ()))
+                              configuration-value)))
                 *accidents-chart-configuration*
                 *accidents-chart-raw-data*))
   (save-accidents-chart-configuration))
