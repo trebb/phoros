@@ -736,7 +736,7 @@ Otherwise do nothing."
         result-swank-port)
     (when swank-port
       (setf swank:*use-dedicated-output-stream* nil)
-      (with-output-to-string (swank/backend:*log-output*)
+      (with-output-to-string (*error-output*)
         (setf result-swank-port
               (swank:create-server :dont-close t :style :spawn :port swank-port)))
       (cl-log:log-message
