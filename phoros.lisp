@@ -194,7 +194,7 @@ session."
            (presentation-project-id
             (ignore-errors
               (presentation-project-id-from-name presentation-project-name))))
-      
+
       ;; TODO: remove the following line (which seems to function as a
       ;; wakeup call of sorts)...
       (get-dao 'sys-user-role 0 0)
@@ -341,7 +341,7 @@ current session."
                   (hunchentoot:session-value 'user-name) user-name
                   (hunchentoot:session-value 'user-full-name) user-full-name
                   (hunchentoot:session-value 'user-id) user-id
-                  (hunchentoot:session-value 'user-role) user-role)            
+                  (hunchentoot:session-value 'user-role) user-role)
             (hunchentoot:redirect
              (format nil "/~A/lib/view-~A"
                      ;; *proxy-root*
@@ -543,7 +543,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                         for aggregate-view-name
                         = (aggregate-view-name
                            common-table-name)
-                        collect  
+                        collect
                         `(:select
                           (:as
                            (:st_distance
@@ -594,7 +594,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                       for common-table-name in common-table-names
                       for aggregate-view-name
                       = (aggregate-view-name common-table-name)
-                      collect  
+                      collect
                       `(:select
                         ,@*aggregate-view-columns*
                         (:as (:st_distance
@@ -633,7 +633,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                       for common-table-name in common-table-names
                       for aggregate-view-name
                         = (aggregate-view-name common-table-name)
-                      collect  
+                      collect
                         `(:select
                           ,@*aggregate-view-columns*
                           (:as (:st_distance 'coordinates
@@ -678,7 +678,7 @@ wrapped in an array.  Wipe away any unfinished business first."
                       for common-table-name in common-table-names
                       for aggregate-view-name
                       = (aggregate-view-name common-table-name)
-                      collect  
+                      collect
                       `(:select
                         ,@*aggregate-view-columns*
                         (:as (:st_distance 'coordinates
@@ -1015,7 +1015,7 @@ junk-keys."
   (with-output-to-string (s)
     (json:with-object (s)
       (json:encode-object-member :type :*feature-collection s)
-      (json:as-object-member (:features s) 
+      (json:as-object-member (:features s)
         (json:with-array (s)
           (mapcar
            #'(lambda (point-with-properties)
@@ -1051,7 +1051,7 @@ junk-keys."
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (handler-case 
+  (handler-case
       (with-restarting-connection *postgresql-credentials*
         (let* ((presentation-project-id
                 (hunchentoot:session-value 'presentation-project-id))
@@ -1102,7 +1102,7 @@ junk-keys."
   "Send a bunch of GeoJSON-encoded points from inside bbox to client."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (handler-case 
+  (handler-case
       (let ((limit *number-of-features-per-layer*)
             (aux-view-name
              (aux-point-view-name (hunchentoot:session-value
@@ -1177,7 +1177,7 @@ coordinates received, wrapped in an array."
                   (:st_transform
                    (:st_geomfromtext ,point-form ,*standard-coordinates*)
                    ,*spherical-mercator*))
-                 distance)                       
+                 distance)
                 :from ',aux-view-name
                 :where (:&& 'coordinates
                             (:st_setsrid (:type
@@ -1194,7 +1194,7 @@ coordinates received, wrapped in an array."
         ((numberp x) x)
         ((symbolp x) x)
         (t (map (type-of x) #'nillify-null x))))
-                              
+
 (defun nullify-nil (x)
   "Replace occurences of nil in nested sequence x by :null."
   (cond ((null x) :null)
@@ -1202,7 +1202,7 @@ coordinates received, wrapped in an array."
         ((numberp x) x)
         ((symbolp x) x)
         (t (map (type-of x) #'nullify-nil x))))
-                              
+
 (hunchentoot:define-easy-handler
     (aux-local-linestring :uri "/phoros/lib/aux-local-linestring.json"
                           :default-request-type :post)
@@ -1235,7 +1235,7 @@ respectively).  Wipe away any unfinished business first."
              (azimuth (if (numberp (cdr (assoc :azimuth data)))
                           (cdr (assoc :azimuth data))
                           0))
-             (point-form 
+             (point-form
               (format nil "POINT(~F ~F)" longitude latitude))
              (sql-response
               (ignore-errors
@@ -1316,7 +1316,7 @@ points from inside bbox to client.  If there is no bbox parameter,
 send all points and indent GeoJSON to make it more readable."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (handler-case 
+  (handler-case
       (let ((bounding-box (or bbox "-180,-90,180,90"))
             (indent (not bbox))
             (limit (if bbox *number-of-features-per-layer* :null))
@@ -1344,7 +1344,7 @@ respectively, and count being the frequency of value in the user point
 table."
   (assert-authentication)
   (setf (hunchentoot:content-type*) "application/json")
-  (handler-case 
+  (handler-case
       (let ((user-point-table-name
              (user-point-table-name (hunchentoot:session-value
                                      'presentation-project-name))))
@@ -1413,7 +1413,7 @@ table."
                   (cdddr            ;remove leading phoros, lib, photo
                    (butlast s 2)))
                  (file-name-and-type
-                  (cl-utilities:split-sequence #\. (first (last s 2))))                     
+                  (cl-utilities:split-sequence #\. (first (last s 2))))
                  (byte-position
                   (parse-integer (car (last s)) :junk-allowed t))
                  (path-to-file
@@ -1754,7 +1754,7 @@ table."
        ;; image area (south)
        (:div :id "images" :style "clear:both"
              (loop
-                for i from 0 below *number-of-images* do 
+                for i from 0 below *number-of-images* do
                 (who:htm
                  (:div :class "controlled-image"
                        (:div :id (format nil "image-~S-controls" i)
@@ -1814,33 +1814,39 @@ data (ex: points too far apart)."
           (cdr (assoc :cartesian-system
                       (first active-point-photo-parameters))))
          (global-point-cartesian
-          (photogrammetry
-           :multi-position-intersection active-point-photo-parameters))
+          (handler-case
+              (photogrammetry
+               :multi-position-intersection active-point-photo-parameters)
+            (arithmetic-error ())))
          (global-point-geographic-radians
-          (proj:cs2cs (list (cdr (assoc :x-global global-point-cartesian))
-                            (cdr (assoc :y-global global-point-cartesian))
-                            (cdr (assoc :z-global global-point-cartesian)))
-                      :source-cs cartesian-system))
+          (when global-point-cartesian
+            (proj:cs2cs (list (cdr (assoc :x-global global-point-cartesian))
+                              (cdr (assoc :y-global global-point-cartesian))
+                              (cdr (assoc :z-global global-point-cartesian)))
+                        :source-cs cartesian-system)))
          (global-point-for-display ;points geographic cs, degrees; std deviations in cartesian cs
-          (pairlis '(:longitude :latitude :ellipsoid-height
-                     ;; :stdx-global :stdy-global :stdz-global
-                     :input-size)
-                   (list
-                    (proj:radians-to-degrees
-                     (first global-point-geographic-radians))
-                    (proj:radians-to-degrees
-                     (second global-point-geographic-radians))
-                    (third global-point-geographic-radians)
-                    ;; (cdr (assoc :stdx-global global-point-cartesian))
-                    ;; (cdr (assoc :stdy-global global-point-cartesian))
-                    ;; (cdr (assoc :stdz-global global-point-cartesian))
-                    number-of-active-points)))
+          (when global-point-geographic-radians
+            (pairlis '(:longitude :latitude :ellipsoid-height
+                       ;; :stdx-global :stdy-global :stdz-global
+                       :input-size)
+                     (list
+                      (proj:radians-to-degrees
+                       (first global-point-geographic-radians))
+                      (proj:radians-to-degrees
+                       (second global-point-geographic-radians))
+                      (third global-point-geographic-radians)
+                      ;; (cdr (assoc :stdx-global global-point-cartesian))
+                      ;; (cdr (assoc :stdy-global global-point-cartesian))
+                      ;; (cdr (assoc :stdz-global global-point-cartesian))
+                      number-of-active-points))))
          (image-coordinates
-          (loop
-             for i in destination-photo-parameters
-             collect
-             (ignore-errors
-               (photogrammetry :reprojection i global-point-cartesian)))))
+          (when global-point-cartesian
+            (loop
+               for i in destination-photo-parameters
+               collect
+                 (handler-case
+                     (photogrammetry :reprojection i global-point-cartesian)
+                   (arithmetic-error ()))))))
     (json:encode-json-to-string
      (list global-point-for-display image-coordinates))))
 
@@ -1851,7 +1857,7 @@ data (ex: points too far apart)."
 - a vector of user-point-id's and
 - a vector containing sets of picture-parameters;
 respond with a JSON object comprising the elements
-- image-points, a vector whose elements 
+- image-points, a vector whose elements
    - correspond to the elements of the picture-parameters vector
      received and
    - are GeoJSON feature collections containing one point (in picture
@@ -1956,7 +1962,7 @@ or if that image doesn't have a footprint.  Return nil otherwise."
              for common-table-name in common-table-names
              for aggregate-view-name
              = (aggregate-view-name common-table-name)
-             collect  
+             collect
              `(:select
                t
                :from ',aggregate-view-name
