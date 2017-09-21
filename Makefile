@@ -213,7 +213,7 @@ $(LIBIMREAD) : imread.c imread.h Makefile
 clean :
 	rm -rf *.fasl *.log						\
 		phoros phoros*.tar.gz					\
-		fasttrack fasttrack.ui					\
+		fasttrack						\
 		$(LIBIMREAD) imreadtest					\
 		$(LOGO) $(BACKGROUND_IMAGE) $(FAVICON) $(CURSOR_IMAGE)	\
 		$(BUTTON_IMAGE)						\
