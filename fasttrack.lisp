@@ -158,6 +158,9 @@
 (defvar *rear-view-image-done* nil)
 (defvar *front-view-image-done* nil)
 
+(defvar *rear-view-image-ping* nil)
+(defvar *front-view-image-ping* nil)
+
 (defparameter *caching-images-p* nil)
 
 (defvar *pipeglade-pid-file* "fasttrack-pipeglade.pid")
@@ -277,26 +280,19 @@ followed by a digit. "
        (eql (coordinates-azimuth c1) (coordinates-azimuth c2))))
 
 (defun display-date-and-image (time-widget img-widget draw-widget spinner-widget image-data)
-  "Display image and its trigger time on UI.  Return the time the UI
-is estimated to take."
-  (let ((sleep-duration 0))
-    (with-spinner spinner-widget
-      (pipeglade-out time-widget "set_text" (iso-time (image-data-trigger-time image-data)))
-      (handler-case
-          (let ((image-filename (namestring (download-image image-data))))
-            (if image-filename
-                (progn
-                  (pipeglade-out draw-widget "remove" 2)
-                  (pipeglade-out img-widget "set_from_file" image-filename)
-                  (setf sleep-duration .3))
-                (progn
-                  (pipeglade-out img-widget "set_from_file" "public_html/phoros-logo-background.png")
-                  (setf sleep-duration .1))))
-        (phoros-server-error ()
-          (pipeglade-out draw-widget "remove" 2)
-          (pipeglade-out img-widget "set_from_file" "public_html/phoros-logo-background.png")
-          (setf sleep-duration 1)))
-      sleep-duration)))
+  "Display image and its trigger time on UI."
+  (with-spinner spinner-widget
+    (pipeglade-out time-widget "set_text" (iso-time (image-data-trigger-time image-data)))
+    (handler-case
+        (let ((image-filename (namestring (download-image image-data))))
+          (if image-filename
+              (progn
+                (pipeglade-out draw-widget "remove" 2)
+                (pipeglade-out img-widget "set_from_file" image-filename))
+              (pipeglade-out img-widget "set_from_file" "public_html/phoros-logo-background.png")))
+      (phoros-server-error ()
+        (pipeglade-out draw-widget "remove" 2)
+        (pipeglade-out img-widget "set_from_file" "public_html/phoros-logo-background.png")))))
 
 (defun clear-date-image-and-arrow (time-widget img-widget draw-widget)
   (pipeglade-out img-widget "set_from_file" "public_html/phoros-logo-background.png")
@@ -304,8 +300,7 @@ is estimated to take."
   (pipeglade-out draw-widget "remove" 2))
 
 (defun display-image-arrow (draw-widget image-arrow-coordinates station)
-  "Display a station marker in the image on UI.  Return the time the
-UI is estimated to take."
+  "Display a station marker in the image on UI."
   (if image-arrow-coordinates
       (let* ((point-radius 5)
              (image-label-coordinates (ignore-errors
@@ -319,11 +314,8 @@ UI is estimated to take."
         (pipeglade-out draw-widget "stroke" 2)
         (pipeglade-out draw-widget "move_to" 2 (first image-label-coordinates) (second image-label-coordinates))
         (pipeglade-out draw-widget "rel_move_for" 2 "se" station)
-        (pipeglade-out draw-widget "show_text" 2 station)
-        0)
-      (progn
-        (pipeglade-out draw-widget "remove" 2)
-        0)))
+        (pipeglade-out draw-widget "show_text" 2 station))
+      (pipeglade-out draw-widget "remove" 2)))
 
 (defmacro image-worker (view-direction)
   (let (global-image-data global-image-arrow-coordinates global-image-done time-widget spinner-widget draw-widget img-widget)
@@ -331,6 +323,7 @@ UI is estimated to take."
       (:rear-view
        (setf global-image-data '*rear-view-image-data*)
        (setf global-image-arrow-coordinates '*rear-view-image-arrow-coordinates*)
+       (setf global-image-ping '*rear-view-image-ping*)
        (setf global-image-done '*rear-view-image-done*)
        (setf time-widget "rear_view_time")
        (setf spinner-widget "spinner_rearview")
@@ -339,6 +332,7 @@ UI is estimated to take."
       (:front-view
        (setf global-image-data '*front-view-image-data*)
        (setf global-image-arrow-coordinates '*front-view-image-arrow-coordinates*)
+       (setf global-image-ping '*front-view-image-ping*)
        (setf global-image-done '*front-view-image-done*)
        (setf time-widget "front_view_time")
        (setf spinner-widget "spinner_frontview")
@@ -346,61 +340,58 @@ UI is estimated to take."
        (setf img-widget "img_frontview")))
     (cl-utilities:with-unique-names (current-image-data
 				     current-station
-				     current-image-arrow-coordinates
                                      current-road-section
 				     station
                                      road-section
 				     image-data
 				     image-arrow-coordinates
-                                     sleep-duration
 				     point-radius
 				     image-filename
-				     image-label-coordinates)
+				     image-label-coordinates
+                                     image-worker
+                                     image-output)
       `(lambda ()
 	 (let ((current-image-data *empty-image-data*)
 	       (current-station 0)
-               (current-road-section nil)
-	       (current-image-arrow-coordinates nil))
+               (current-road-section nil))
 	   (loop
 	      (let ((station *station*)
                     (road-section *road-section*)
 		    (image-data ,global-image-data)
-		    (image-arrow-coordinates ,global-image-arrow-coordinates)
-                    (sleep-duration 0))
+		    (image-arrow-coordinates ,global-image-arrow-coordinates))
                 (block image-worker
                   (block image-output
                     (if (image-data-equal current-image-data image-data)
                         (if (and (eql current-station station)
                                  (equal current-road-section road-section))
-                            (progn
-                              (incf sleep-duration .1)
+                            (progn      ;same image; station unchanged
+                              (sleep .1)
                               (bt:thread-yield)
                               (return-from image-worker))
-                            (progn
+                            (progn      ;same image; new station
                               (psetf current-station station
                                      current-road-section road-section)
                               (return-from image-output)))
-                        (progn
+                        (progn          ;new image
                           (psetf current-image-data image-data
                                  current-station station
                                  current-road-section road-section)
                           (if (empty-image-data-p image-data)
-                              (progn
+                              (progn    ;new image, but invalid
                                 (clear-date-image-and-arrow ,time-widget ,img-widget ,draw-widget)
-                                (incf sleep-duration .1)
                                 (return-from image-worker))
-                              (incf sleep-duration
-                                    (display-date-and-image ,time-widget ,img-widget ,draw-widget ,spinner-widget image-data))))))
-                  (if (equal current-image-arrow-coordinates image-arrow-coordinates)
-                      (progn
-                        (incf sleep-duration .1)
-                        (return-from image-worker))
-                      (progn
-                        (setf current-image-arrow-coordinates image-arrow-coordinates)
-                        (incf sleep-duration
-                              (display-image-arrow ,draw-widget image-arrow-coordinates station)))))
-                (sleep sleep-duration)
-                (setf ,global-image-done t))))))))
+                              (progn    ;new image, usable
+                                (display-date-and-image ,time-widget ,img-widget ,draw-widget ,spinner-widget image-data))))))
+                  ;; image done or still valid
+                  (display-image-arrow ,draw-widget image-arrow-coordinates station)
+                  (setf ,global-image-ping nil)
+                  (pipeglade-out ,img-widget "ping")
+                  (loop
+                     until ,global-image-ping
+                     do
+                       (sleep .1))
+                  ;; (sleep .4)
+                  (setf ,global-image-done t)))))))))
 
 (eval '(defstruct coordinates
         longitude
@@ -560,6 +551,8 @@ the key argument, or the whole dotted string."
 	  (update-station (saved-station))
 	  (with-statusbar-message "starting browser"
 	    (uiop:run-program (format nil "firefox '~A' &" *phoros-url*)))
+          (setf *rear-view-image-ping* t)
+          (setf *front-view-image-ping* t)
 	  (loop
 	     for message = (read-line in nil)
 	     do
@@ -772,6 +765,10 @@ the key argument, or the whole dotted string."
 		  (save-phoros-credentials))
 		 ((message-name= "phoros" message)
 		  (run-phoros-browser))
+                 ((message-name= "img_rearview" message)
+                  (setf *rear-view-image-ping* t))
+                 ((message-name= "img_frontview" message)
+                  (setf *front-view-image-ping* t))
 		 (t
 		  (print (list "fallen through:" message)))))))
     (sb-sys:interactive-interrupt () (kill-pipeglade))
@@ -780,8 +777,7 @@ the key argument, or the whole dotted string."
       (kill-pipeglade))
     (error (e)
       (print e)
-      (kill-pipeglade))
-    ))
+      (kill-pipeglade))))
 
 (defun kill-pipeglade ()
   (let ((pipeglade-pid
@@ -1279,7 +1275,7 @@ section between vnk and nnk."
         (current-road-section))
     (loop
        (cond ((not *road-section*)
-              (sleep .2)
+              (sleep .1)
               (bt:thread-yield))
              ((and (eql current-station *station*)
                    (equal current-road-section *road-section*))
@@ -1968,7 +1964,8 @@ into jpg, and store it under the cache path.  Return that path."
             (psetf *rear-view-image-data* image-data
                    *rear-view-image-arrow-coordinates* image-arrow-coordinates))
           (progn
-            (setf *rear-view-image-data* *empty-image-data*)
+            (psetf *rear-view-image-data* *empty-image-data*
+                   *rear-view-image-arrow-coordinates* nil)
             (pipeglade-out "draw_rearview" "remove" 2)
             (pipeglade-out "img_rearview" "set_from_file" "public_html/phoros-logo-background.png")))
       (if *show-front-view-p*
@@ -1976,7 +1973,8 @@ into jpg, and store it under the cache path.  Return that path."
             (psetf *front-view-image-data* image-data
                    *front-view-image-arrow-coordinates* image-arrow-coordinates))
           (progn
-            (setf *front-view-image-data* *empty-image-data*)
+            (psetf *front-view-image-data* *empty-image-data*
+                   *front-view-image-arrow-coordinates* nil)
             (pipeglade-out "draw_frontview" "remove" 2)
             (pipeglade-out "img_frontview" "set_from_file" "public_html/phoros-logo-background.png")))))
 
@@ -2040,7 +2038,8 @@ shrunk image."
   "Convert origin-file into destination-file of a maximum size of
 width x height."
   (uiop:run-program
-   (format nil "convert ~A -scale ~Dx~D ~A" origin-file width height destination-file)))
+   (format nil "convert ~A -scale ~Dx~D ~A" origin-file width height destination-file)
+   :ignore-error-status t))
 
 (defun convert-image-coordinates (original-coordinates-alist image-data-alist)
   "Convert image coordinates from original-coordinates-alist for the
@@ -2118,16 +2117,16 @@ scaled and centered to *image-size*."
                     (+ *station* (if *cruise-control-backward-p*
                                      (- *big-step*)
                                      *big-step*))))
+               (setf *rear-view-image-done* nil)
+               (setf *front-view-image-done* nil)
                (when (< next-station 0)
                  (setf next-station 0)
                  (stop-cruise-control))
                (when (> next-station road-section-length)
                  (setf next-station road-section-length)
                  (stop-cruise-control))
-               (setf *rear-view-image-done* nil)
-               (setf *front-view-image-done* nil)
-               (sleep .2)
+               (sleep .4)
                (update-station next-station)))
            (progn
-             (sleep .2)
+             (sleep .1)
              (bt:thread-yield))))))
